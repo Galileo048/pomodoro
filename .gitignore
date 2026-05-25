@@ -1,2 +1,9 @@
 __pycache__/
 .claude/
+outputs/
+.env
+*.pyc
+*.mp4
+media/
+*.egg-info/
+.pytest_cache/
