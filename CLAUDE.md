@@ -127,6 +127,69 @@ RED = "#FF6666"       # 关键点/警示
 | 0:25-0:35 | 公式出现 | Typewriter |
 | 0:35-0:45 | 总结归纳 | Transform 过渡 |
 
+### 踩坑记录与经验总结（3期实战）
+
+#### 1. 线性变换：不要用 ApplyMatrix
+`ApplyMatrix` 对整个 mobject 做屏幕空间变换，会连位置一起移，原点跑掉。
+**正确做法：** 手动算变换后端点位置，用 `Transform` 动画过渡：
+```python
+def tp(matrix, point):
+    """2x2矩阵作用于坐标点，返回屏幕坐标"""
+    x, y = point
+    return axes.c2p(matrix[0][0]*x + matrix[0][1]*y,
+                    matrix[1][0]*x + matrix[1][1]*y)
+
+new_arrow = Arrow(origin, tp(mat, (1,0)), color=RED, stroke_width=3, buff=0)
+self.play(Transform(i_vec, new_arrow), run_time=2)
+```
+
+#### 2. 角度弧线：用 ParametricFunction，不用 Arc
+`Arc` 的 `move_to` 定位不准，弧线容易跟丢动点。
+**正确做法：** 用 `ParametricFunction` 手动画弧：
+```python
+def get_arc():
+    t = theta_tracker.get_value()
+    if abs(t) < 0.01:
+        return VMobject()
+    return ParametricFunction(
+        lambda s: plane.c2p(0.6*np.cos(s), 0.6*np.sin(s)),
+        t_range=[0, t, 0.02], color=YELLOW, stroke_width=2,
+    )
+angle_arc = always_redraw(get_arc)
+```
+
+#### 3. 中文不能放进 MathTex
+LaTeX 不支持 Unicode 中文字符，会报错 `Unicode character`。
+**正确做法：** 中文用 `Text(font=CN)`，和 `MathTex` 用 `VGroup` 组合：
+```python
+label = Text("实部: ", font="Microsoft YaHei", font_size=20, color=BLUE)
+formula = MathTex("1 - x^2/2! + ...", color=BLUE).scale(0.65)
+combined = VGroup(label, formula).arrange(RIGHT, buff=0.1)
+```
+
+#### 4. VGroup 移动坐标系时子物体不跟
+`VGroup(axes, square).move_to(...)` 会移动坐标系，但正方形顶点如果用 `ax.c2p()` 定位则自动跟随。如果正方形是独立创建的，必须编入同一个 VGroup。
+
+#### 5. SurroundingRectangle 要在公式定位之后创建
+先 `formula.next_to(...)` 定位，再 `SurroundingRectangle(formula)` 建框，否则框会留在原位。
+
+#### 6. 动点贴在曲线上看不清
+给动点加发光圈 + 出场闪烁脉冲，y 方向微偏移 0.15 与曲线拉开层次。
+
+#### 7. 信息面板不要太实
+半透明 `fill_opacity=0.6` + 背景色，不要用纯黑 85%。文字行间距 ≥ 0.55 防重叠。
+
+#### 8. ManimCE 不支持 corner_radius
+`Rectangle` 和 `SurroundingRectangle` 没有 `corner_radius` 参数，去掉即可。
+
+#### 9. Transform 匹配标签跟随
+变换箭头时，标签也要一起 Transform 到新位置：
+```python
+new_label = Text("i", font_size=28, color=RED, weight=BOLD)
+new_label.next_to(new_arrow.get_end(), DOWN, buff=0.12)
+self.play(Transform(i_vec, new_arrow), Transform(i_label, new_label))
+```
+
 ## 用户偏好
 
 - 始终使用中文回复用户
