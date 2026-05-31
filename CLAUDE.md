@@ -304,14 +304,21 @@ def mandelbrot_image(x_min, x_max, y_min, y_max, width=800, height=600, max_iter
 4. 制作中文教育动画时，优先参考中文项目（Moqiyun、mathanim-desktop、manim_gpt）
 
 ### 关键参考资源
-| 资源 | 链接 | 用途 |
-|------|------|------|
-| manim-physics | https://github.com/Matheart/manim-physics | 物理插件（力学/电磁学/光学/波动） |
-| Moqiyun | https://github.com/Qiyun-cmd/Moqiyun.github.io | 最全中文数学+物理动画源码 |
-| mathanim-desktop | https://github.com/1634594707/mathanim-desktop | AI驱动数学动画桌面工具 |
-| manim_gpt | https://github.com/Ambier/manim_gpt | 语音+LLM生成Manim动画 |
-| 3b1b videos | https://github.com/3b1b/videos | 3Blue1Brown 所有视频源码 |
-| manim-kor | https://github.com/CodingVillainKor/manim-kor | 韩国最热门Manim教育（89⭐） |
+| 资源 | Stars | 链接 | 用途 |
+|------|-------|------|------|
+| Math-To-Manim | 2263 | https://github.com/HarleyCoops/Math-To-Manim | AI文本/图片→Manim动画 |
+| manim-tutorial-CN | 1218 | https://github.com/cai-hust/manim-tutorial-CN | Manim中文入门教程 |
+| AnimationsWithManim | 1222 | https://github.com/Elteoremadebeethoven/AnimationsWithManim | 完整动画课程 |
+| TheoremExplainAgent | 1492 | https://github.com/TIGER-AI-Lab/TheoremExplainAgent | AI定理视频解释 |
+| manim-physics | 396 | https://github.com/Matheart/manim-physics | 物理插件（力学/电磁学/光学/波动） |
+| manim_skill | 891 | https://github.com/adithya-s-k/manim_skill | AI agent生成3b1b风格动画 |
+| manim-slides | 864 | https://github.com/jeertmans/manim-slides | Manim动画→幻灯片 |
+| manim-kindergarten | 组织 | https://github.com/manim-kindergarten | 中文Manim社区（文档+示例） |
+| Moqiyun | 3 | https://github.com/Qiyun-cmd/Moqiyun.github.io | 最全中文数学+物理动画源码 |
+| 3b1b videos | 10760 | https://github.com/3b1b/videos | 3Blue1Brown 所有视频源码 |
+| B站-數心 | -- | https://space.bilibili.com/346660989 | manim-physics作者 |
+| B站-痴佬 | -- | https://space.bilibili.com/289813724 | Manim动画创作者 |
+| B站-五点七边 | -- | https://space.bilibili.com/643755221 | 数学/物理Manim动画 |
 
 ## Skill routing
 
