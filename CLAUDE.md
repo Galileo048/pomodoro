@@ -222,6 +222,72 @@ mb_img = ImageMobject("temp.png")
 mb_img.set_height(5.5)
 ```
 
+#### 14. 3b1b 曼德勃罗集实现（GPU Shader 方案）
+3b1b 用 GPU 片段着色器实时渲染，不是 CPU 逐像素计算。
+参考：`3b1b/videos/_2021/holomorphic_dynamics.py` + `3b1b/manim/manimlib/shaders/mandelbrot_fractal/frag.glsl`
+
+**核心 shader 逻辑：**
+```glsl
+for(int n = 0; n < int(n_steps); n++){
+    z = complex_mult(z, z) + c;       // z = z² + c
+    if(length(z) > 2.0){
+        // 平滑迭代计数，避免色带
+        float_n += log(2.0) / log(length(z));
+        color = float_to_color(sqrt(float_n), ...);
+        break;
+    }
+}
+if(stable) color = black;  // 集合内的点为黑色
+```
+
+**9 调色板（3b1b 专用）：**
+```python
+MANDELBROT_COLORS = [
+    "#00065c", "#061e7e", "#0c37a0", "#205abc",
+    "#4287d3", "#D9EDE4", "#F0F9E4", "#BA9F6A", "#573706",
+]  # 深蓝→浅青→暖棕
+```
+
+**放大动画原理：**
+不重新渲染位图，通过 `scale_factor` 和 `offset` uniform 改变 GPU 计算区域，实时重算。
+```python
+self.uniforms["scale_factor"] = plane.get_x_unit_size()
+self.uniforms["offset"] = plane.get_center()
+```
+
+**Mandelbrot vs Julia 区别：**
+- Mandelbrot：像素位置 = c 参数，z₀ = 0（参数空间）
+- Julia：c 固定，像素位置 = z₀（种子空间）
+- shader 里只需切换 `mandelbrot` 布尔标志
+
+**平滑着色技巧：**
+`float_n + log(escape_radius) / log(|z|)` 消除离散迭代的色带。
+
+#### 15. NumPy 曼德勃罗集（CPU 方案，我们当前用的）
+```python
+def mandelbrot_image(x_min, x_max, y_min, y_max, width=800, height=600, max_iter=100):
+    x = np.linspace(x_min, x_max, width)
+    y = np.linspace(y_min, y_max, height)
+    C = x[np.newaxis, :] + 1j * y[:, np.newaxis]
+    Z = np.zeros_like(C)
+    iterations = np.zeros(C.shape, dtype=float)
+    mask = np.ones(C.shape, dtype=bool)
+    for i in range(max_iter):
+        Z[mask] = Z[mask]**2 + C[mask]
+        escaped = mask & (np.abs(Z) > 2)
+        # 平滑着色
+        iterations[escaped] = i + 1 - np.log2(np.log2(np.abs(Z[escaped])))
+        mask[escaped] = False
+    # 着色：发散的点按迭代次数着色，不发散的点为黑色
+    colors = np.zeros((*C.shape, 3), dtype=np.uint8)
+    valid = iterations > 0
+    t = iterations[valid] / max_iter
+    colors[valid, 0] = (9*(1-t)*t**3*255).astype(np.uint8)
+    colors[valid, 1] = (15*(1-t)**2*t**2*255).astype(np.uint8)
+    colors[valid, 2] = (8.5*(1-t)**3*t*255).astype(np.uint8)
+    return Image.fromarray(colors)
+```
+
 ## 用户偏好
 
 - 始终使用中文回复用户
