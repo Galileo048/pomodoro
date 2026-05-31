@@ -79,6 +79,18 @@ python -m manim render -pqh 动画源码/第1期_什么是导数.py DerivativeSc
 - **时间节奏**：引入 0.5-1s，展示 1-3s，过渡 0.3-0.5s，停顿 0.5-1s
 - **ValueTracker + always_redraw**：平滑动画的核心模式（3b1b 风格）
 - **实时信息面板**：右上角半透明面板显示动态数据
+- **角度弧线**：优先用 `ParametricFunction` 手动画弧，不要用 `Arc`（`Arc` 的 `move_to` 定位不准，弧线容易跟丢动点）：
+  ```python
+  def get_arc():
+      t = theta_tracker.get_value()
+      if abs(t) < 0.01:
+          return VMobject()
+      return ParametricFunction(
+          lambda s: plane.c2p(0.6 * np.cos(s), 0.6 * np.sin(s)),
+          t_range=[0, t, 0.02], color=YELLOW, stroke_width=2,
+      )
+  angle_arc = always_redraw(get_arc)
+  ```
 
 ### 配色方案
 | 风格 | 主色调 | 适用场景 |
