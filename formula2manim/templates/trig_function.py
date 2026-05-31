@@ -28,32 +28,35 @@ class TrigFunctionScene(Scene):
             axis_config={"include_numbers": False},
             x_length=9, y_length=4.5, tips=True,
         )
-        self.add(axes)
-        self.add(Text("x", font_size=24).next_to(axes.x_axis.get_end(), DOWN, buff=0.25))
-        self.add(Text("y", font_size=24).next_to(axes.y_axis.get_end(), LEFT, buff=0.25))
+        self.play(Create(axes), run_time=1.2)
+        self.play(
+            Write(Text("x", font_size=24).next_to(axes.x_axis.get_end(), DOWN, buff=0.25)),
+            Write(Text("y", font_size=24).next_to(axes.y_axis.get_end(), LEFT, buff=0.25)),
+            run_time=0.4,
+        )
 
         # sin curve
         sin_curve = axes.plot(f, color=RED, stroke_width=3, x_range=[x_min, x_max])
-        sin_lbl = Text(f"sin: y={A}*sin({omega}x+{phi})",
-                       font_size=20, color=RED).to_corner(UR, buff=0.3)
-        self.add(sin_curve, sin_lbl)
+        sin_lbl = Text(f"sin: y={A}*sin({omega}x+{phi})", font_size=20, color=RED)
+        sin_lbl.to_corner(UR, buff=0.3)
+        self.play(Create(sin_curve), Write(sin_lbl), run_time=2)
 
-        # cos curve (for comparison)
+        # cos curve
         cos_curve = axes.plot(g, color=BLUE, stroke_width=2, x_range=[x_min, x_max])
-        cos_lbl = Text(f"cos: y={A}*cos({omega}x+{phi})",
-                       font_size=20, color=BLUE)
+        cos_lbl = Text(f"cos: y={A}*cos({omega}x+{phi})", font_size=20, color=BLUE)
         cos_lbl.next_to(sin_lbl, DOWN, buff=0.1, aligned_edge=LEFT)
-        self.add(cos_curve, cos_lbl)
+        self.play(Create(cos_curve), Write(cos_lbl), run_time=1.5)
 
         # Phase shift marker
         shift = -phi / omega if omega > 0 else 0
-        shift_line = DashedLine(
-            axes.c2p(shift, -A * 1.8),
-            axes.c2p(shift, A * 1.8),
-            color=YELLOW, stroke_width=1,
-        )
-        shift_lbl = Text(f"相位={phi:.1f}rad", font_size=18, color=YELLOW)
-        shift_lbl.next_to(shift_line, UP, buff=0.1)
-        self.add(shift_line, shift_lbl)
+        if x_min <= shift <= x_max:
+            shift_line = DashedLine(
+                axes.c2p(shift, -A * 1.8),
+                axes.c2p(shift, A * 1.8),
+                color=YELLOW, stroke_width=1,
+            )
+            shift_lbl = Text(f"相位={phi:.1f}rad", font_size=18, color=YELLOW)
+            shift_lbl.next_to(shift_line, UP, buff=0.1)
+            self.play(Create(shift_line), Write(shift_lbl), run_time=0.8)
 
         self.wait(3)

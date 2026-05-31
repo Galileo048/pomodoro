@@ -53,7 +53,7 @@ class Formula2ManimGUI:
     def __init__(self, root: Tk) -> None:
         self.root = root
         root.title("Formula2Manim v3 — 物理公式 & 数学动画生成器")
-        root.geometry("800x820"); root.minsize(700, 720)
+        root.geometry("860x880"); root.minsize(740, 780)
         root.configure(bg=BG0)
 
         # State
@@ -65,10 +65,11 @@ class Formula2ManimGUI:
         self._stop_flag    = threading.Event()
         self._param_widgets: dict[str, ttk.Entry] = {}
         self._selected_template: TemplateDef | None = None
+        self._selected_per_tab: dict[str, TemplateDef | None] = {"物理": None, "数学": None}
         self._tab_var: str = "物理"
         self._tpl_combo_vars: dict[str, StringVar] = {}
         self._tpl_desc_vars: dict[str, StringVar] = {}
-        self._param_frames: dict[str, ttk.Frame] = {}
+        self._param_panel: ttk.Frame = ttk.Frame()
         self._card: ttk.Frame = ttk.Frame()
 
         self._setup_theme()
@@ -173,8 +174,8 @@ class Formula2ManimGUI:
 
         # ═══ Tabs ═══
         nb = ttk.Notebook(main)
-        nb.pack(fill="x", pady=(0, 8))
-        nb.configure(height=300)
+        nb.pack(fill="both", expand=True, pady=(0, 6))
+        nb.configure(height=240)
 
         phys_f = ttk.Frame(nb); nb.add(phys_f, text="  物理模板  ")
         self._build_template_tab(phys_f, "物理")
@@ -187,6 +188,16 @@ class Formula2ManimGUI:
 
         live_f = ttk.Frame(nb); nb.add(live_f, text="  💻 实时编辑  ")
         self._build_live_tab(live_f)
+
+        nb.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+
+        # ═══ Parameter panel (ALWAYS visible, outside tabs) ═══
+        self._section_begin(main, "🔧 参数调整 — 选中模板后在此修改参数")
+        self._param_panel = ttk.Frame(self._card, style="Card2.TFrame", padding=8)
+        self._param_panel.pack(fill="x", pady=(3, 0))
+        ttk.Label(self._param_panel, text="请在上方标签页中选择一个模板",
+                  style="Hint2.TLabel").pack(anchor="w")
+        self._section_end()
 
         # ═══ Settings bar ═══
         self._section_begin(main, "⚙ 输出设置")
@@ -256,10 +267,10 @@ class Formula2ManimGUI:
         title_text = "物理场景模板" if category == "物理" else "数学动画模板"
         ttk.Label(inner, text=title_text, style="Section.TLabel").pack(anchor="w")
 
-        # Template cards in a grid
+        # Template cards in a scrollable grid
         cards = ttk.Frame(inner, style="Card.TFrame")
-        cards.pack(fill="x", pady=(6, 8))
-        cols = 4
+        cards.pack(fill="both", expand=True, pady=(6, 0))
+        cols = 3
         for i, tpl in enumerate(templates):
             card = ttk.Frame(cards, style="Card2.TFrame", padding=8)
             card.grid(row=i // cols, column=i % cols, padx=3, pady=3, sticky="nsew")
@@ -269,59 +280,74 @@ class Formula2ManimGUI:
             ttk.Label(card, text=tpl["name"], font=("Microsoft YaHei", 10, "bold"),
                       foreground=TEXT, background=BG2).pack(anchor="w")
             ttk.Label(card, text=tpl["description"], font=FONT_SMALL,
-                      foreground=TEXT3, background=BG2, wraplength=130).pack(
+                      foreground=TEXT3, background=BG2, wraplength=160).pack(
                           anchor="w", pady=(2, 5))
             ttk.Button(card, text="选择此模板", style="Tpl2.TButton",
                        command=lambda t=tpl: self._on_tpl_select_card(t)
-                       ).pack(anchor="w")
+                       ).pack(fill="x")
 
-        # Parameter area (shown when template selected)
-        ttk.Separator(inner, orient="horizontal", style="Sep.TSeparator").pack(
-            fill="x", pady=2)
-        param_label = ttk.Label(inner, text="📐 参数调整 (选择模板后出现)",
-                                style="Hint.TLabel")
-        param_label.pack(anchor="w", pady=(4, 2))
-
-        pf = ttk.Frame(inner, style="Card2.TFrame", padding=6)
-        pf.pack(fill="x")
-        self._param_frames[category] = pf
-
-        # Pre-select first template
-        if templates:
+        if templates and not self._selected_per_tab.get(category):
             self._on_tpl_select_card(templates[0])
 
     def _on_tpl_select_card(self, tpl: TemplateDef) -> None:
         self._selected_template = tpl
+        self._selected_per_tab[tpl["category"]] = tpl
         self._tab_var = tpl["category"]
         self._build_param_inputs()
         self.status_var.set(f"已选择「{tpl['name']}」— 修改参数后点击渲染")
 
     def _build_param_inputs(self) -> None:
         tpl = self._selected_template
-        if not tpl:
-            return
-        cat = tpl["category"]
-        pf = self._param_frames.get(cat)
-        if not pf:
-            return
-        for w in pf.winfo_children():
+        # Clear the shared param panel
+        for w in self._param_panel.winfo_children():
             w.destroy()
         self._param_widgets.clear()
 
-        if not tpl["params"]:
-            ttk.Label(pf, text="此模板无可调参数", style="Hint2.TLabel").pack(anchor="w")
+        if not tpl:
+            ttk.Label(self._param_panel, text="请在上方标签页中选择一个模板",
+                      style="Hint2.TLabel").pack(anchor="w")
             return
 
-        ttk.Label(pf, text="调整参数后点击渲染:", style="Hint2.TLabel").pack(anchor="w", pady=(0, 4))
-        for key, pdef in tpl["params"].items():
-            row = ttk.Frame(pf, style="Card2.TFrame")
-            row.pack(fill="x", pady=2)
-            ttk.Label(row, text=pdef["label"], style="Hint2.TLabel",
-                      width=20, anchor="e").pack(side="left", padx=(0, 6))
-            e = ttk.Entry(row, font=FONT_CODE, width=14)
+        if not tpl["params"]:
+            ttk.Label(self._param_panel,
+                      text=f"「{tpl['name']}」无可调参数，直接点击渲染即可",
+                      style="Hint2.TLabel").pack(anchor="w")
+            return
+
+        # Header
+        header = ttk.Frame(self._param_panel, style="Card2.TFrame")
+        header.pack(fill="x", pady=(0, 4))
+        ttk.Label(header, text=f"📐 {tpl['name']} — 参数",
+                  font=("Microsoft YaHei", 10, "bold"), foreground=ACCENT,
+                  background=BG2).pack(side="left")
+        ttk.Button(header, text="↺ 恢复默认值", style="Tpl2.TButton",
+                   command=lambda: self._reset_params(tpl)
+                   ).pack(side="right")
+
+        # Parameter rows in a grid (2 columns)
+        grid = ttk.Frame(self._param_panel, style="Card2.TFrame")
+        grid.pack(fill="x")
+        items = list(tpl["params"].items())
+        for i, (key, pdef) in enumerate(items):
+            row_frame = ttk.Frame(grid, style="Card2.TFrame")
+            row_frame.grid(row=i // 2, column=i % 2, padx=(0, 12), pady=2, sticky="ew")
+            grid.grid_columnconfigure(i % 2, weight=1)
+
+            ttk.Label(row_frame, text=pdef["label"], style="Hint2.TLabel",
+                      anchor="w").pack(anchor="w")
+            e = ttk.Entry(row_frame, font=FONT_CODE)
             e.insert(0, pdef["default"])
-            e.pack(side="left")
+            e.pack(fill="x", pady=(1, 0))
             self._param_widgets[key] = e
+
+    def _reset_params(self, tpl: TemplateDef) -> None:
+        """Reset all parameter fields to their default values."""
+        for key, pdef in tpl["params"].items():
+            w = self._param_widgets.get(key)
+            if w:
+                w.delete(0, "end")
+                w.insert(0, pdef["default"])
+        self.status_var.set("参数已恢复为默认值")
 
     # ═══════════ TAB: 手动公式 ═══════════════════════════════════════════
     # ═══════════ TAB: AI ═════════════════════════════════════════════════
@@ -413,6 +439,16 @@ class Formula2ManimGUI:
         except Exception:
             return "physics"
 
+    def _on_tab_changed(self, event) -> None:
+        """When user switches tabs, update selected template to match that tab."""
+        tab = self._get_tab()
+        if tab in ("physics", "数学"):
+            cat = "物理" if tab == "physics" else "数学"
+            tpl = self._selected_per_tab.get(cat)
+            if tpl:
+                self._selected_template = tpl
+                self._tab_var = cat
+
     def _render_current(self):
         tab = self._get_tab()
         if tab in ("physics", "math"): self._render_template()
@@ -458,7 +494,8 @@ class Formula2ManimGUI:
     def _template_worker(self, source, name, out_dir, quality, export_only):
         try:
             out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
-            safe_name = name.replace(" ", "_").replace("→", "to")
+            import re
+            safe_name = re.sub(r'[^\w\-]', '_', name.replace(" ", "_").replace("→", "to"))
             gen_path = out_dir / f"{safe_name}.py"
             gen_path.write_text(source, encoding="utf-8")
 

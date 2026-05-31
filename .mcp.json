@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "manim-server": {
+      "command": "D:\\Python\\python.exe",
+      "args": [
+        "C:\\Users\\皮皮\\.claude\\manim-mcp-server\\src\\manim_server.py"
+      ],
+      "env": {
+        "MANIM_EXECUTABLE": "D:\\Python\\Scripts\\manim.exe"
+      }
+    }
+  }
+}

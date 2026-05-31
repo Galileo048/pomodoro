@@ -110,6 +110,34 @@ TEMPLATES: list[TemplateDef] = [
             "speed": {"label": "波速 v (m/s)", "default": "2", "type": "float"},
         },
     },
+    {
+        "name": "多阶段运动",
+        "category": "物理",
+        "description": "分段运动：平抛+电场、加速+减速等，不同阶段用不同颜色显示",
+        "file": "multi_phase.py",
+        "scene_class": "MultiPhaseScene",
+        "params": {
+            "v0x": {"label": "水平初速度 v₀ₓ (m/s)", "default": "10", "type": "float"},
+            "v0y": {"label": "竖直初速度 v₀ᵧ (m/s)", "default": "0", "type": "float"},
+            "g": {"label": "重力加速度 g (m/s²)", "default": "9.8", "type": "float"},
+            "t1": {"label": "阶段1结束时间 t₁ (s)", "default": "3", "type": "float"},
+            "ax2": {"label": "阶段2水平加速度 aₓ₂ (m/s²)", "default": "-6.93", "type": "float"},
+            "ay2": {"label": "阶段2竖直加速度 aᵧ₂ (m/s²)", "default": "-6.93", "type": "float"},
+            "h0": {"label": "初始高度 h₀ (m)", "default": "20", "type": "float"},
+            "t_end": {"label": "总时间 t_end (s)", "default": "20", "type": "float"},
+        },
+    },
+    {
+        "name": "N阶段运动",
+        "category": "物理",
+        "description": "支持任意数量的分段运动，每段可独立设置运动类型（匀速、抛体、圆周、简谐等）",
+        "file": "n_phase.py",
+        "scene_class": "NPhaseScene",
+        "params": {
+            "phases": {"label": "运动阶段 (JSON格式)", "default": '[{"t_start":0,"t_end":3,"type":"projectile","params":{"vx":10,"vy":0,"g":9.8}},{"t_start":3,"t_end":10,"type":"linear","params":{"vx":10,"vy":-30}},{"t_start":10,"t_end":15,"type":"circular","params":{"cx":100,"cy":0,"r":3,"omega":1.5}}]', "type": "text"},
+            "n_phases": {"label": "阶段数量", "default": "3", "type": "int"},
+        },
+    },
     # ═══════════ 数学 ═══════════
     {
         "name": "割线→切线（导数定义）",

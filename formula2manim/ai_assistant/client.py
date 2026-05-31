@@ -126,12 +126,18 @@ class DeepSeekClient:
         return self._parse_json_response(response)
 
     def suggest_model(
-        self, formulas: dict[str, Any], params: dict[str, float]
+        self, formulas: dict[str, Any], params: dict[str, float | str | list | dict]
     ) -> dict[str, Any]:
         """Suggest which physics model fits the given formulas and params."""
+        # Send parameter values (truncated) so AI can see types like JSON arrays
+        param_info = {}
+        for k, v in params.items():
+            s = str(v)
+            param_info[k] = s[:100] + "..." if len(s) > 100 else s
+
         info = {
             "variables": list(formulas.keys()),
-            "parameters": list(params.keys()),
+            "parameters": param_info,
             "formula_strings": {k: str(v) for k, v in formulas.items()},
         }
         messages = [

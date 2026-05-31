@@ -4,8 +4,18 @@ from __future__ import annotations
 
 import argparse
 import sys
+import os
 from pathlib import Path
 from typing import Any
+
+# Fix Windows console encoding for Rich
+if sys.platform == "win32":
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 from rich.console import Console
 from rich.panel import Panel
@@ -238,7 +248,13 @@ def main(argv: list[str] | None = None) -> None:
         model_name = args.model
 
         if model_name is None:
-            if args.ai:
+            # Always use deterministic detection first
+            model_name = detect_model(formulas, params)
+            if args.verbose:
+                console.print(f"[dim]Auto-detected model: {model_name}[/]")
+
+            # AI can override for ambiguous cases (but not n_phase/multi_phase)
+            if args.ai and model_name not in ("n_phase", "multi_phase"):
                 from formula2manim.ai_assistant.client import DeepSeekClient
 
                 console.print("[cyan]Asking AI to suggest a model...[/]")
@@ -247,7 +263,7 @@ def main(argv: list[str] | None = None) -> None:
                     model=args.ai_model or "deepseek-chat",
                 )
                 suggestion = ai_client.suggest_model(formulas, params)
-                model_name = suggestion.get("model", "uniform_acceleration")
+                model_name = suggestion.get("model", model_name)
                 confidence = suggestion.get("confidence", 0)
                 reasoning = suggestion.get("reasoning", "")
                 console.print(
@@ -256,10 +272,6 @@ def main(argv: list[str] | None = None) -> None:
                 )
                 if args.verbose and reasoning:
                     console.print(f"[dim]{reasoning}[/]")
-            else:
-                model_name = detect_model(formulas, params)
-                if args.verbose:
-                    console.print(f"[dim]Auto-detected model: {model_name}[/]")
 
         if model_name not in MODEL_REGISTRY:
             console.print(

@@ -11,6 +11,9 @@ from formula2manim.exceptions import ParseError
 
 _TRANSFORMS = standard_transformations + (convert_xor,)
 
+# Keywords that indicate conditional expressions (not supported)
+_CONDITIONAL_KEYWORDS = {" for ", " if ", " when ", " where ", " case ", " else "}
+
 
 def parse_formulas(formula_str: str) -> dict[str, Expr]:
     """Parse a semicolon-separated formula string into a dict of sympy expressions.
@@ -33,6 +36,16 @@ def parse_formulas(formula_str: str) -> dict[str, Expr]:
     sub_expressions = [s.strip() for s in stripped.split(";") if s.strip()]
 
     for i, sub in enumerate(sub_expressions):
+        # Check for conditional expressions
+        sub_lower = sub.lower()
+        for kw in _CONDITIONAL_KEYWORDS:
+            if kw in sub_lower:
+                raise ParseError(
+                    f"Conditional expressions are not supported: {sub!r}\n"
+                    "Formulas must be simple mathematical expressions (e.g., x = v0*t + 0.5*a*t**2).\n"
+                    "Remove conditions like 'for t<3' or 'if t>5' and use a single formula."
+                )
+
         if "=" in sub:
             key, expr_str = sub.split("=", 1)
             key = key.strip()
