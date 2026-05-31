@@ -190,6 +190,38 @@ new_label.next_to(new_arrow.get_end(), DOWN, buff=0.12)
 self.play(Transform(i_vec, new_arrow), Transform(i_label, new_label))
 ```
 
+#### 10. ThreeDScene 相机控制
+3D 相机没有 `frame` 属性，不能用 `self.camera.frame.animate`。
+**正确做法：** 用 `set_camera_orientation` 和 `move_camera`：
+```python
+self.set_camera_orientation(phi=65*DEGREES, theta=-30*DEGREES)  # 初始角度
+self.move_camera(phi=60*DEGREES, theta=-30*DEGREES, run_time=2)  # 动态移动
+```
+
+#### 11. ImageMobject 不能放 VGroup
+`ImageMobject` 不是 `VMobject`，不能用 `VGroup` 组合。
+**正确做法：** 用 `Group`：
+```python
+group = Group(image_mobject, text_label)  # 不是 VGroup
+```
+
+#### 12. 3D 球体材质
+默认 Sphere 太透明。加 `set_fill` + `set_stroke`：
+```python
+ball = Sphere(radius=0.12, color=YELLOW)
+ball.set_fill(YELLOW, opacity=0.9)
+ball.set_stroke(WHITE, width=1.5)
+```
+
+#### 13. 像素渲染（曼德勃罗集等）
+用 NumPy + PIL 计算像素图像，保存为临时 PNG，再用 `ImageMobject` 显示：
+```python
+img = mandelbrot_image(x_min, x_max, y_min, y_max, width=800, height=600)
+img.save("temp.png")
+mb_img = ImageMobject("temp.png")
+mb_img.set_height(5.5)
+```
+
 ## 用户偏好
 
 - 始终使用中文回复用户
