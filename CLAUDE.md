@@ -295,6 +295,24 @@ def mandelbrot_image(x_min, x_max, y_min, y_max, width=800, height=600, max_iter
 - 源码文件名和视频文件名保持一致（如 `第1期_什么是导数.py` → `第1期_什么是导数.mp4`）
 - Manim 代码必须写详细的中文注释，每个函数、每个动画步骤都要说明用途
 
+## Manim 知识库检索规则
+
+制作任何 Manim 动画前，**必须先检索 `manim知识库/` 文件夹**：
+1. 查看 `manim知识库/README.md` 了解目录结构和检索流程
+2. 按主题查对应子文件夹（物理项目/数学项目/AI工具/3b1b源码）
+3. 遇到技术问题先查本文件的踩坑记录（#1-#15）
+4. 制作中文教育动画时，优先参考中文项目（Moqiyun、mathanim-desktop、manim_gpt）
+
+### 关键参考资源
+| 资源 | 链接 | 用途 |
+|------|------|------|
+| manim-physics | https://github.com/Matheart/manim-physics | 物理插件（力学/电磁学/光学/波动） |
+| Moqiyun | https://github.com/Qiyun-cmd/Moqiyun.github.io | 最全中文数学+物理动画源码 |
+| mathanim-desktop | https://github.com/1634594707/mathanim-desktop | AI驱动数学动画桌面工具 |
+| manim_gpt | https://github.com/Ambier/manim_gpt | 语音+LLM生成Manim动画 |
+| 3b1b videos | https://github.com/3b1b/videos | 3Blue1Brown 所有视频源码 |
+| manim-kor | https://github.com/CodingVillainKor/manim-kor | 韩国最热门Manim教育（89⭐） |
+
 ## Skill routing
 
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
