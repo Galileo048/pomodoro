@@ -213,6 +213,34 @@ ball.set_fill(YELLOW, opacity=0.9)
 ball.set_stroke(WHITE, width=1.5)
 ```
 
+#### 15. FadeOut 对深层嵌套 VGroup 不可靠
+`FadeOut` 对多层嵌套的 VGroup（如递归生成的分形）可能无法完全清除子物体。
+**正确做法：** 用 `self.remove(mob)` 强制从场景中删除：
+```python
+# 不可靠
+self.play(FadeOut(sierpinski_group))
+# 可靠
+self.play(FadeOut(sierpinski_group))
+self.remove(sierpinski_group)  # 强制清除
+# 或者暴力清屏
+for mob in list(self.mobjects):
+    self.remove(mob)
+```
+
+#### 16. rate_func=there_and_back 的陷阱
+`Transform` 配合 `rate_func=there_and_back` 会让物体变过去再变回来，最终回到原始状态。如果目的是让物体消失变成新形态，不要用 `there_and_back`，改用 `smooth`。
+
+#### 17. 分形构造经验
+- **科赫雪花**：递归分割线段，中间加三角形凸起，用 `ParametricFunction` 或递归点列表
+- **谢尔宾斯基三角形**：递归分割三角形，保留三个子三角形，去掉中间的
+- 递归深度不宜超过 5-6 层，否则渲染极慢
+
+#### 18. 意识流/抽象动画经验
+- **呼吸脉动**：`scale` + `set_opacity` 配合 `there_and_back`
+- **光痕效果**：`TracedPath` 追踪运动轨迹
+- **催眠旋转**：多层半透明副本（ghost）以不同速度旋转
+- **清屏**：抽象动画场景切换时，用 `self.remove` 暴力清除，避免 FadeOut 残影
+
 #### 13. 像素渲染（曼德勃罗集等）
 用 NumPy + PIL 计算像素图像，保存为临时 PNG，再用 `ImageMobject` 显示：
 ```python
@@ -221,6 +249,10 @@ img.save("temp.png")
 mb_img = ImageMobject("temp.png")
 mb_img.set_height(5.5)
 ```
+
+#### 14. ThreeDScene + ParametricFunction 极慢
+`ThreeDScene` + `ParametricFunction` + `Create` 组合渲染极慢（14镜动画渲染超过10分钟）。
+**经验：** 如果动画大部分是 2D 内容，尽量避免用 `ThreeDScene`，改用纯 2D + `ParametricFunction` 模拟 3D 效果（如螺旋线用 2D 参数方程表示）。
 
 #### 14. 3b1b 曼德勃罗集实现（GPU Shader 方案）
 3b1b 用 GPU 片段着色器实时渲染，不是 CPU 逐像素计算。
