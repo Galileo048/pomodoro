@@ -57,6 +57,12 @@
                 </a>
             </li>
             <li>
+                <a href="{{ url_for('experiments.experiment_list') }}"
+                   class="{% if request.endpoint and 'experiments' in request.endpoint %}active{% endif %}">
+                    &#128300; 交互动画
+                </a>
+            </li>
+            <li>
                 <a href="{{ url_for('auth.profile') }}"
                    class="{% if request.endpoint == 'auth.profile' %}active{% endif %}">
                     &#9786; 个人中心

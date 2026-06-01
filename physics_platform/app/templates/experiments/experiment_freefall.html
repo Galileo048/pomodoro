@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}自由落体运动 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accel{color:var(--red)}.c-disp{color:var(--green)}.c-ball{color:var(--amber)}.c-accent{color:var(--accent,#e94560)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--amber);">🍎 自由落体运动</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Free Fall — 只受重力，初速度为零</div>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">初始高度 h</span><span class="exp-slider-value" id="valH">50 m</span></div>
+          <input type="range" id="sliderH" min="5" max="100" step="1" value="50">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">重力加速度 g</span><span class="exp-slider-value" id="valG">9.8 m/s²</span></div>
+          <input type="range" id="sliderG" min="1" max="25" step="0.1" value="9.8">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">星球</span></div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button class="exp-speed-btn active" data-g="9.8" onclick="setPlanet(this,9.8)">🌍 地球</button>
+            <button class="exp-speed-btn" data-g="1.6" onclick="setPlanet(this,1.6)">🌙 月球</button>
+            <button class="exp-speed-btn" data-g="3.7" onclick="setPlanet(this,3.7)">🔴 火星</button>
+            <button class="exp-speed-btn" data-g="24.8" onclick="setPlanet(this,24.8)">🪐 木星</button>
+          </div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">下落距离</div><div class="value c-disp" id="dataY">0.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">速度 v</div><div class="value c-velocity" id="dataV">0.00 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">动能 Eₖ</div><div class="value c-ball" id="dataEk">0.00 <span class="unit">J</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>v = gt = <span class="formula" id="fmV">0.00</span> m/s</div>
+          <div>h = ½gt² = <span class="formula" id="fmH">0.00</span> m</div>
+          <div>v² = 2gh = <span class="formula" id="fmV2">0.00</span></div>
+          <div style="margin-top:4px;color:var(--green)">落地时间 T = <span class="result" id="fmT">0.00</span> s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG={h:50,g:9.8,timeScale:1},S={t:0,y:0,vy:0,playing:false,landed:false,history:[]};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  function getLandTime(){return Math.sqrt(2*CFG.h/CFG.g)}
+  function resize(){var dpr=window.devicePixelRatio||1;var rect=canvas.parentElement.getBoundingClientRect();canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1),H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+    var margin=60,groundY=H-50,topY=40,drawH=groundY-topY;
+    // ground
+    ctx.fillStyle='#1a2a1a';ctx.fillRect(0,groundY,W,4);ctx.strokeStyle='#2ecc7155';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,groundY);ctx.lineTo(W,groundY);ctx.stroke();
+    // height ruler
+    var rulerX=margin-20;ctx.strokeStyle='#444466';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(rulerX,topY);ctx.lineTo(rulerX,groundY);ctx.stroke();
+    ctx.fillStyle='#8888a0';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText(CFG.h+'m',rulerX,(topY+groundY)/2);ctx.fillText('h',rulerX,topY-8);
+    // ball
+    var ballY=groundY-(CFG.h-S.y)/CFG.h*drawH;
+    var glow=ctx.createRadialGradient(W/2,ballY,0,W/2,ballY,30);glow.addColorStop(0,'rgba(255,217,61,0.3)');glow.addColorStop(1,'rgba(255,217,61,0)');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(W/2,ballY,30,0,Math.PI*2);ctx.fill();
+    var bg=ctx.createRadialGradient(W/2-3,ballY-3,1,W/2,ballY,10);bg.addColorStop(0,'#fff7a0');bg.addColorStop(1,'#ffd93d');
+    ctx.fillStyle=bg;ctx.beginPath();ctx.arc(W/2,ballY,10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#cc9900';ctx.lineWidth=1.5;ctx.stroke();
+    // velocity arrow
+    if(S.t>0){var arrowLen=Math.min(S.vy*3,150);ctx.strokeStyle='#00d4ff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(W/2,ballY);ctx.lineTo(W/2,ballY+arrowLen);ctx.stroke();
+    ctx.fillStyle='#00d4ff';ctx.beginPath();ctx.moveTo(W/2,ballY+arrowLen);ctx.lineTo(W/2-5,ballY+arrowLen-8);ctx.lineTo(W/2+5,ballY+arrowLen-8);ctx.closePath();ctx.fill();
+    ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText('v='+S.vy.toFixed(1)+'m/s',W/2+12,ballY+arrowLen/2);}
+    // trail
+    if(S.history.length>1){ctx.strokeStyle='#ffd93d33';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();
+    S.history.forEach(function(h,i){var y=groundY-h.y/CFG.h*drawH;if(i===0)ctx.moveTo(W/2,y);else ctx.lineTo(W/2,y);});ctx.stroke();ctx.setLineDash([]);}
+    if(S.landed){ctx.fillStyle='#e94560';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText('🎯 落地! T='+getLandTime().toFixed(2)+'s',W/2,groundY+25);}
+  }
+  function updateData(){var T=getLandTime();
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataY').innerHTML=S.y.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('dataV').innerHTML=S.vy.toFixed(2)+' <span class="unit">m/s</span>';
+    document.getElementById('dataEk').innerHTML=(0.5*S.vy*S.vy).toFixed(1)+' <span class="unit">J</span>';
+    document.getElementById('fmV').textContent=S.vy.toFixed(2);
+    document.getElementById('fmH').textContent=S.y.toFixed(2);
+    document.getElementById('fmV2').textContent=(2*CFG.g*S.y).toFixed(2);
+    document.getElementById('fmT').textContent=T.toFixed(2);
+  }
+  var lastTime=0,animId=null;
+  function animate(ts){if(!S.playing)return;if(!lastTime)lastTime=ts;var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;var T=getLandTime();
+    if(S.t>=T){S.t=T;S.playing=false;S.landed=true;S.y=CFG.h;S.vy=CFG.g*T;document.getElementById('btnPlay').textContent='▶ 播放';}
+    else{S.y=0.5*CFG.g*S.t*S.t;S.vy=CFG.g*S.t;S.history.push({t:S.t,y:S.y});}
+    draw();updateData();if(S.playing)animId=requestAnimationFrame(animate);
+  }
+  function reset(){S.playing=false;S.landed=false;S.t=0;S.y=0;S.vy=0;S.history=[];lastTime=0;if(animId)cancelAnimationFrame(animId);document.getElementById('btnPlay').textContent='▶ 播放';draw();updateData();}
+  document.getElementById('btnPlay').addEventListener('click',function(){if(S.landed){reset();return;}S.playing=!S.playing;document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}});
+  document.getElementById('btnReset').addEventListener('click',reset);
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active')});b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);});});
+  document.getElementById('sliderH').addEventListener('input',function(){CFG.h=parseFloat(this.value);document.getElementById('valH').textContent=CFG.h+' m';reset();});
+  document.getElementById('sliderG').addEventListener('input',function(){CFG.g=parseFloat(this.value);document.getElementById('valG').textContent=CFG.g.toFixed(1)+' m/s²';document.querySelectorAll('.exp-speed-btn[data-g]').forEach(function(b){b.classList.remove('active');if(parseFloat(b.dataset.g)===CFG.g)b.classList.add('active');});reset();});
+  window.setPlanet=function(btn,g){CFG.g=g;document.getElementById('sliderG').value=g;document.getElementById('valG').textContent=g.toFixed(1)+' m/s²';document.querySelectorAll('.exp-speed-btn[data-g]').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');reset();};
+  window.addEventListener('resize',resize);resize();updateData();
+})();
+</script>
+{% endblock %}

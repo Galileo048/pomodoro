@@ -1,0 +1,606 @@
+{% extends "base.html" %}
+
+{% block title %}平抛运动交互实验 — 物理AI学习平台{% endblock %}
+
+{% block extra_head %}
+<style>
+  .exp-layout {
+    display: flex;
+    gap: 0;
+    height: calc(100vh - 120px);
+    min-height: 500px;
+  }
+  .exp-sim-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .exp-canvas-wrap {
+    flex: 1;
+    position: relative;
+    background: var(--bg, #0f0f1a);
+    min-height: 300px;
+  }
+  .exp-canvas-wrap canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .exp-charts-area {
+    height: 180px;
+    min-height: 140px;
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--panel, #161625);
+  }
+  .exp-chart-box {
+    flex: 1;
+    position: relative;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+  }
+  .exp-chart-box:last-child { border-right: none; }
+  .exp-chart-box canvas { width: 100%; height: 100%; }
+  .exp-chart-label {
+    position: absolute;
+    top: 6px; left: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .exp-side-panel {
+    width: 300px;
+    min-width: 260px;
+    background: var(--panel, #161625);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .exp-panel-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .exp-panel-section h3 {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .exp-slider-group { margin-bottom: 8px; }
+  .exp-slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  .exp-slider-label { font-size: 12px; color: var(--text-primary); }
+  .exp-slider-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--cyan);
+    min-width: 65px;
+    text-align: right;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent, #e94560);
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--accent, #e94560);
+  }
+  .exp-btn-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .exp-btn {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .exp-btn-play { background: var(--accent, #e94560); color: #fff; }
+  .exp-btn-play:hover { opacity: 0.9; }
+  .exp-btn-reset { background: var(--border); color: var(--text-primary); }
+  .exp-speed-btns { display: flex; gap: 3px; }
+  .exp-speed-btn {
+    flex: 1;
+    padding: 5px 0;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .exp-speed-btn.active {
+    background: var(--accent, #e94560);
+    color: #fff;
+    border-color: var(--accent, #e94560);
+  }
+  .exp-toggle-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .exp-toggle-btn {
+    padding: 4px 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .exp-toggle-btn.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0,212,255,0.1);
+  }
+  .exp-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .exp-data-item {
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+  }
+  .exp-data-item .label { font-size: 10px; color: var(--text-muted); margin-bottom: 1px; }
+  .exp-data-item .value { font-size: 14px; font-weight: 700; }
+  .exp-data-item .unit { font-size: 10px; color: var(--text-muted); font-weight: 400; }
+  .c-velocity { color: var(--cyan); }
+  .c-accel { color: var(--red); }
+  .c-disp { color: var(--green); }
+  .c-ball { color: var(--amber); }
+  .c-accent { color: var(--accent, #e94560); }
+  .exp-formula-box {
+    background: rgba(255,255,255,0.02);
+    border-radius: 6px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .exp-formula-box .formula { color: var(--amber); font-family: 'Times New Roman', serif; font-style: italic; }
+  .exp-formula-box .result { color: var(--green); font-weight: 600; }
+  @media (max-width: 900px) {
+    .exp-layout { flex-direction: column; height: auto; }
+    .exp-side-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+    .exp-canvas-wrap { height: 50vh; min-height: 250px; }
+    .exp-charts-area { height: 160px; }
+  }
+  @media (max-width: 600px) {
+    .exp-charts-area { flex-direction: column; height: auto; }
+    .exp-chart-box { height: 100px; border-right: none; border-bottom: 1px solid var(--border); }
+    .exp-data-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:0; background:var(--bg, #0f0f1a);">
+    <!-- 实验标题栏 -->
+    <div style="text-align:center; padding:10px 20px; background:linear-gradient(135deg, #1a1a30, #0f0f1a); border-bottom:1px solid var(--border);">
+        <div style="font-size:18px; font-weight:700; color:var(--cyan);">
+            🎯 平抛运动交互实验
+        </div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+            Projectile Motion — 水平方向匀速 + 竖直方向自由落体
+        </div>
+    </div>
+
+    <div class="exp-layout">
+        <!-- 左侧：动画 + 图表 -->
+        <div class="exp-sim-area">
+            <div class="exp-canvas-wrap">
+                <canvas id="simCanvas"></canvas>
+            </div>
+            <div class="exp-charts-area">
+                <div class="exp-chart-box">
+                    <span class="exp-chart-label">x-t 水平位移</span>
+                    <canvas id="chartXT"></canvas>
+                </div>
+                <div class="exp-chart-box">
+                    <span class="exp-chart-label">y-t 竖直位移</span>
+                    <canvas id="chartYT"></canvas>
+                </div>
+                <div class="exp-chart-box">
+                    <span class="exp-chart-label">v-t 速度</span>
+                    <canvas id="chartVT"></canvas>
+                </div>
+                <div class="exp-chart-box">
+                    <span class="exp-chart-label">vₓ / vᵧ 分速度</span>
+                    <canvas id="chartVXY"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：控制面板 -->
+        <div class="exp-side-panel">
+            <div class="exp-panel-section">
+                <h3>⚙️ 参数设置</h3>
+                <div class="exp-slider-group">
+                    <div class="exp-slider-header">
+                        <span class="exp-slider-label">初速度 v₀</span>
+                        <span class="exp-slider-value" id="valV0">10 m/s</span>
+                    </div>
+                    <input type="range" id="sliderV0" min="1" max="30" step="0.5" value="10">
+                </div>
+                <div class="exp-slider-group">
+                    <div class="exp-slider-header">
+                        <span class="exp-slider-label">初始高度 h</span>
+                        <span class="exp-slider-value" id="valH">20 m</span>
+                    </div>
+                    <input type="range" id="sliderH" min="5" max="80" step="1" value="20">
+                </div>
+                <div class="exp-slider-group">
+                    <div class="exp-slider-header">
+                        <span class="exp-slider-label">重力加速度 g</span>
+                        <span class="exp-slider-value" id="valG">9.8 m/s²</span>
+                    </div>
+                    <input type="range" id="sliderG" min="1" max="20" step="0.1" value="9.8">
+                </div>
+            </div>
+
+            <div class="exp-panel-section">
+                <h3>▶️ 控制</h3>
+                <div class="exp-btn-row">
+                    <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+                    <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+                </div>
+                <div class="exp-speed-btns">
+                    <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+                    <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+                    <button class="exp-speed-btn active" data-speed="1">1x</button>
+                    <button class="exp-speed-btn" data-speed="2">2x</button>
+                </div>
+            </div>
+
+            <div class="exp-panel-section">
+                <h3>👁️ 显示选项</h3>
+                <div class="exp-toggle-row">
+                    <button class="exp-toggle-btn active" data-toggle="trail">轨迹</button>
+                    <button class="exp-toggle-btn active" data-toggle="velocity">速度矢量</button>
+                    <button class="exp-toggle-btn active" data-toggle="decompose">分运动</button>
+                    <button class="exp-toggle-btn active" data-toggle="fullTrajectory">完整轨迹</button>
+                    <button class="exp-toggle-btn active" data-toggle="grid">网格</button>
+                </div>
+            </div>
+
+            <div class="exp-panel-section">
+                <h3>📊 实时数据</h3>
+                <div class="exp-data-grid">
+                    <div class="exp-data-item">
+                        <div class="label">时间 t</div>
+                        <div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div>
+                    </div>
+                    <div class="exp-data-item">
+                        <div class="label">水平位移 x</div>
+                        <div class="value c-disp" id="dataX">0.00 <span class="unit">m</span></div>
+                    </div>
+                    <div class="exp-data-item">
+                        <div class="label">竖直位移 y</div>
+                        <div class="value c-disp" id="dataY">0.00 <span class="unit">m</span></div>
+                    </div>
+                    <div class="exp-data-item">
+                        <div class="label">合速度 v</div>
+                        <div class="value c-velocity" id="dataV">0.00 <span class="unit">m/s</span></div>
+                    </div>
+                    <div class="exp-data-item">
+                        <div class="label">水平速度 vₓ</div>
+                        <div class="value c-velocity" id="dataVx">0.00 <span class="unit">m/s</span></div>
+                    </div>
+                    <div class="exp-data-item">
+                        <div class="label">竖直速度 vᵧ</div>
+                        <div class="value c-accel" id="dataVy">0.00 <span class="unit">m/s</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="exp-panel-section">
+                <h3>📐 公式验证</h3>
+                <div class="exp-formula-box" id="formulaBox">
+                    <div>x = v₀t = <span class="formula" id="fmX">0.00</span> m</div>
+                    <div>y = ½gt² = <span class="formula" id="fmY">0.00</span> m</div>
+                    <div>v = √(vₓ²+vᵧ²) = <span class="formula" id="fmV">0.00</span> m/s</div>
+                    <div style="margin-top:4px;color:var(--green)">落地时间 T = <span class="result" id="fmT">0.00</span> s</div>
+                    <div>水平射程 R = <span class="result" id="fmR">0.00</span> m</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== 配置 =====
+  var CFG = { v0: 10, h: 20, g: 9.8, timeScale: 1, ppm: 8, ballR: 10 };
+  var SHOW = { trail: true, velocity: true, decompose: true, fullTrajectory: true, grid: true };
+  var S = { t: 0, x: 0, y: 0, vx: 0, vy: 0, playing: false, landed: false, trail: [], history: [] };
+
+  var simCanvas = document.getElementById('simCanvas');
+  var simCtx = simCanvas.getContext('2d');
+  var chartXT = document.getElementById('chartXT');
+  var chartYT = document.getElementById('chartYT');
+  var chartVT = document.getElementById('chartVT');
+  var chartVXY = document.getElementById('chartVXY');
+
+  function getPos(t) { return { x: CFG.v0 * t, y: 0.5 * CFG.g * t * t }; }
+  function getVel(t) { return { vx: CFG.v0, vy: CFG.g * t }; }
+  function getLandTime() { return Math.sqrt(2 * CFG.h / CFG.g); }
+
+  var originX = 60, originY = 0;
+  function calcScale() {
+    var w = simCanvas.width, h = simCanvas.height;
+    if (w < 100 || h < 100) { CFG.ppm = 1; originX = 60; originY = h - 50; return; }
+    var landX = CFG.v0 * getLandTime();
+    var scaleX = (w - 100) / Math.max(landX * 1.1, 10);
+    var scaleY = (h - 60) / Math.max(CFG.h * 1.1, 10);
+    CFG.ppm = Math.max(Math.min(scaleX, scaleY), 0.1);
+    originX = 60; originY = h - 50;
+  }
+  function toScreen(px, py) { return { x: originX + px * CFG.ppm, y: originY - py * CFG.ppm }; }
+
+  function getGridStep() {
+    var landX = CFG.v0 * getLandTime();
+    var maxVal = Math.max(landX, CFG.h);
+    if (maxVal < 20) return 2; if (maxVal < 50) return 5;
+    if (maxVal < 100) return 10; if (maxVal < 200) return 20; return 50;
+  }
+
+  function drawArrowHead(ctx, x, y, angle) {
+    var size = 8;
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x - size * Math.cos(angle - 0.4), y - size * Math.sin(angle - 0.4));
+    ctx.lineTo(x - size * Math.cos(angle + 0.4), y - size * Math.sin(angle + 0.4));
+    ctx.closePath(); ctx.fill();
+  }
+
+  function drawVecArrow(ctx, x1, y1, x2, y2, color, label) {
+    var dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    var angle = Math.atan2(dy, dx), hs = 8;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hs * Math.cos(angle - 0.35), y2 - hs * Math.sin(angle - 0.35));
+    ctx.lineTo(x2 - hs * Math.cos(angle + 0.35), y2 - hs * Math.sin(angle + 0.35));
+    ctx.closePath(); ctx.fill();
+    if (label) { ctx.fillStyle = color; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(label, x2 + 6, y2 - 4); }
+  }
+
+  function drawSim() {
+    var W = simCanvas.width, H = simCanvas.height, ctx = simCtx;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, W, H);
+
+    if (SHOW.grid) {
+      ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+      var step = getGridStep();
+      for (var px = 0, g = 0; px * CFG.ppm + originX < W && g < 200; px += step, g++) {
+        var sx = originX + px * CFG.ppm; ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
+      }
+      for (var py = 0, g2 = 0; py * CFG.ppm + originY > 0 && g2 < 200; py += step, g2++) {
+        var sy = originY - py * CFG.ppm; ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+      }
+    }
+
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(originX - 10, originY); ctx.lineTo(W - 20, originY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(originX, originY + 10); ctx.lineTo(originX, 20); ctx.stroke();
+    drawArrowHead(ctx, W - 20, originY, 0); drawArrowHead(ctx, originX, 20, -Math.PI / 2);
+    ctx.fillStyle = '#8888a0'; ctx.font = '13px sans-serif'; ctx.fillText('x / m', W - 50, originY + 20); ctx.fillText('y / m', originX - 10, 18);
+
+    var step2 = getGridStep();
+    ctx.fillStyle = '#555570'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for (var px2 = step2, g3 = 0; px2 * CFG.ppm + originX < W - 30 && g3 < 200; px2 += step2, g3++) {
+      var sx2 = originX + px2 * CFG.ppm; ctx.beginPath(); ctx.moveTo(sx2, originY - 3); ctx.lineTo(sx2, originY + 3); ctx.stroke(); ctx.fillText(px2, sx2, originY + 16);
+    }
+    ctx.textAlign = 'right';
+    for (var py2 = step2, g4 = 0; py2 * CFG.ppm < originY - 20 && g4 < 200; py2 += step2, g4++) {
+      var sy2 = originY - py2 * CFG.ppm; ctx.beginPath(); ctx.moveTo(originX - 3, sy2); ctx.lineTo(originX + 3, sy2); ctx.stroke(); ctx.fillText(py2, originX - 8, sy2 + 4);
+    }
+
+    var groundY = originY - CFG.h * CFG.ppm;
+    ctx.fillStyle = '#1a2a1a'; ctx.fillRect(0, groundY, W, 4);
+    ctx.strokeStyle = '#2ecc7155'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+    ctx.strokeStyle = '#2ecc7133'; ctx.lineWidth = 1;
+    for (var gx = 0; gx < Math.min(W, 2000); gx += 12) { ctx.beginPath(); ctx.moveTo(gx, groundY); ctx.lineTo(gx - 6, groundY + 8); ctx.stroke(); }
+
+    var startS = toScreen(0, CFG.h);
+    ctx.strokeStyle = '#ffd93d44'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(startS.x, startS.y); ctx.lineTo(startS.x, originY); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ffd93d88'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('h=' + CFG.h + 'm', startS.x - 20, (startS.y + originY) / 2);
+
+    if (SHOW.fullTrajectory) {
+      var T = getLandTime(); ctx.strokeStyle = '#ffd93d22'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath();
+      for (var i = 0; i <= 100; i++) { var tt = (i / 100) * T; var p = getPos(tt); var sp = toScreen(p.x, CFG.h - p.y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    if (SHOW.trail && S.trail.length > 1) {
+      ctx.strokeStyle = '#ffd93d88'; ctx.lineWidth = 2.5; ctx.beginPath();
+      S.trail.forEach(function(pt, i) { var sp = toScreen(pt.x, CFG.h - pt.y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }); ctx.stroke();
+    }
+
+    if (SHOW.decompose && S.t > 0) {
+      var ballS = toScreen(S.x, CFG.h - S.y);
+      ctx.strokeStyle = '#00d4ff33'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(ballS.x, ballS.y); ctx.lineTo(ballS.x, originY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ballS.x, originY); ctx.lineTo(originX, originY); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#00d4ff66'; ctx.beginPath(); ctx.arc(ballS.x, originY, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ff6b6b33'; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(ballS.x, ballS.y); ctx.lineTo(originX, ballS.y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#ff6b6b66'; ctx.beginPath(); ctx.arc(originX, ballS.y, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#00d4ff88'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('x=' + S.x.toFixed(1) + 'm', ballS.x, originY + 30);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#ff6b6b88'; ctx.fillText('y=' + S.y.toFixed(1) + 'm', originX - 12, ballS.y + 4);
+    }
+
+    if (SHOW.velocity && S.t > 0) {
+      var ballS2 = toScreen(S.x, CFG.h - S.y), arrowScale = 3;
+      var vTotal = Math.sqrt(S.vx * S.vx + S.vy * S.vy);
+      drawVecArrow(ctx, ballS2.x, ballS2.y, ballS2.x + S.vx * arrowScale, ballS2.y + S.vy * arrowScale, '#ffffff', 'v=' + vTotal.toFixed(1));
+      drawVecArrow(ctx, ballS2.x, ballS2.y, ballS2.x + S.vx * arrowScale, ballS2.y, '#00d4ff', 'vₓ=' + S.vx.toFixed(1));
+      drawVecArrow(ctx, ballS2.x, ballS2.y, ballS2.x, ballS2.y + S.vy * arrowScale, '#ff6b6b', 'vᵧ=' + S.vy.toFixed(1));
+    }
+
+    var ballS3 = toScreen(S.x, CFG.h - S.y);
+    var glow = ctx.createRadialGradient(ballS3.x, ballS3.y, 0, ballS3.x, ballS3.y, CFG.ballR * 3);
+    glow.addColorStop(0, 'rgba(255,217,61,0.3)'); glow.addColorStop(1, 'rgba(255,217,61,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(ballS3.x, ballS3.y, CFG.ballR * 3, 0, Math.PI * 2); ctx.fill();
+    var ballGrad = ctx.createRadialGradient(ballS3.x - 3, ballS3.y - 3, 1, ballS3.x, ballS3.y, CFG.ballR);
+    ballGrad.addColorStop(0, '#fff7a0'); ballGrad.addColorStop(1, '#ffd93d');
+    ctx.fillStyle = ballGrad; ctx.beginPath(); ctx.arc(ballS3.x, ballS3.y, CFG.ballR, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#cc9900'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    if (S.landed) {
+      var landPos = getPos(getLandTime()), landS = toScreen(landPos.x, 0);
+      ctx.fillStyle = '#e9456088'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('🎯 落地!', landS.x, landS.y + 25);
+      ctx.fillStyle = '#e94560'; ctx.fillText('R = ' + landPos.x.toFixed(2) + ' m', landS.x, landS.y + 42);
+    }
+  }
+
+  function drawChart(canvas, data, opts) {
+    var ctx = canvas.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#161625'; ctx.fillRect(0, 0, W, H);
+    if (!data || data.length < 2) return;
+    var pad = { top: 28, right: 15, bottom: 22, left: 45 }, cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+    if (cw <= 0 || ch <= 0) return;
+    var xMin = 0, xMax = 0, yMin = 0, yMax = 0;
+    var series = Array.isArray(data[0]) ? data : [data];
+    series.forEach(function(s) { s.forEach(function(d) { if (d.x < xMin) xMin = d.x; if (d.x > xMax) xMax = d.x; if (d.y < yMin) yMin = d.y; if (d.y > yMax) yMax = d.y; }); });
+    if (xMax <= xMin) xMax = xMin + 1; if (yMax <= yMin) yMax = yMin + 1;
+    var xRange = xMax - xMin, yRange = yMax - yMin;
+    xMin -= xRange * 0.05; xMax += xRange * 0.05; yMin -= yRange * 0.1; yMax += yRange * 0.1;
+    function toC(px, py) { return { x: pad.left + (px - xMin) / (xMax - xMin) * cw, y: pad.top + (1 - (py - yMin) / (yMax - yMin)) * ch }; }
+    ctx.strokeStyle = '#1e1e35'; ctx.lineWidth = 1;
+    for (var i = 0; i <= 4; i++) { var gy = pad.top + (i / 4) * ch; ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(pad.left + cw, gy); ctx.stroke(); }
+    for (var j = 0; j <= 4; j++) { var gx = pad.left + (j / 4) * cw; ctx.beginPath(); ctx.moveTo(gx, pad.top); ctx.lineTo(gx, pad.top + ch); ctx.stroke(); }
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    var zeroY = toC(0, 0).y; if (zeroY >= pad.top && zeroY <= pad.top + ch) { ctx.beginPath(); ctx.moveTo(pad.left, zeroY); ctx.lineTo(pad.left + cw, zeroY); ctx.stroke(); }
+    var zeroX = toC(0, 0).x; if (zeroX >= pad.left && zeroX <= pad.left + cw) { ctx.beginPath(); ctx.moveTo(zeroX, pad.top); ctx.lineTo(zeroX, pad.top + ch); ctx.stroke(); }
+    ctx.fillStyle = '#555570'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    for (var k = 0; k <= 4; k++) { var val = xMin + (k / 4) * (xMax - xMin); ctx.fillText(val.toFixed(1), pad.left + (k / 4) * cw, pad.top + ch + 14); }
+    ctx.textAlign = 'right';
+    for (var l = 0; l <= 4; l++) { var val2 = yMin + (l / 4) * (yMax - yMin); ctx.fillText(val2.toFixed(1), pad.left - 5, pad.top + (1 - l / 4) * ch + 3); }
+    var colors = opts.colors || ['#00d4ff'];
+    series.forEach(function(s, si) { if (s.length < 2) return; ctx.strokeStyle = colors[si % colors.length]; ctx.lineWidth = 2; ctx.beginPath(); s.forEach(function(d, i) { var p = toC(d.x, d.y); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }); ctx.stroke(); });
+    series.forEach(function(s, si) { if (s.length === 0) return; var last = s[s.length - 1], lp = toC(last.x, last.y); ctx.fillStyle = colors[si % colors.length]; ctx.beginPath(); ctx.arc(lp.x, lp.y, 4, 0, Math.PI * 2); ctx.fill(); });
+  }
+
+  function updateCharts() {
+    if (S.history.length < 2) return;
+    drawChart(chartXT, S.history.map(function(h) { return { x: h.t, y: h.x }; }), { colors: ['#4ecdc4'] });
+    drawChart(chartYT, S.history.map(function(h) { return { x: h.t, y: h.y }; }), { colors: ['#ff6b6b'] });
+    drawChart(chartVT, S.history.map(function(h) { return { x: h.t, y: Math.sqrt(h.vx * h.vx + h.vy * h.vy) }; }), { colors: ['#ffd93d'] });
+    drawChart(chartVXY, [S.history.map(function(h) { return { x: h.t, y: h.vx }; }), S.history.map(function(h) { return { x: h.t, y: h.vy }; })], { colors: ['#00d4ff', '#ff6b6b'] });
+  }
+
+  function updateData() {
+    var v = Math.sqrt(S.vx * S.vx + S.vy * S.vy);
+    document.getElementById('dataT').innerHTML = S.t.toFixed(2) + ' <span class="unit">s</span>';
+    document.getElementById('dataX').innerHTML = S.x.toFixed(2) + ' <span class="unit">m</span>';
+    document.getElementById('dataY').innerHTML = S.y.toFixed(2) + ' <span class="unit">m</span>';
+    document.getElementById('dataV').innerHTML = v.toFixed(2) + ' <span class="unit">m/s</span>';
+    document.getElementById('dataVx').innerHTML = S.vx.toFixed(2) + ' <span class="unit">m/s</span>';
+    document.getElementById('dataVy').innerHTML = S.vy.toFixed(2) + ' <span class="unit">m/s</span>';
+    document.getElementById('fmX').textContent = S.x.toFixed(2);
+    document.getElementById('fmY').textContent = S.y.toFixed(2);
+    document.getElementById('fmV').textContent = v.toFixed(2);
+    var T = getLandTime(), R = CFG.v0 * T;
+    document.getElementById('fmT').textContent = T.toFixed(2);
+    document.getElementById('fmR').textContent = R.toFixed(2);
+  }
+
+  var lastTime = 0, animId = null, HISTORY_INTERVAL = 0.03, lastHistoryT = 0;
+  function animate(timestamp) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = timestamp;
+    var dt = Math.min((timestamp - lastTime) / 1000, 0.05); lastTime = timestamp;
+    S.t += dt * CFG.timeScale; var T = getLandTime();
+    if (S.t >= T) {
+      S.t = T; S.playing = false; S.landed = true;
+      var pos = getPos(T), vel = getVel(T); S.x = pos.x; S.y = CFG.h; S.vx = vel.vx; S.vy = vel.vy;
+      S.trail.push({ x: S.x, y: S.y }); S.history.push({ t: S.t, x: S.x, y: CFG.h, vx: S.vx, vy: S.vy });
+      document.getElementById('btnPlay').textContent = '▶ 播放';
+    } else {
+      var pos2 = getPos(S.t), vel2 = getVel(S.t); S.x = pos2.x; S.y = pos2.y; S.vx = vel2.vx; S.vy = vel2.vy;
+      S.trail.push({ x: S.x, y: S.y });
+      if (S.t - lastHistoryT >= HISTORY_INTERVAL) { S.history.push({ t: S.t, x: S.x, y: S.y, vx: S.vx, vy: S.vy }); lastHistoryT = S.t; }
+    }
+    drawSim(); updateData(); updateCharts();
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  var resizeTimer = null;
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    [simCanvas, chartXT, chartYT, chartVT, chartVXY].forEach(function(c) {
+      var rect = c.parentElement.getBoundingClientRect(), w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
+    }); calcScale(); drawSim(); updateCharts();
+  }
+
+  function reset() {
+    S.playing = false; S.landed = false; S.t = 0; S.x = 0; S.y = 0; S.vx = CFG.v0; S.vy = 0;
+    S.trail = []; S.history = []; lastHistoryT = 0; lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放'; drawSim(); updateData();
+    [chartXT, chartYT, chartVT, chartVXY].forEach(function(c) { c.getContext('2d').clearRect(0, 0, c.width, c.height); });
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    if (S.landed) { reset(); return; }
+    S.playing = !S.playing;
+    document.getElementById('btnPlay').textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn').forEach(function(b) { b.classList.remove('active'); }); btn.classList.add('active');
+      CFG.timeScale = parseFloat(btn.dataset.speed);
+    });
+  });
+  document.querySelectorAll('.exp-toggle-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { var key = btn.dataset.toggle; SHOW[key] = !SHOW[key]; btn.classList.toggle('active'); drawSim(); });
+  });
+
+  function bindSlider(id, key, valId, unit, decimals) {
+    document.getElementById(id).addEventListener('input', function() {
+      CFG[key] = parseFloat(this.value); document.getElementById(valId).textContent = CFG[key].toFixed(decimals) + ' ' + unit; reset();
+    });
+  }
+  bindSlider('sliderV0', 'v0', 'valV0', 'm/s', 1);
+  bindSlider('sliderH', 'h', 'valH', 'm', 0);
+  bindSlider('sliderG', 'g', 'valG', 'm/s²', 1);
+
+  window.addEventListener('resize', function() { if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 100); });
+  resize(); updateData();
+})();
+</script>
+{% endblock %}
