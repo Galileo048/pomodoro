@@ -7,3 +7,6 @@ outputs/
 media/
 *.egg-info/
 .pytest_cache/
+
+# Large installers
+*.exe
