@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}向量加法与减法交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .toggle-row{display:flex;gap:6px;margin-bottom:6px}
+  .toggle-btn{flex:1;padding:6px 0;border:1px solid var(--border);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-primary);transition:all 0.2s}
+  .toggle-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">📐 向量的加法与减法</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Vector Addition & Subtraction — 平行四边形法则 · 合成向量 · 差向量</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 向量 a</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">a 的 x 分量</span><span class="exp-slider-value" id="valAx">3.0</span></div>
+          <input type="range" id="sliderAx" min="-5" max="5" step="0.1" value="3">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">a 的 y 分量</span><span class="exp-slider-value" id="valAy">2.0</span></div>
+          <input type="range" id="sliderAy" min="-5" max="5" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>⚙️ 向量 b</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">b 的 x 分量</span><span class="exp-slider-value" id="valBx">1.0</span></div>
+          <input type="range" id="sliderBx" min="-5" max="5" step="0.1" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">b 的 y 分量</span><span class="exp-slider-value" id="valBy">3.0</span></div>
+          <input type="range" id="sliderBy" min="-5" max="5" step="0.1" value="3">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>显示选项</h3>
+        <div class="toggle-row">
+          <button class="toggle-btn active" id="btnShowSum" onclick="toggleShow('sum')">a+b</button>
+          <button class="toggle-btn" id="btnShowDiff" onclick="toggleShow('diff')">a-b</button>
+          <button class="toggle-btn active" id="btnShowPara" onclick="toggleShow('para')">平行四边形</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 向量信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">|a|</div><div class="value c-cyan" id="dataMagA">3.61</div></div>
+          <div class="exp-data-item"><div class="label">|b|</div><div class="value c-accent" id="dataMagB">3.16</div></div>
+          <div class="exp-data-item"><div class="label">|a+b|</div><div class="value c-green" id="dataMagSum">—</div></div>
+          <div class="exp-data-item"><div class="label">|a-b|</div><div class="value c-amber" id="dataMagDiff">—</div></div>
+          <div class="exp-data-item"><div class="label">夹角</div><div class="value c-purple" id="dataAngle">—</div></div>
+          <div class="exp-data-item"><div class="label">a·b</div><div class="value c-cyan" id="dataDot">—</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div style="color:var(--cyan);">a = (<span id="fmAx">3.0</span>, <span id="fmAy">2.0</span>)</div>
+          <div style="color:var(--accent,#e94560);">b = (<span id="fmBx">1.0</span>, <span id="fmBy">3.0</span>)</div>
+          <div style="color:var(--green);">a+b = (<span id="fmSx">4.0</span>, <span id="fmSy">5.0</span>)</div>
+          <div style="color:var(--amber);">a-b = (<span id="fmDx">2.0</span>, <span id="fmDy">-1.0</span>)</div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text-muted);">
+            平行四边形法则：以a、b为邻边构成平行四边形，对角线为 a+b
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {ax: 3, ay: 2, bx: 1, by: 3};
+  var show = { sum: true, diff: false, para: true };
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  window.toggleShow = function(key) {
+    show[key] = !show[key];
+    document.getElementById('btnShow' + key.charAt(0).toUpperCase() + key.slice(1)).classList.toggle('active');
+    draw();
+  };
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function mag(x, y) { return Math.sqrt(x * x + y * y); }
+
+  function angleDeg(ax, ay, bx, by) {
+    var dot = ax * bx + ay * by;
+    var ma = mag(ax, ay), mb = mag(bx, by);
+    if (ma < 0.001 || mb < 0.001) return 0;
+    var cosA = Math.max(-1, Math.min(1, dot / (ma * mb)));
+    return Math.acos(cosA) * 180 / Math.PI;
+  }
+
+  function drawArrow(fromX, fromY, toX, toY, color, lineWidth, label) {
+    var dx = toX - fromX;
+    var dy = toY - fromY;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.01) return;
+
+    /* 箭身 */
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth || 2.5;
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+
+    /* 箭头 */
+    var headLen = Math.min(12, len * 0.3);
+    var angle = Math.atan2(dy, dx);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headLen * Math.cos(angle - 0.35), toY - headLen * Math.sin(angle - 0.35));
+    ctx.lineTo(toX - headLen * Math.cos(angle + 0.35), toY - headLen * Math.sin(angle + 0.35));
+    ctx.closePath();
+    ctx.fill();
+
+    /* 标签 */
+    if (label) {
+      var midX = (fromX + toX) / 2;
+      var midY = (fromY + toY) / 2;
+      var perpX = -dy / len * 14;
+      var perpY = dx / len * 14;
+      ctx.fillStyle = color;
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, midX + perpX, midY + perpY);
+    }
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -7, xMax = 7, yMin = -6, yMax = 6;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    /* 网格线 */
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    /* 坐标轴 */
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    /* 坐标轴标签 */
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 16);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    /* 原点 */
+    var ox = tx(0), oy = ty(0);
+
+    /* 向量 a */
+    var aEndX = tx(CFG.ax), aEndY = ty(CFG.ay);
+    drawArrow(ox, oy, aEndX, aEndY, '#00d4ff', 2.5, 'a');
+
+    /* 向量 b */
+    var bEndX = tx(CFG.bx), bEndY = ty(CFG.by);
+    drawArrow(ox, oy, bEndX, bEndY, '#ff6666', 2.5, 'b');
+
+    var sx = CFG.ax + CFG.bx;
+    var sy = CFG.ay + CFG.by;
+    var dx = CFG.ax - CFG.bx;
+    var dy = CFG.ay - CFG.by;
+
+    /* 平行四边形 */
+    if (show.para) {
+      ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      /* a 的末端到 a+b */
+      ctx.beginPath(); ctx.moveTo(aEndX, aEndY); ctx.lineTo(tx(sx), ty(sy)); ctx.stroke();
+      /* b 的末端到 a+b */
+      ctx.beginPath(); ctx.moveTo(bEndX, bEndY); ctx.lineTo(tx(sx), ty(sy)); ctx.stroke();
+      ctx.setLineDash([]);
+
+      /* 平行四边形填充 */
+      ctx.fillStyle = '#ffffff06';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(aEndX, aEndY);
+      ctx.lineTo(tx(sx), ty(sy));
+      ctx.lineTo(bEndX, bEndY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    /* 合成向量 c = a+b */
+    if (show.sum) {
+      drawArrow(ox, oy, tx(sx), ty(sy), '#00ff88', 3, 'a+b');
+    }
+
+    /* 差向量 d = a-b */
+    if (show.diff) {
+      drawArrow(ox, oy, tx(dx), ty(dy), '#ffd93d', 2.5, 'a-b');
+    }
+
+    /* 夹角弧 */
+    var angleA = Math.atan2(CFG.ay, CFG.ax);
+    var angleB = Math.atan2(CFG.by, CFG.bx);
+    var angleDiff = Math.abs(angleA - angleB);
+    if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+    if (angleDiff > 0.01 && mag(CFG.ax, CFG.ay) > 0.1 && mag(CFG.bx, CFG.by) > 0.1) {
+      var arcR = 30;
+      var startA = Math.min(angleA, angleB);
+      var endA = Math.max(angleA, angleB);
+      if (endA - startA > Math.PI) {
+        var tmp = startA; startA = endA; endA = tmp + 2 * Math.PI;
+      }
+      ctx.strokeStyle = '#aa66cc88'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(ox, oy, arcR, -startA, -endA, true);
+      ctx.stroke();
+      /* 角度标注 */
+      var midAngle = (startA + endA) / 2;
+      var labelR = arcR + 14;
+      ctx.fillStyle = '#aa66cc'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(angleDeg(CFG.ax, CFG.ay, CFG.bx, CFG.by).toFixed(1) + '°',
+        ox - labelR * Math.cos(midAngle), oy - labelR * Math.sin(midAngle) + 4);
+    }
+
+    /* 图例 */
+    ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#00d4ff'; ctx.fillText('a = (' + CFG.ax.toFixed(1) + ', ' + CFG.ay.toFixed(1) + ')', pad + 5, pad + 16);
+    ctx.fillStyle = '#ff6666'; ctx.fillText('b = (' + CFG.bx.toFixed(1) + ', ' + CFG.by.toFixed(1) + ')', pad + 5, pad + 30);
+    if (show.sum) { ctx.fillStyle = '#00ff88'; ctx.fillText('a+b = (' + sx.toFixed(1) + ', ' + sy.toFixed(1) + ')', pad + 5, pad + 44); }
+    if (show.diff) { ctx.fillStyle = '#ffd93d'; ctx.fillText('a-b = (' + dx.toFixed(1) + ', ' + dy.toFixed(1) + ')', pad + 5, pad + (show.sum ? 58 : 44)); }
+
+    /* 更新侧边栏 */
+    var ma = mag(CFG.ax, CFG.ay);
+    var mb = mag(CFG.bx, CFG.by);
+    document.getElementById('dataMagA').textContent = ma.toFixed(2);
+    document.getElementById('dataMagB').textContent = mb.toFixed(2);
+    document.getElementById('dataMagSum').textContent = mag(sx, sy).toFixed(2);
+    document.getElementById('dataMagDiff').textContent = mag(dx, dy).toFixed(2);
+    document.getElementById('dataAngle').textContent = angleDeg(CFG.ax, CFG.ay, CFG.bx, CFG.by).toFixed(1) + '°';
+    document.getElementById('dataDot').textContent = (CFG.ax * CFG.bx + CFG.ay * CFG.by).toFixed(2);
+
+    document.getElementById('fmAx').textContent = CFG.ax.toFixed(1);
+    document.getElementById('fmAy').textContent = CFG.ay.toFixed(1);
+    document.getElementById('fmBx').textContent = CFG.bx.toFixed(1);
+    document.getElementById('fmBy').textContent = CFG.by.toFixed(1);
+    document.getElementById('fmSx').textContent = sx.toFixed(1);
+    document.getElementById('fmSy').textContent = sy.toFixed(1);
+    document.getElementById('fmDx').textContent = dx.toFixed(1);
+    document.getElementById('fmDy').textContent = dy.toFixed(1);
+  }
+
+  ['Ax', 'Ay', 'Bx', 'By'].forEach(function(key) {
+    var low = key.toLowerCase();
+    document.getElementById('slider' + key).addEventListener('input', function() {
+      CFG[low] = parseFloat(this.value);
+      document.getElementById('val' + key).textContent = CFG[low].toFixed(1);
+      draw();
+    });
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
+{% endblock %}

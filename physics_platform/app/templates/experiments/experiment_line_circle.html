@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}直线与圆的位置关系 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .status-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;margin-top:4px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">📐 直线与圆的位置关系</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Line & Circle — 距离d与半径r的比较决定相交/相切/相离</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">直线斜率 k</span><span class="exp-slider-value" id="valK">1.0</span></div>
+          <input type="range" id="sliderK" min="-5" max="5" step="0.1" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">直线截距 b</span><span class="exp-slider-value" id="valB">0.0</span></div>
+          <input type="range" id="sliderB" min="-5" max="5" step="0.1" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">圆半径 r</span><span class="exp-slider-value" id="valR">3.0</span></div>
+          <input type="range" id="sliderR" min="1" max="5" step="0.1" value="3">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 位置关系</h3>
+        <div style="text-align:center;margin:6px 0;">
+          <span id="statusBadge" class="status-badge" style="background:#44bb8833;color:#44bb88;">相交</span>
+        </div>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">圆心到直线距离 d</div><div class="value c-cyan" id="dataD">0.00</div></div>
+          <div class="exp-data-item"><div class="label">半径 r</div><div class="value c-green" id="dataR">3.00</div></div>
+          <div class="exp-data-item"><div class="label">交点数</div><div class="value c-amber" id="dataPts">2</div></div>
+          <div class="exp-data-item"><div class="label">比较</div><div class="value c-accent" id="dataCmp">d &lt; r</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 方程</h3>
+        <div class="exp-formula-box">
+          <div>直线: y = <span class="result" id="fmK">1.0</span>x + <span class="result" id="fmB">0.0</span></div>
+          <div>圆: x² + y² = <span class="result" id="fmR2">9.00</span></div>
+          <div>距离: d = |b| / √(k²+1) = <span class="result" id="fmD">0.00</span></div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text-muted);">
+            • d &lt; r → 相交（2个交点）<br>
+            • d = r → 相切（1个切点）<br>
+            • d &gt; r → 相离（无交点）
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* 圆心固定在原点 */
+  var CFG = {k: 1, b: 0, r: 3};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  /* 圆心(0,0)到直线 kx - y + b = 0 的距离 */
+  function distToLine() {
+    return Math.abs(CFG.b) / Math.sqrt(CFG.k * CFG.k + 1);
+  }
+
+  /* 求交点 */
+  function getIntersections() {
+    var d = distToLine();
+    if (d > CFG.r + 0.001) return [];
+    if (Math.abs(d - CFG.r) < 0.01) {
+      /* 相切：唯一交点 */
+      /* 直线: y=kx+b, 圆: x²+y²=r² */
+      /* 代入: x²+(kx+b)²=r² => (1+k²)x²+2kbx+b²-r²=0 */
+      var A = 1 + CFG.k * CFG.k;
+      var B = 2 * CFG.k * CFG.b;
+      var C = CFG.b * CFG.b - CFG.r * CFG.r;
+      var x = -B / (2 * A);
+      var y = CFG.k * x + CFG.b;
+      return [{x: x, y: y}];
+    }
+    /* 相交：两个交点 */
+    var A = 1 + CFG.k * CFG.k;
+    var B = 2 * CFG.k * CFG.b;
+    var C = CFG.b * CFG.b - CFG.r * CFG.r;
+    var disc = B * B - 4 * A * C;
+    if (disc < 0) return [];
+    var sqrtDisc = Math.sqrt(disc);
+    var x1 = (-B + sqrtDisc) / (2 * A);
+    var x2 = (-B - sqrtDisc) / (2 * A);
+    return [
+      {x: x1, y: CFG.k * x1 + CFG.b},
+      {x: x2, y: CFG.k * x2 + CFG.b}
+    ];
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -8, xMax = 8, yMin = -6, yMax = 6;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    /* 网格线 */
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    /* 坐标轴 */
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    /* 坐标轴标签 */
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 16);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    /* 圆 */
+    ctx.strokeStyle = '#44bb88'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (var deg = 0; deg <= 360; deg++) {
+      var rad = deg * Math.PI / 180;
+      var cx2 = CFG.r * Math.cos(rad);
+      var cy2 = CFG.r * Math.sin(rad);
+      if (deg === 0) ctx.moveTo(tx(cx2), ty(cy2));
+      else ctx.lineTo(tx(cx2), ty(cy2));
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    /* 圆心 */
+    ctx.fillStyle = '#44bb88';
+    ctx.beginPath(); ctx.arc(tx(0), ty(0), 4, 0, Math.PI * 2); ctx.fill();
+
+    /* 直线（画贯穿整个画布） */
+    var d = distToLine();
+    var statusColor = d < CFG.r - 0.01 ? '#44bb88' : (Math.abs(d - CFG.r) < 0.01 ? '#ffd93d' : '#ff6666');
+    var statusText = d < CFG.r - 0.01 ? '相交' : (Math.abs(d - CFG.r) < 0.01 ? '相切' : '相离');
+    var statusBg = d < CFG.r - 0.01 ? '#44bb8833' : (Math.abs(d - CFG.r) < 0.01 ? '#ffd93d33' : '#ff666633');
+
+    ctx.strokeStyle = statusColor; ctx.lineWidth = 2;
+    /* 直线 y = kx + b, 画 x 从 xMin 到 xMax */
+    var ly1 = CFG.k * xMin + CFG.b;
+    var ly2 = CFG.k * xMax + CFG.b;
+    ctx.beginPath(); ctx.moveTo(tx(xMin), ty(ly1)); ctx.lineTo(tx(xMax), ty(ly2)); ctx.stroke();
+
+    /* 原点到直线的垂线（距离 d） */
+    /* 垂足坐标：直线 kx-y+b=0, 原点到直线的垂足为 (-kb/(k²+1), b/(k²+1)) */
+    var footX = -CFG.k * CFG.b / (CFG.k * CFG.k + 1);
+    var footY = CFG.b / (CFG.k * CFG.k + 1);
+    ctx.strokeStyle = '#00d4ff66'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(tx(0), ty(0)); ctx.lineTo(tx(footX), ty(footY)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* 标注距离 d */
+    var midDx = tx(footX / 2), midDy = ty(footY / 2);
+    ctx.fillStyle = '#00d4ff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('d=' + d.toFixed(2), midDx + 12, midDy - 6);
+
+    /* 垂足标记 */
+    ctx.fillStyle = '#00d4ff';
+    ctx.beginPath(); ctx.arc(tx(footX), ty(footY), 4, 0, Math.PI * 2); ctx.fill();
+
+    /* 交点 */
+    var pts = getIntersections();
+    for (var p = 0; p < pts.length; p++) {
+      var ptx2 = tx(pts[p].x), pty2 = ty(pts[p].y);
+      var glow = ctx.createRadialGradient(ptx2, pty2, 0, ptx2, pty2, 10);
+      glow.addColorStop(0, '#ffd93d66');
+      glow.addColorStop(1, '#ffd93d00');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(ptx2, pty2, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd93d';
+      ctx.beginPath(); ctx.arc(ptx2, pty2, 4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    /* 状态标注（画布上） */
+    ctx.fillStyle = statusColor; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('d = ' + d.toFixed(2) + (d < CFG.r - 0.01 ? ' < ' : (Math.abs(d - CFG.r) < 0.01 ? ' = ' : ' > ')) + 'r = ' + CFG.r.toFixed(2), pad + 5, pad + 16);
+    ctx.fillText(statusText, pad + 5, pad + 34);
+
+    /* 更新侧边栏 */
+    document.getElementById('dataD').textContent = d.toFixed(2);
+    document.getElementById('dataR').textContent = CFG.r.toFixed(2);
+    document.getElementById('dataPts').textContent = pts.length;
+    var cmpStr = d < CFG.r - 0.01 ? 'd < r' : (Math.abs(d - CFG.r) < 0.01 ? 'd = r' : 'd > r');
+    document.getElementById('dataCmp').textContent = cmpStr;
+    document.getElementById('statusBadge').textContent = statusText;
+    document.getElementById('statusBadge').style.background = statusBg;
+    document.getElementById('statusBadge').style.color = statusColor;
+    document.getElementById('fmK').textContent = CFG.k.toFixed(1);
+    document.getElementById('fmB').textContent = CFG.b.toFixed(1);
+    document.getElementById('fmR2').textContent = (CFG.r * CFG.r).toFixed(2);
+    document.getElementById('fmD').textContent = d.toFixed(2);
+  }
+
+  document.getElementById('sliderK').addEventListener('input', function() {
+    CFG.k = parseFloat(this.value);
+    document.getElementById('valK').textContent = CFG.k.toFixed(1);
+    draw();
+  });
+  document.getElementById('sliderB').addEventListener('input', function() {
+    CFG.b = parseFloat(this.value);
+    document.getElementById('valB').textContent = CFG.b.toFixed(1);
+    draw();
+  });
+  document.getElementById('sliderR').addEventListener('input', function() {
+    CFG.r = parseFloat(this.value);
+    document.getElementById('valR').textContent = CFG.r.toFixed(1);
+    draw();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
+{% endblock %}

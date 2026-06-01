@@ -1,0 +1,798 @@
+{% extends "base.html" %}
+{% block title %}光的折射 斯涅尔定律 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-preset-btns{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-preset-btn{padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-preset-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-theta1{color:#ffd93d}.c-theta2{color:#4ecdc4}.c-n1{color:#ff6b6b}.c-n2{color:#ce93d8}.c-accent{color:var(--accent,#e94560)}.c-tir{color:#ff4444}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-tir-warning{border-radius:6px;padding:8px 10px;margin-top:6px;text-align:center;font-size:13px;font-weight:700}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#4ecdc4;">💎 光的折射 — 斯涅尔定律</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Snell's Law — n₁sinθ₁ = n₂sinθ₂</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">θ₁ vs θ₂</span><canvas id="chartThetas"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">sinθ₁ vs sinθ₂</span><canvas id="chartSins"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">反射系数 R</span><canvas id="chartReflect"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">入射角 θ₁</span><span class="exp-slider-value" id="valTheta1">30°</span></div>
+          <input type="range" id="sliderTheta1" min="0" max="89" step="0.5" value="30">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">介质1 n₁</span><span class="exp-slider-value" id="valN1">1.00</span></div>
+          <input type="range" id="sliderN1" min="1.0" max="2.5" step="0.01" value="1.0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">介质2 n₂</span><span class="exp-slider-value" id="valN2">1.50</span></div>
+          <input type="range" id="sliderN2" min="1.0" max="2.5" step="0.01" value="1.5">
+        </div>
+        <div style="margin-top:6px;">
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">快速预设:</div>
+          <div class="exp-preset-btns">
+            <button class="exp-preset-btn" onclick="setPreset(1.0,1.33)">空气→水</button>
+            <button class="exp-preset-btn" onclick="setPreset(1.0,1.5)">空气→玻璃</button>
+            <button class="exp-preset-btn" onclick="setPreset(1.0,2.42)">空气→钻石</button>
+            <button class="exp-preset-btn" onclick="setPreset(1.33,1.0)">水→空气</button>
+            <button class="exp-preset-btn" onclick="setPreset(1.5,1.0)">玻璃→空气</button>
+            <button class="exp-preset-btn" onclick="setPreset(1.33,1.5)">水→玻璃</button>
+          </div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">入射角 θ₁</div><div class="value c-theta1" id="dataT1">30.0 <span class="unit">°</span></div></div>
+          <div class="exp-data-item"><div class="label">折射角 θ₂</div><div class="value c-theta2" id="dataT2">19.5 <span class="unit">°</span></div></div>
+          <div class="exp-data-item"><div class="label">n₁</div><div class="value c-n1" id="dataN1">1.00</div></div>
+          <div class="exp-data-item"><div class="label">n₂</div><div class="value c-n2" id="dataN2">1.50</div></div>
+          <div class="exp-data-item"><div class="label">sinθ₁</div><div class="value c-theta1" id="dataST1">0.500</div></div>
+          <div class="exp-data-item"><div class="label">sinθ₂</div><div class="value c-theta2" id="dataST2">0.333</div></div>
+          <div class="exp-data-item"><div class="label">反射率 R</div><div class="value c-accent" id="dataR">0.04 <span class="unit">%</span></div></div>
+          <div class="exp-data-item"><div class="label">临界角 C</div><div class="value" id="dataC" style="color:#ce93d8">— <span class="unit">°</span></div></div>
+        </div>
+        <div class="exp-tir-warning" id="tirBox" style="background:rgba(0,212,255,0.15);color:var(--cyan);">正常折射</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>n₁ sinθ₁ = <span class="formula" id="fmNST1">0.500</span></div>
+          <div>n₂ sinθ₂ = <span class="formula" id="fmNST2">0.500</span></div>
+          <div style="margin-top:4px;">sinC = n₂/n₁ = <span class="formula" id="fmSinC">1.500</span></div>
+          <div>临界角 C = <span class="result" id="fmC">—</span>°</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var DEG = Math.PI / 180;
+  var CFG = { theta1: 30 * DEG, n1: 1.0, n2: 1.5, timeScale: 1 };
+  var S = { t: 0, playing: false, thetaCurrent: 30 * DEG };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  /* ====== 计算折射 ====== */
+  function calcRefraction(theta1, n1, n2) {
+    var sinT2 = n1 * Math.sin(theta1) / n2;
+    if (Math.abs(sinT2) > 1) {
+      return { theta2: null, tir: true, criticalAngle: Math.asin(Math.min(n2 / n1, 1)) };
+    }
+    return { theta2: Math.asin(sinT2), tir: false, criticalAngle: (n1 > n2) ? Math.asin(n2 / n1) : null };
+  }
+
+  /* ====== 计算反射率 (垂直入射菲涅尔近似) ====== */
+  function calcReflectance(theta1, n1, n2) {
+    var sinT1 = Math.sin(theta1);
+    var cosT1 = Math.cos(theta1);
+    var sinT2;
+    var tir = false;
+    if (n1 > n2) {
+      var sinC = n2 / n1;
+      if (sinT1 >= sinC) { tir = true; return 1.0; }
+    }
+    sinT2 = n1 * sinT1 / n2;
+    var cosT2 = Math.sqrt(1 - sinT2 * sinT2);
+    var rs = ((n1 * cosT1 - n2 * cosT2) / (n1 * cosT1 + n2 * cosT2)) ** 2;
+    var rp = ((n2 * cosT1 - n1 * cosT2) / (n2 * cosT1 + n1 * cosT2)) ** 2;
+    return (rs + rp) / 2;
+  }
+
+  /* ====== Canvas 尺寸自适应 ====== */
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  /* ====== 绘制主场景 ====== */
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var cx = W / 2, cy = H / 2;
+    var theta1 = S.thetaCurrent;
+    var n1 = CFG.n1;
+    var n2 = CFG.n2;
+    var result = calcRefraction(theta1, n1, n2);
+
+    // 介质区域
+    // 介质1 (上半部分, 浅色)
+    ctx.fillStyle = 'rgba(30, 60, 100, 0.25)';
+    ctx.fillRect(0, 0, W, cy);
+    // 介质2 (下半部分, 深色)
+    ctx.fillStyle = 'rgba(60, 30, 80, 0.25)';
+    ctx.fillRect(0, cy, W, H - cy);
+
+    // 界面线 (水平线)
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, cy);
+    ctx.lineTo(W, cy);
+    ctx.stroke();
+
+    // 界面标签
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('n₁ = ' + n1.toFixed(2), W - 12, cy - 12);
+    ctx.fillText('n₂ = ' + n2.toFixed(2), W - 12, cy + 24);
+
+    // 法线 (虚线, 垂直于界面)
+    ctx.strokeStyle = '#666688';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - H * 0.45);
+    ctx.lineTo(cx, cy + H * 0.45);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#666688';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('法线', cx + 14, cy - H * 0.42);
+
+    var rayLen = Math.min(W, H) * 0.35;
+
+    // 入射光线 (从左上方射入)
+    var incX = cx - rayLen * Math.sin(theta1);
+    var incY = cy - rayLen * Math.cos(theta1);
+    drawRayLine(ctx, incX, incY, cx, cy, '#ffd93d', 3, '入射光');
+
+    // 角度弧 θ₁
+    drawAngleArc(ctx, cx, cy, 40, -Math.PI / 2, -Math.PI / 2 + theta1, '#ffd93d', 'θ₁');
+
+    if (result.tir) {
+      // ====== 全反射 ======
+      var reflAngle = theta1; // 反射角 = 入射角
+      var reflX = cx + rayLen * Math.sin(reflAngle);
+      var reflY = cy - rayLen * Math.cos(reflAngle);
+      drawRayLine(ctx, cx, cy, reflX, reflY, '#ff4444', 3, '反射光');
+
+      // 全反射闪烁效果
+      ctx.fillStyle = 'rgba(255,68,68,0.15)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 标注
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('⚠ 全反射!', cx, cy + H * 0.35);
+      ctx.font = '12px sans-serif';
+      ctx.fillText('入射角 ≥ 临界角', cx, cy + H * 0.35 + 20);
+
+      // 画微弱的折射光线 (消失的暗示)
+      ctx.globalAlpha = 0.15;
+      var refX = cx + rayLen * 0.5 * Math.sin(0);
+      var refY = cy + rayLen * 0.5 * Math.cos(0);
+      drawRayLine(ctx, cx, cy, refX, refY, '#4ecdc4', 2, '');
+      ctx.globalAlpha = 1;
+    } else {
+      // ====== 正常折射 ======
+      var theta2 = result.theta2;
+
+      // 折射光线 (进入介质2)
+      var refX = cx + rayLen * Math.sin(theta2);
+      var refY = cy + rayLen * Math.cos(theta2);
+      drawRayLine(ctx, cx, cy, refX, refY, '#4ecdc4', 3, '折射光');
+
+      // 角度弧 θ₂
+      drawAngleArc(ctx, cx, cy, 40, Math.PI / 2 - theta2, Math.PI / 2, '#4ecdc4', 'θ₂');
+
+      // 反射光线 (微弱)
+      var reflAngle = theta1;
+      var reflX = cx + rayLen * Math.sin(reflAngle);
+      var reflY = cy - rayLen * Math.cos(reflAngle);
+      ctx.globalAlpha = 0.25;
+      drawRayLine(ctx, cx, cy, reflX, reflY, '#ce93d8', 1.5, '');
+      ctx.globalAlpha = 1;
+    }
+
+    // 光源动画点
+    var animPhase = (S.t * 2) % 1;
+    var dotX = incX + (cx - incX) * animPhase;
+    var dotY = incY + (cy - incY) * animPhase;
+    var dotGlow = ctx.createRadialGradient(dotX, dotY, 0, dotX, dotY, 8);
+    dotGlow.addColorStop(0, 'rgba(255,217,61,0.8)');
+    dotGlow.addColorStop(1, 'rgba(255,217,61,0)');
+    ctx.fillStyle = dotGlow;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* ====== 绘制光线 ====== */
+  function drawRayLine(ctx, x1, y1, x2, y2, color, width, label) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // 箭头
+    var dx = x2 - x1, dy = y2 - y1;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 10) return;
+    var ux = dx / len, uy = dy / len;
+    var mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    var headLen = 8;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(mx + headLen * ux, my + headLen * uy);
+    ctx.lineTo(mx - headLen * ux + headLen * 0.5 * uy, my - headLen * uy - headLen * 0.5 * ux);
+    ctx.lineTo(mx - headLen * ux - headLen * 0.5 * uy, my - headLen * uy + headLen * 0.5 * ux);
+    ctx.closePath();
+    ctx.fill();
+
+    if (label) {
+      ctx.fillStyle = color;
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, mx + 10 * uy, my - 10 * ux);
+    }
+  }
+
+  /* ====== 绘制角度弧 ====== */
+  function drawAngleArc(ctx, cx, cy, r, startAngle, endAngle, color, label) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, endAngle, false);
+    ctx.stroke();
+
+    // 角度标注
+    var midAngle = (startAngle + endAngle) / 2;
+    var labelR = r + 14;
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx + labelR * Math.cos(midAngle), cy + labelR * Math.sin(midAngle));
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  /* ====== 更新数据面板 ====== */
+  function updateData() {
+    var theta1 = S.thetaCurrent;
+    var n1 = CFG.n1;
+    var n2 = CFG.n2;
+    var result = calcRefraction(theta1, n1, n2);
+    var R = calcReflectance(theta1, n1, n2);
+    var sinT1 = Math.sin(theta1);
+    var sinT2 = result.tir ? null : Math.sin(result.theta2);
+
+    var theta1Deg = theta1 / DEG;
+    var theta2Deg = result.tir ? null : result.theta2 / DEG;
+    var criticalDeg = result.criticalAngle ? result.criticalAngle / DEG : null;
+
+    document.getElementById('dataT1').innerHTML = theta1Deg.toFixed(1) + ' <span class="unit">°</span>';
+    document.getElementById('dataT2').innerHTML = result.tir ? '全反射' : theta2Deg.toFixed(1) + ' <span class="unit">°</span>';
+    document.getElementById('dataN1').textContent = n1.toFixed(2);
+    document.getElementById('dataN2').textContent = n2.toFixed(2);
+    document.getElementById('dataST1').textContent = sinT1.toFixed(3);
+    document.getElementById('dataST2').textContent = result.tir ? '—' : sinT2.toFixed(3);
+    document.getElementById('dataR').innerHTML = (R * 100).toFixed(1) + ' <span class="unit">%</span>';
+    document.getElementById('dataC').innerHTML = criticalDeg ? criticalDeg.toFixed(1) + ' <span class="unit">°</span>' : '— <span class="unit">°</span>';
+
+    var tirBox = document.getElementById('tirBox');
+    if (result.tir) {
+      tirBox.textContent = '⚠ 全反射! θ₁ ≥ 临界角';
+      tirBox.style.background = 'rgba(255,68,68,0.15)';
+      tirBox.style.color = '#ff4444';
+    } else if (n1 > n2 && theta1Deg > criticalDeg * 0.9) {
+      tirBox.textContent = '⚠ 接近临界角!';
+      tirBox.style.background = 'rgba(255,170,68,0.15)';
+      tirBox.style.color = '#ffaa44';
+    } else {
+      tirBox.textContent = '正常折射';
+      tirBox.style.background = 'rgba(0,212,255,0.15)';
+      tirBox.style.color = 'var(--cyan)';
+    }
+
+    document.getElementById('fmNST1').textContent = (n1 * sinT1).toFixed(4);
+    document.getElementById('fmNST2').textContent = result.tir ? '—' : (n2 * sinT2).toFixed(4);
+    document.getElementById('fmSinC').textContent = criticalDeg ? (n2 / n1).toFixed(4) : '—';
+    document.getElementById('fmC').textContent = criticalDeg ? criticalDeg.toFixed(1) : '—';
+  }
+
+  /* ====== 图表: θ₁ vs θ₂ ====== */
+  function drawChartThetas(canvasId) {
+    var c = document.getElementById(canvasId);
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l: 40, r: 10, t: 24, b: 28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var n1 = CFG.n1, n2 = CFG.n2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 刻度
+    cx.fillStyle = '#666688';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    for (var d = 0; d <= 90; d += 15) {
+      var xx = pad.l + (d / 90) * pw;
+      cx.fillText(d + '°', xx, pad.t + ph + 14);
+    }
+    cx.textAlign = 'right';
+    for (var d = 0; d <= 90; d += 15) {
+      var yy = pad.t + ph - (d / 90) * ph;
+      cx.fillText(d + '°', pad.l - 4, yy + 3);
+    }
+
+    // 曲线: θ₂ vs θ₁
+    cx.strokeStyle = '#4ecdc4';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    var started = false;
+    for (var i = 0; i <= 180; i++) {
+      var t1 = (i / 180) * 90 * DEG;
+      var st2 = n1 * Math.sin(t1) / n2;
+      if (Math.abs(st2) > 1) break;
+      var t2 = Math.asin(st2) / DEG;
+      var px = pad.l + (t1 / DEG / 90) * pw;
+      var py = pad.t + ph - (t2 / 90) * ph;
+      if (!started) { cx.moveTo(px, py); started = true; } else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 45°参考线 (θ₂ = θ₁)
+    cx.strokeStyle = '#444466';
+    cx.lineWidth = 1;
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t);
+    cx.stroke();
+    cx.setLineDash([]);
+
+    // 当前点
+    var curResult = calcRefraction(S.thetaCurrent, n1, n2);
+    if (!curResult.tir) {
+      var curX = pad.l + (S.thetaCurrent / DEG / 90) * pw;
+      var curY = pad.t + ph - (curResult.theta2 / DEG / 90) * ph;
+      cx.fillStyle = '#ff6b6b';
+      cx.beginPath();
+      cx.arc(curX, curY, 4, 0, Math.PI * 2);
+      cx.fill();
+    }
+
+    // 临界角标记
+    if (n1 > n2) {
+      var critDeg = Math.asin(n2 / n1) / DEG;
+      if (critDeg < 90) {
+        var critX = pad.l + (critDeg / 90) * pw;
+        cx.strokeStyle = '#ff444488';
+        cx.lineWidth = 1;
+        cx.setLineDash([4, 3]);
+        cx.beginPath();
+        cx.moveTo(critX, pad.t);
+        cx.lineTo(critX, pad.t + ph);
+        cx.stroke();
+        cx.setLineDash([]);
+        cx.fillStyle = '#ff4444';
+        cx.font = '9px sans-serif';
+        cx.textAlign = 'center';
+        cx.fillText('C=' + critDeg.toFixed(0) + '°', critX, pad.t + 10);
+      }
+    }
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('θ₁ (°)', pad.l + pw / 2, pad.t + ph + 25);
+  }
+
+  /* ====== 图表: sinθ₁ vs sinθ₂ ====== */
+  function drawChartSins(canvasId) {
+    var c = document.getElementById(canvasId);
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l: 40, r: 10, t: 24, b: 28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var n1 = CFG.n1, n2 = CFG.n2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 刻度 0~1
+    cx.fillStyle = '#666688';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    for (var s = 0; s <= 1; s += 0.2) {
+      var xx = pad.l + s * pw;
+      cx.fillText(s.toFixed(1), xx, pad.t + ph + 14);
+    }
+    cx.textAlign = 'right';
+    for (var s = 0; s <= 1; s += 0.2) {
+      var yy = pad.t + ph - s * ph;
+      cx.fillText(s.toFixed(1), pad.l - 4, yy + 3);
+    }
+
+    // sinθ₁ vs sinθ₂ 曲线: sinθ₂ = (n1/n2) * sinθ₁
+    var ratio = n1 / n2;
+    cx.strokeStyle = '#ce93d8';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    var maxSin = Math.min(1, n2 / n1);
+    for (var i = 0; i <= 100; i++) {
+      var s1 = (i / 100) * maxSin;
+      var s2 = ratio * s1;
+      var px = pad.l + s1 * pw;
+      var py = pad.t + ph - s2 * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 参考线 sinθ₂ = sinθ₁
+    cx.strokeStyle = '#444466';
+    cx.lineWidth = 1;
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + Math.min(1, n2 / n1) * pw, pad.t + ph - Math.min(1, n2 / n1) * ph);
+    cx.stroke();
+    cx.setLineDash([]);
+
+    // 斜率标注
+    cx.fillStyle = '#ce93d8';
+    cx.font = '10px sans-serif';
+    cx.textAlign = 'left';
+    cx.fillText('斜率 = n₁/n₂ = ' + ratio.toFixed(3), pad.l + 5, pad.t + 14);
+
+    // 当前点
+    var sinT1 = Math.sin(S.thetaCurrent);
+    var result = calcRefraction(S.thetaCurrent, n1, n2);
+    if (!result.tir) {
+      var sinT2 = Math.sin(result.theta2);
+      var curX = pad.l + sinT1 * pw;
+      var curY = pad.t + ph - sinT2 * ph;
+      cx.fillStyle = '#ff6b6b';
+      cx.beginPath();
+      cx.arc(curX, curY, 4, 0, Math.PI * 2);
+      cx.fill();
+    }
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('sinθ₁', pad.l + pw / 2, pad.t + ph + 25);
+  }
+
+  /* ====== 图表: 反射系数 ====== */
+  function drawChartReflect(canvasId) {
+    var c = document.getElementById(canvasId);
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l: 40, r: 10, t: 24, b: 28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var n1 = CFG.n1, n2 = CFG.n2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 刻度
+    cx.fillStyle = '#666688';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    for (var d = 0; d <= 90; d += 15) {
+      var xx = pad.l + (d / 90) * pw;
+      cx.fillText(d + '°', xx, pad.t + ph + 14);
+    }
+    cx.textAlign = 'right';
+    for (var r = 0; r <= 1; r += 0.25) {
+      var yy = pad.t + ph - r * ph;
+      cx.fillText((r * 100).toFixed(0) + '%', pad.l - 4, yy + 3);
+    }
+
+    // 反射率曲线
+    cx.strokeStyle = '#e94560';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 180; i++) {
+      var t1 = (i / 180) * 90 * DEG;
+      var R = calcReflectance(t1, n1, n2);
+      var px = pad.l + (i / 180) * pw;
+      var py = pad.t + ph - R * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 临界角标记 (只有 n1 > n2 时有全反射)
+    if (n1 > n2) {
+      var critDeg = Math.asin(n2 / n1) / DEG;
+      if (critDeg < 90) {
+        var critX = pad.l + (critDeg / 90) * pw;
+        cx.strokeStyle = '#ff444488';
+        cx.lineWidth = 1;
+        cx.setLineDash([4, 3]);
+        cx.beginPath();
+        cx.moveTo(critX, pad.t);
+        cx.lineTo(critX, pad.t + ph);
+        cx.stroke();
+        cx.setLineDash([]);
+        cx.fillStyle = '#ff4444';
+        cx.font = '9px sans-serif';
+        cx.textAlign = 'center';
+        cx.fillText('C', critX, pad.t + 10);
+      }
+    }
+
+    // 当前点
+    var curR = calcReflectance(S.thetaCurrent, n1, n2);
+    var curX = pad.l + (S.thetaCurrent / DEG / 90) * pw;
+    var curY = pad.t + ph - curR * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('θ₁ (°)', pad.l + pw / 2, pad.t + ph + 25);
+  }
+
+  /* ====== 动画循环 ====== */
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+
+    S.t += dt * CFG.timeScale;
+    // 入射角从 0 慢慢增大
+    S.thetaCurrent += dt * CFG.timeScale * 0.4 * DEG;
+    if (S.thetaCurrent > 89 * DEG) S.thetaCurrent = 0;
+
+    document.getElementById('sliderTheta1').value = S.thetaCurrent / DEG;
+    document.getElementById('valTheta1').textContent = (S.thetaCurrent / DEG).toFixed(1) + '°';
+
+    draw();
+    updateData();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  /* ====== 重置 ====== */
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    S.thetaCurrent = CFG.theta1;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+  }
+
+  /* ====== 快速预设 ====== */
+  window.setPreset = function(n1, n2) {
+    CFG.n1 = n1;
+    CFG.n2 = n2;
+    document.getElementById('sliderN1').value = n1;
+    document.getElementById('sliderN2').value = n2;
+    document.getElementById('valN1').textContent = n1.toFixed(2);
+    document.getElementById('valN2').textContent = n2.toFixed(2);
+    updateData();
+    draw();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+  };
+
+  /* ====== 事件绑定 ====== */
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) {
+      lastTime = 0;
+      animId = requestAnimationFrame(animate);
+    }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderTheta1').addEventListener('input', function() {
+    CFG.theta1 = parseFloat(this.value) * DEG;
+    S.thetaCurrent = CFG.theta1;
+    document.getElementById('valTheta1').textContent = parseFloat(this.value).toFixed(1) + '°';
+    updateData();
+    draw();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+  });
+
+  document.getElementById('sliderN1').addEventListener('input', function() {
+    CFG.n1 = parseFloat(this.value);
+    document.getElementById('valN1').textContent = CFG.n1.toFixed(2);
+    updateData();
+    draw();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+  });
+
+  document.getElementById('sliderN2').addEventListener('input', function() {
+    CFG.n2 = parseFloat(this.value);
+    document.getElementById('valN2').textContent = CFG.n2.toFixed(2);
+    updateData();
+    draw();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartThetas('chartThetas');
+    drawChartSins('chartSins');
+    drawChartReflect('chartReflect');
+  });
+
+  resize();
+  updateData();
+  drawChartThetas('chartThetas');
+  drawChartSins('chartSins');
+  drawChartReflect('chartReflect');
+})();
+</script>
+{% endblock %}

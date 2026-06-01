@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}对数函数交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">📐 对数函数 y = log_a(x)</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Logarithmic Function — 调节底数a，观察曲线变化与指数函数的对称关系</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">底数 a</span><span class="exp-slider-value" id="valA">2.0</span></div>
+          <input type="range" id="sliderA" min="0.1" max="10" step="0.1" value="2">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">注意：a 不能等于 1，当 a 经过 1 时会自动跳过</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 函数信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">底数 a</div><div class="value c-cyan" id="dataA">2.00</div></div>
+          <div class="exp-data-item"><div class="label">定义域</div><div class="value c-green" id="dataDomain">x &gt; 0</div></div>
+          <div class="exp-data-item"><div class="label">当前 x</div><div class="value c-accent" id="dataX">—</div></div>
+          <div class="exp-data-item"><div class="label">当前 y</div><div class="value c-amber" id="dataY">—</div></div>
+          <div class="exp-data-item"><div class="label">渐近线</div><div class="value c-purple">x = 0</div></div>
+          <div class="exp-data-item"><div class="label">过定点</div><div class="value c-green">(1, 0)</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y = log<sub><span class="result" id="fmA">2</span></sub>(x)</div>
+          <div>等价于 <span class="result" id="fmA2">2</span><sup>y</sup> = x</div>
+          <div>对称：y = log<sub>a</sub>(x) 与 y = a<sup>x</sup> 关于 y=x 对称</div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text-muted);">
+            • a &gt; 1：函数递增<br>
+            • 0 &lt; a &lt; 1：函数递减<br>
+            • 定义域：(0, +∞)<br>
+            • 值域：(-∞, +∞)
+          </div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>💡 提示</h3>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6;">
+          虚线为指数函数 y=aˣ 的图像，对数函数与之关于 y=x 对称。拖动滑块观察底数变化时两条曲线的联动关系。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {a: 2};
+  var mouseMath = null;
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  /* 避免 a=1 的退化情况：滑块经过1时自动跳到1.1 */
+  function clampA(val) {
+    if (Math.abs(val - 1) < 0.08) return val < 1 ? 0.95 : 1.05;
+    return Math.round(val * 10) / 10;
+  }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -6, xMax = 10, yMin = -6, yMax = 8;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // 网格线
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // 坐标轴
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // 坐标轴标签
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for (var k = Math.ceil(xMin); k <= Math.floor(xMax); k++) {
+      if (k === 0) continue;
+      ctx.fillText(k, tx(k), ty(0) + 16);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    // y=x 对称线
+    ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(tx(xMin), ty(xMin)); ctx.lineTo(tx(xMax), ty(xMax)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 垂直渐近线 x=0（虚线）
+    ctx.strokeStyle = '#ff666644'; ctx.lineWidth = 1; ctx.setLineDash([3, 5]);
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ff666688'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('x=0 渐近线', tx(0) + 4, pad + 14);
+
+    // 指数函数 y=a^x（虚线，作为对称参考）
+    ctx.strokeStyle = '#a78bfa88'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    var started = false;
+    for (var px = 0; px <= cw; px += 1) {
+      var xVal = xMin + (px / cw) * (xMax - xMin);
+      var yVal = Math.pow(CFG.a, xVal);
+      if (yVal < yMin - 2 || yVal > yMax + 2) { started = false; continue; }
+      if (!started) { ctx.moveTo(tx(xVal), ty(yVal)); started = true; }
+      else ctx.lineTo(tx(xVal), ty(yVal));
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#a78bfa88'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('y = aˣ (虚线)', tx(xMax) - 90, ty(Math.pow(CFG.a, Math.min(xMax, 3))) - 8);
+
+    // 对数函数 y=log_a(x)
+    ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    started = false;
+    for (var px2 = 0; px2 <= cw; px2 += 1) {
+      var xVal2 = xMin + (px2 / cw) * (xMax - xMin);
+      if (xVal2 <= 0.001) { started = false; continue; }
+      var yVal2 = Math.log(xVal2) / Math.log(CFG.a);
+      if (yVal2 < yMin - 2 || yVal2 > yMax + 2) { started = false; continue; }
+      if (!started) { ctx.moveTo(tx(xVal2), ty(yVal2)); started = true; }
+      else ctx.lineTo(tx(xVal2), ty(yVal2));
+    }
+    ctx.stroke();
+
+    // 过定点 (1, 0)
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(tx(1), ty(0), 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00ff88'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('(1, 0)', tx(1) + 8, ty(0) - 8);
+
+    // 鼠标悬停点
+    if (mouseMath && mouseMath.x > 0.001) {
+      var logY = Math.log(mouseMath.x) / Math.log(CFG.a);
+      if (logY > yMin - 2 && logY < yMax + 2) {
+        var dotX = tx(mouseMath.x), dotY = ty(logY);
+        // 发光效果
+        var glow = ctx.createRadialGradient(dotX, dotY, 0, dotX, dotY, 12);
+        glow.addColorStop(0, 'rgba(0,212,255,0.5)');
+        glow.addColorStop(1, 'rgba(0,212,255,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(dotX, dotY, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#00d4ff';
+        ctx.beginPath(); ctx.arc(dotX, dotY, 4, 0, Math.PI * 2); ctx.fill();
+        // 坐标标注
+        ctx.fillStyle = '#ffffffcc'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('(' + mouseMath.x.toFixed(1) + ', ' + logY.toFixed(2) + ')', dotX + 8, dotY - 8);
+        // 投影线
+        ctx.strokeStyle = '#00d4ff33'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+        ctx.beginPath(); ctx.moveTo(dotX, dotY); ctx.lineTo(dotX, ty(0)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(dotX, dotY); ctx.lineTo(tx(0), dotY); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // 图例
+    ctx.fillStyle = '#00d4ff'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('y = log_' + CFG.a.toFixed(1) + '(x)', pad + 5, pad + 16);
+    ctx.fillStyle = '#a78bfa88'; ctx.font = '11px sans-serif';
+    ctx.fillText('y = ' + CFG.a.toFixed(1) + 'ˣ (对称参考)', pad + 5, pad + 32);
+  }
+
+  function updateInfo() {
+    document.getElementById('dataA').textContent = CFG.a.toFixed(2);
+    document.getElementById('fmA').textContent = CFG.a.toFixed(1);
+    document.getElementById('fmA2').textContent = CFG.a.toFixed(1);
+    if (mouseMath && mouseMath.x > 0.001) {
+      var logY = Math.log(mouseMath.x) / Math.log(CFG.a);
+      document.getElementById('dataX').textContent = mouseMath.x.toFixed(2);
+      document.getElementById('dataY').textContent = logY.toFixed(3);
+    } else {
+      document.getElementById('dataX').textContent = '—';
+      document.getElementById('dataY').textContent = '—';
+    }
+  }
+
+  // 鼠标追踪
+  function getMouseMath(e) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var W = rect.width, H = rect.height;
+    var pad2 = 50, cw2 = W - 2 * pad2, ch2 = H - 2 * pad2;
+    var xMin2 = -6, xMax2 = 10, yMin2 = -6, yMax2 = 8;
+    return {
+      x: xMin2 + (mx - pad2) / cw2 * (xMax2 - xMin2),
+      y: yMin2 + (1 - (my - pad2) / ch2) * (yMax2 - yMin2)
+    };
+  }
+
+  canvas.addEventListener('mousemove', function(e) {
+    mouseMath = getMouseMath(e);
+    draw(); updateInfo();
+  });
+  canvas.addEventListener('mouseleave', function() {
+    mouseMath = null; draw(); updateInfo();
+  });
+
+  document.getElementById('sliderA').addEventListener('input', function() {
+    CFG.a = clampA(parseFloat(this.value));
+    document.getElementById('sliderA').value = CFG.a;
+    document.getElementById('valA').textContent = CFG.a.toFixed(1);
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}抛物线解析几何交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--amber);">📈 抛物线 y² = 2px</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Parabola — 焦点、准线与抛物线定义 |PF|=|到准线距离| 动态验证</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">焦参数 p</span><span class="exp-slider-value" id="valP">2.0</span></div>
+          <input type="range" id="sliderP" min="0.5" max="5" step="0.1" value="2">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">p 越大，抛物线开口越大<br>焦点到准线的距离 = p</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div style="display:flex;gap:6px;">
+          <button id="btnAnimate" style="flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent,#e94560);color:#fff;">▶ 自动扫描</button>
+          <button id="btnReset" style="flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--border);color:var(--text-primary);">↺ 重置</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 抛物线信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">焦参数 p</div><div class="value c-cyan" id="dataP">2.00</div></div>
+          <div class="exp-data-item"><div class="label">焦点 F</div><div class="value c-green" id="dataFocus">(1.0, 0)</div></div>
+          <div class="exp-data-item"><div class="label">准线</div><div class="value c-amber" id="dataDir">x = -1.0</div></div>
+          <div class="exp-data-item"><div class="label">顶点</div><div class="value c-purple">(0, 0)</div></div>
+          <div class="exp-data-item"><div class="label">|PF|</div><div class="value c-accent" id="dataPF">—</div></div>
+          <div class="exp-data-item"><div class="label">|到准线|</div><div class="value c-green" id="dataPD">—</div></div>
+          <div class="exp-data-item" style="grid-column:span 2"><div class="label">验证 |PF| = |到准线距离|</div><div class="value c-green" id="dataVerify">拖动点P验证</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y² = 2 · <span class="result" id="fmP">2.0</span> · x</div>
+          <div>焦点 F(<span class="result" id="fmPx">1.0</span>, 0)</div>
+          <div>准线 x = <span class="result" id="fmDir">-1.0</span></div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text-muted);">
+            抛物线定义：到焦点与准线距离相等的点的轨迹<br>
+            半通径 = p
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {p: 2};
+  var dragAngle = null; // 参数化角度，控制P在抛物线上的位置
+  var dragging = false;
+  var animating = false;
+  var animId = null;
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  /* 获取抛物线上 y 对应的 x: y²=2px => x=y²/(2p) */
+  function parabolaX(y) { return y * y / (2 * CFG.p); }
+
+  /* 初始化 P 点在抛物线上 */
+  function initP() {
+    if (dragAngle === null) dragAngle = 2; // 默认 y=2
+  }
+
+  function draw() {
+    initP();
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -6, xMax = 10, yMin = -5, yMax = 5;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    /* 网格线 */
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    /* 坐标轴 */
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    /* 坐标轴标签 */
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for (var k = Math.ceil(xMin); k <= Math.floor(xMax); k++) {
+      if (k === 0) continue;
+      ctx.fillText(k, tx(k), ty(0) + 16);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    var pHalf = CFG.p / 2; // 焦点 x 坐标 = p/2
+
+    /* 准线 x = -p/2（虚线） */
+    var dirX = -pHalf;
+    ctx.strokeStyle = '#ff666688'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(tx(dirX), pad); ctx.lineTo(tx(dirX), pad + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ff666688'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('准线 x=' + dirX.toFixed(1), tx(dirX), pad + 14);
+
+    /* 抛物线 y²=2px */
+    ctx.strokeStyle = '#ffd93d'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var py = yMin * 2; py <= yMax * 2; py += 0.05) {
+      var px2 = parabolaX(py);
+      if (px2 > xMax + 2 || px2 < xMin - 2) { started = false; continue; }
+      if (!started) { ctx.moveTo(tx(px2), ty(py)); started = true; }
+      else ctx.lineTo(tx(px2), ty(py));
+    }
+    ctx.stroke();
+
+    /* 焦点 F(p/2, 0) */
+    var ftx = tx(pHalf), fty = ty(0);
+    var glowF = ctx.createRadialGradient(ftx, fty, 0, ftx, fty, 12);
+    glowF.addColorStop(0, 'rgba(0,255,136,0.5)');
+    glowF.addColorStop(1, 'rgba(0,255,136,0)');
+    ctx.fillStyle = glowF;
+    ctx.beginPath(); ctx.arc(ftx, fty, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(ftx, fty, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00ff88'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('F(' + pHalf.toFixed(1) + ', 0)', ftx, fty + 20);
+
+    /* P 点在抛物线上 */
+    var Py = dragAngle;
+    var Px = parabolaX(Py);
+    var ptx2 = tx(Px), pty2 = ty(Py);
+
+    /* |PF| 和 |到准线距离| 计算 */
+    var PF = Math.sqrt((Px - pHalf) * (Px - pHalf) + Py * Py);
+    var Pd = Math.abs(Px - dirX); // 到准线距离
+
+    /* 从 P 到焦点的连线 */
+    ctx.strokeStyle = '#00ff8888'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ptx2, pty2); ctx.lineTo(ftx, fty); ctx.stroke();
+    /* 标注 |PF| */
+    var midPFx = (ptx2 + ftx) / 2, midPFy = (pty2 + fty) / 2;
+    ctx.fillStyle = '#00ff88'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('|PF|=' + PF.toFixed(2), midPFx, midPFy - 6);
+
+    /* 从 P 到准线的水平连线 */
+    ctx.strokeStyle = '#ff666688'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ptx2, pty2); ctx.lineTo(tx(dirX), pty2); ctx.stroke();
+    /* 标注 |到准线| */
+    var midPdx = (ptx2 + tx(dirX)) / 2;
+    ctx.fillStyle = '#ff6666'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('|准线|=' + Pd.toFixed(2), midPdx, pty2 - 8);
+
+    /* P 点发光 */
+    var glowP = ctx.createRadialGradient(ptx2, pty2, 0, ptx2, pty2, 14);
+    glowP.addColorStop(0, 'rgba(255,217,61,0.5)');
+    glowP.addColorStop(1, 'rgba(255,217,61,0)');
+    ctx.fillStyle = glowP;
+    ctx.beginPath(); ctx.arc(ptx2, pty2, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd93d';
+    ctx.beginPath(); ctx.arc(ptx2, pty2, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd93d'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('P(' + Px.toFixed(1) + ', ' + Py.toFixed(1) + ')', ptx2 + 10, pty2 - 10);
+
+    /* 验证等式 */
+    var verified = Math.abs(PF - Pd) < 0.1;
+    ctx.fillStyle = verified ? '#00ff88' : '#ff6666';
+    ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('|PF|=' + PF.toFixed(2) + ' = |准线|=' + Pd.toFixed(2) + (verified ? ' ✓' : ''), pad + 5, pad + 16);
+
+    /* 方程显示 */
+    ctx.fillStyle = '#ffd93d'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('y² = ' + (2 * CFG.p).toFixed(1) + 'x', pad + 5, pad + 32);
+
+    canvas._ptx = ptx2; canvas._pty = pty2;
+    canvas._Px = Px; canvas._Py = Py;
+
+    /* 更新侧边栏数据 */
+    document.getElementById('dataP').textContent = CFG.p.toFixed(2);
+    document.getElementById('dataFocus').textContent = '(' + pHalf.toFixed(1) + ', 0)';
+    document.getElementById('dataDir').textContent = 'x = ' + dirX.toFixed(1);
+    document.getElementById('dataPF').textContent = PF.toFixed(2);
+    document.getElementById('dataPD').textContent = Pd.toFixed(2);
+    document.getElementById('dataVerify').textContent = '|PF|=' + PF.toFixed(2) + ' = |准线|=' + Pd.toFixed(2) + (verified ? ' ✓' : '');
+    document.getElementById('fmP').textContent = CFG.p.toFixed(1);
+    document.getElementById('fmPx').textContent = pHalf.toFixed(1);
+    document.getElementById('fmDir').textContent = dirX.toFixed(1);
+  }
+
+  /* 鼠标拖动 P 点 */
+  function getMousePos(e) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  canvas.addEventListener('mousedown', function(e) {
+    var pos = getMousePos(e);
+    var dx = pos.x - canvas._ptx;
+    var dy = pos.y - canvas._pty;
+    if (Math.sqrt(dx * dx + dy * dy) < 25) { dragging = true; stopAnim(); }
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var pos = getMousePos(e);
+    var rect = canvas.parentElement.getBoundingClientRect();
+    var W = rect.width, H = rect.height;
+    var pad2 = 50, cw2 = W - 2 * pad2, ch2 = H - 2 * pad2;
+    var xMin2 = -6, xMax2 = 10, yMin2 = -5, yMax2 = 5;
+    var my = yMin2 + (1 - (pos.y - pad2) / ch2) * (yMax2 - yMin2);
+    dragAngle = Math.max(yMin2, Math.min(yMax2, my));
+    draw();
+  });
+
+  canvas.addEventListener('mouseup', function() { dragging = false; });
+  canvas.addEventListener('mouseleave', function() { dragging = false; });
+
+  /* Touch 支持 */
+  canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    var touch = e.touches[0];
+    var rect2 = canvas.getBoundingClientRect();
+    var pos = { x: touch.clientX - rect2.left, y: touch.clientY - rect2.top };
+    var dx = pos.x - canvas._ptx;
+    var dy = pos.y - canvas._pty;
+    if (Math.sqrt(dx * dx + dy * dy) < 30) { dragging = true; stopAnim(); }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    var touch = e.touches[0];
+    var rect2 = canvas.parentElement.getBoundingClientRect();
+    var W = rect2.width, H = rect2.height;
+    var pad2 = 50, cw2 = W - 2 * pad2, ch2 = H - 2 * pad2;
+    var rect3 = canvas.getBoundingClientRect();
+    var mx = touch.clientX - rect3.left;
+    var my2 = touch.clientY - rect3.top;
+    var yMin2 = -5, yMax2 = 5;
+    var myVal = yMin2 + (1 - (my2 - pad2) / ch2) * (yMax2 - yMin2);
+    dragAngle = Math.max(yMin2, Math.min(yMax2, myVal));
+    draw();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', function() { dragging = false; });
+
+  /* 自动扫描动画 */
+  var animTime = 0;
+  function animate() {
+    if (!animating) return;
+    animTime += 0.02;
+    dragAngle = 3 * Math.sin(animTime);
+    draw();
+    animId = requestAnimationFrame(animate);
+  }
+
+  function stopAnim() {
+    animating = false;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnAnimate').textContent = '▶ 自动扫描';
+  }
+
+  document.getElementById('btnAnimate').addEventListener('click', function() {
+    if (animating) { stopAnim(); return; }
+    animating = true;
+    animTime = 0;
+    this.textContent = '⏸ 停止';
+    animate();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function() {
+    stopAnim();
+    dragAngle = 2;
+    draw();
+  });
+
+  document.getElementById('sliderP').addEventListener('input', function() {
+    CFG.p = parseFloat(this.value);
+    document.getElementById('valP').textContent = CFG.p.toFixed(1);
+    draw();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
+{% endblock %}

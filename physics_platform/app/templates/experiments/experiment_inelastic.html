@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+{% block title %}非弹性碰撞实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-chart-tabs{display:flex;gap:3px;margin-bottom:6px}
+  .exp-chart-tab{flex:1;padding:4px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-chart-tab.active{background:var(--cyan);color:#0f0f1a;border-color:var(--cyan)}
+  .chart-canvas-wrap{width:100%;height:120px;position:relative;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  .chart-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .col-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;margin-top:6px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">💥 非弹性碰撞实验</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">m₁v₁+m₂v₂=(m₁+m₂)v' (完全非弹性) / e恢复系数</div>
+  </div>
+  <div style="padding:6px 20px; background:#0f0f1a; border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan); text-decoration:none; font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div>
+            <div style="font-size:11px;color:#00d4ff;font-weight:600;margin-bottom:4px;">球 A（蓝色）</div>
+            <div class="exp-slider-group">
+              <div class="exp-slider-header"><span class="exp-slider-label">质量 m₁</span><span class="exp-slider-value" id="valM1">3.0 kg</span></div>
+              <input type="range" id="sliderM1" min="0.5" max="10" step="0.5" value="3">
+            </div>
+            <div class="exp-slider-group">
+              <div class="exp-slider-header"><span class="exp-slider-label">速度 v₁</span><span class="exp-slider-value" id="valV1">5.0 m/s</span></div>
+              <input type="range" id="sliderV1" min="-10" max="10" step="0.5" value="5">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:#ff4466;font-weight:600;margin-bottom:4px;">球 B（红色）</div>
+            <div class="exp-slider-group">
+              <div class="exp-slider-header"><span class="exp-slider-label">质量 m₂</span><span class="exp-slider-value" id="valM2">1.0 kg</span></div>
+              <input type="range" id="sliderM2" min="0.5" max="10" step="0.5" value="1">
+            </div>
+            <div class="exp-slider-group">
+              <div class="exp-slider-header"><span class="exp-slider-label">速度 v₂</span><span class="exp-slider-value" id="valV2">-3.0 m/s</span></div>
+              <input type="range" id="sliderV2" min="-10" max="10" step="0.5" value="-3">
+            </div>
+          </div>
+        </div>
+        <div class="exp-slider-group" style="margin-top:8px;">
+          <div class="exp-slider-header"><span class="exp-slider-label">恢复系数 e</span><span class="exp-slider-value" id="valE">0.00</span></div>
+          <input type="range" id="sliderE" min="0" max="1" step="0.01" value="0">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:2px;">
+            <span>完全非弹性 (e=0)</span><span>完全弹性 (e=1)</span>
+          </div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">碰撞次数</div><div class="value c-amber" id="dataCol">0</div></div>
+          <div class="exp-data-item"><div class="label">总动量 P</div><div class="value c-velocity" id="dataP">0.00 <span class="unit">kg·m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">总动能 Eₖ</div><div class="value c-green" id="dataEk">0.00 <span class="unit">J</span></div></div>
+          <div class="exp-data-item"><div class="label">动能损失</div><div class="value c-accent" id="dataDKE">0.00 <span class="unit">J</span></div></div>
+          <div class="exp-data-item"><div class="label">损失比例</div><div class="value c-purple" id="dataDKEp">0.00%</div></div>
+        </div>
+        <div style="text-align:center;margin-top:6px;" id="badgeWrap"></div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>P₀ = m₁v₁+m₂v₂ = <span class="formula" id="fmP0">0.0</span></div>
+          <div>P' = m₁v₁'+m₂v₂' = <span class="formula" id="fmP1">0.0</span></div>
+          <div>ΔP = <span class="result" id="fmDp">0.0</span> kg·m/s</div>
+          <div>ΔEₖ = <span class="result" id="fmDe">0.0</span> J</div>
+          <div style="margin-top:4px;color:var(--green)" id="fmVerify">动量守恒: —</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📈 图表</h3>
+        <div class="exp-chart-tabs">
+          <button class="exp-chart-tab active" data-chart="mom">动量柱</button>
+          <button class="exp-chart-tab" data-chart="en">能量柱</button>
+          <button class="exp-chart-tab" data-chart="xt">x-t</button>
+          <button class="exp-chart-tab" data-chart="vt">v-t</button>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ---- 配置 ---- */
+  var CFG={m1:3,m2:1,v1:5,v2:-3,e:0,timeScale:1};
+  var S={t:0,x1:0,x2:0,v1:0,v2:0,playing:false,collided:false,collisions:0,history:[],phase:'before',flashT:-1};
+  var P0=0,EK0=0,activeChart='mom';
+
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  var chartCanvas=document.getElementById('chartCanvas'),chartCtx=chartCanvas.getContext('2d');
+
+  function getR(m){return Math.max(10,Math.min(30,m*3));}
+
+  /* ---- 非弹性碰撞公式 ---- */
+  function inelasticCollision(){
+    var m1=CFG.m1,m2=CFG.m2,v1=S.v1,v2=S.v2,e=CFG.e;
+    // 非弹性碰撞: v1' = ((m1-e*m2)*v1 + (1+e)*m2*v2) / (m1+m2)
+    //             v2' = ((m2-e*m1)*v2 + (1+e)*m1*v1) / (m1+m2)
+    var v1f=((m1-e*m2)*v1+(1+e)*m2*v2)/(m1+m2);
+    var v2f=((m2-e*m1)*v2+(1+e)*m1*v1)/(m1+m2);
+    return {v1f:v1f,v2f:v2f};
+  }
+
+  /* ---- 绘制主场景 ---- */
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1),H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    // 网格
+    ctx.strokeStyle='rgba(0,212,255,0.05)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    // 地面
+    var groundY=H*0.72;
+    ctx.strokeStyle='#2ecc7155';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(30,groundY);ctx.lineTo(W-30,groundY);ctx.stroke();
+    ctx.strokeStyle='#5a648033';ctx.lineWidth=1;
+    for(var tx=80;tx<W-30;tx+=50){ctx.beginPath();ctx.moveTo(tx,groundY);ctx.lineTo(tx,groundY+6);ctx.stroke();}
+
+    var r1=getR(CFG.m1),r2=getR(CFG.m2);
+    var screenX1=W*0.3+S.x1*20;
+    var screenX2=W*0.7+S.x2*20;
+
+    // 球A（蓝色）
+    var b1y=groundY-r1;
+    var glow1=ctx.createRadialGradient(screenX1,b1y,0,screenX1,b1y,r1*2);
+    glow1.addColorStop(0,'rgba(0,212,255,0.25)');glow1.addColorStop(1,'rgba(0,212,255,0)');
+    ctx.fillStyle=glow1;ctx.beginPath();ctx.arc(screenX1,b1y,r1*2,0,Math.PI*2);ctx.fill();
+    var bg1=ctx.createRadialGradient(screenX1-2,b1y-2,1,screenX1,b1y,r1);
+    bg1.addColorStop(0,'#80e8ff');bg1.addColorStop(1,'#0088cc');
+    ctx.fillStyle=bg1;ctx.beginPath();ctx.arc(screenX1,b1y,r1,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#00d4ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(screenX1,b1y,r1,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('m₁',screenX1,b1y+4);
+
+    // 球B（红色）
+    var b2y=groundY-r2;
+    var glow2=ctx.createRadialGradient(screenX2,b2y,0,screenX2,b2y,r2*2);
+    glow2.addColorStop(0,'rgba(255,68,102,0.25)');glow2.addColorStop(1,'rgba(255,68,102,0)');
+    ctx.fillStyle=glow2;ctx.beginPath();ctx.arc(screenX2,b2y,r2*2,0,Math.PI*2);ctx.fill();
+    var bg2=ctx.createRadialGradient(screenX2-2,b2y-2,1,screenX2,b2y,r2);
+    bg2.addColorStop(0,'#ff8080');bg2.addColorStop(1,'#cc2244');
+    ctx.fillStyle=bg2;ctx.beginPath();ctx.arc(screenX2,b2y,r2,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#ff4466';ctx.lineWidth=2;ctx.beginPath();ctx.arc(screenX2,b2y,r2,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('m₂',screenX2,b2y+4);
+
+    // 速度箭头A
+    if(Math.abs(S.v1)>0.1){
+      var arrowLen1=Math.min(Math.abs(S.v1)*8,100);
+      var dir1=S.v1>0?1:-1;
+      ctx.strokeStyle='#00d4ff';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(screenX1,b1y);ctx.lineTo(screenX1+arrowLen1*dir1,b1y);ctx.stroke();
+      ctx.fillStyle='#00d4ff';ctx.beginPath();
+      ctx.moveTo(screenX1+arrowLen1*dir1,b1y);
+      ctx.lineTo(screenX1+arrowLen1*dir1-7*dir1,b1y-4);
+      ctx.lineTo(screenX1+arrowLen1*dir1-7*dir1,b1y+4);
+      ctx.closePath();ctx.fill();
+      ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+      ctx.fillText('v₁='+S.v1.toFixed(1),screenX1+arrowLen1*dir1*0.5,b1y-10);
+    }
+    // 速度箭头B
+    if(Math.abs(S.v2)>0.1){
+      var arrowLen2=Math.min(Math.abs(S.v2)*8,100);
+      var dir2=S.v2>0?1:-1;
+      ctx.strokeStyle='#ff4466';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(screenX2,b2y);ctx.lineTo(screenX2+arrowLen2*dir2,b2y);ctx.stroke();
+      ctx.fillStyle='#ff4466';ctx.beginPath();
+      ctx.moveTo(screenX2+arrowLen2*dir2,b2y);
+      ctx.lineTo(screenX2+arrowLen2*dir2-7*dir2,b2y-4);
+      ctx.lineTo(screenX2+arrowLen2*dir2-7*dir2,b2y+4);
+      ctx.closePath();ctx.fill();
+      ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+      ctx.fillText('v₂='+S.v2.toFixed(1),screenX2+arrowLen2*dir2*0.5,b2y-10);
+    }
+
+    // 碰撞闪光效果
+    if(S.flashT>0 && S.t-S.flashT<0.4){
+      var flashAlpha=1-(S.t-S.flashT)/0.4;
+      var cx=(screenX1+screenX2)/2, cy=(b1y+b2y)/2;
+      var fg=ctx.createRadialGradient(cx,cy,0,cx,cy,70);
+      fg.addColorStop(0,'rgba(255,255,100,'+flashAlpha*0.7+')');
+      fg.addColorStop(1,'rgba(255,255,100,0)');
+      ctx.fillStyle=fg;ctx.beginPath();ctx.arc(cx,cy,70,0,Math.PI*2);ctx.fill();
+      // 碰撞线
+      ctx.strokeStyle='rgba(255,255,100,'+flashAlpha+')';ctx.lineWidth=2;
+      for(var i=0;i<8;i++){
+        var ang=i*Math.PI/4;
+        var ri=30+flashAlpha*20;
+        ctx.beginPath();ctx.moveTo(cx+10*Math.cos(ang),cy+10*Math.sin(ang));
+        ctx.lineTo(cx+ri*Math.cos(ang),cy+ri*Math.sin(ang));ctx.stroke();
+      }
+    }
+
+    // 状态标签
+    ctx.font='bold 14px sans-serif';ctx.textAlign='center';
+    ctx.fillStyle=S.phase==='before'?'#ffb800':(S.phase==='colliding'?'#ff4466':'#00ff88');
+    ctx.fillText(S.phase==='before'?'碰撞前':(S.phase==='colliding'?'碰撞中!':'碰撞后'),W/2,30);
+
+    // 恢复系数标签
+    ctx.font='12px sans-serif';ctx.fillStyle='#5a6480';
+    ctx.fillText('e = '+CFG.e.toFixed(2)+(CFG.e===0?' (完全非弹性)':(CFG.e===1?' (完全弹性)':' (非弹性)')),W/2,48);
+
+    ctx.fillStyle='#5a6480';ctx.font='11px sans-serif';ctx.textAlign='left';
+    ctx.fillText('t='+S.t.toFixed(2)+'s  碰撞次数: '+S.collisions,10,H-10);
+  }
+
+  /* ---- 图表 ---- */
+  function drawChart(){
+    var W=chartCanvas.width/(window.devicePixelRatio||1),H=chartCanvas.height/(window.devicePixelRatio||1);
+    chartCtx.clearRect(0,0,W,H);chartCtx.fillStyle='rgba(0,0,0,0.2)';chartCtx.fillRect(0,0,W,H);
+    var margin={l:40,r:10,t:10,b:20},pw=W-margin.l-margin.r,ph=H-margin.t-margin.b;
+
+    chartCtx.strokeStyle='#5a6480';chartCtx.lineWidth=1;
+    chartCtx.beginPath();chartCtx.moveTo(margin.l,margin.t);chartCtx.lineTo(margin.l,margin.t+ph);chartCtx.lineTo(margin.l+pw,margin.t+ph);chartCtx.stroke();
+
+    if(activeChart==='mom'||activeChart==='en'){
+      var barW=pw*0.12, gap=pw*0.08;
+      var col=inelasticCollision();
+      var p0=CFG.m1*CFG.v1+CFG.m2*CFG.v2;
+      var p1=CFG.m1*col.v1f+CFG.m2*col.v2f;
+      var ek0=0.5*CFG.m1*CFG.v1*CFG.v1+0.5*CFG.m2*CFG.v2*CFG.v2;
+      var ek1=0.5*CFG.m1*col.v1f*col.v1f+0.5*CFG.m2*col.v2f*col.v2f;
+
+      if(activeChart==='mom'){
+        var vals=[{label:'m₁v₁',val:CFG.m1*CFG.v1,color:'#00d4ff'},{label:'m₂v₂',val:CFG.m2*CFG.v2,color:'#ff4466'},{label:'P总(前)',val:p0,color:'#ffb800'},{label:'P总(后)',val:p1,color:'#00ff88'}];
+        var maxP=Math.max.apply(null,vals.map(function(v){return Math.abs(v.val)}))*1.3||1;
+        vals.forEach(function(v,i){
+          var bx=margin.l+gap+i*(barW+gap);
+          var bh=Math.abs(v.val)/maxP*ph*0.8;
+          var by=v.val>=0?margin.t+ph-bh:margin.t+ph;
+          chartCtx.fillStyle=v.color+'88';chartCtx.fillRect(bx,by,barW,bh);
+          chartCtx.strokeStyle=v.color;chartCtx.strokeRect(bx,by,barW,bh);
+          chartCtx.fillStyle=v.color;chartCtx.font='9px sans-serif';chartCtx.textAlign='center';
+          chartCtx.fillText(v.label,bx+barW/2,margin.t+ph+14);
+          chartCtx.fillText(v.val.toFixed(1),bx+barW/2,by-5);
+        });
+        var zeroY=margin.t+ph;
+        chartCtx.strokeStyle='#5a6480';chartCtx.lineWidth=1;chartCtx.setLineDash([3,3]);
+        chartCtx.beginPath();chartCtx.moveTo(margin.l,zeroY);chartCtx.lineTo(margin.l+pw,zeroY);chartCtx.stroke();chartCtx.setLineDash([]);
+      } else {
+        var dke=Math.abs(ek0-ek1);
+        var lossPct=ek0>0.01?(dke/ek0*100):0;
+        var vals2=[{label:'EₖA(前)',val:0.5*CFG.m1*CFG.v1*CFG.v1,color:'#00d4ff'},{label:'EₖB(前)',val:0.5*CFG.m2*CFG.v2*CFG.v2,color:'#ff4466'},{label:'E总(前)',val:ek0,color:'#ffb800'},{label:'ΔEₖ',val:dke,color:'#e94560'}];
+        var maxE=Math.max.apply(null,vals2.map(function(v){return v.val}))*1.2||1;
+        vals2.forEach(function(v,i){
+          var bx=margin.l+gap+i*(barW+gap);
+          var bh=v.val/maxE*ph*0.8;
+          var by=margin.t+ph-bh;
+          chartCtx.fillStyle=v.color+'88';chartCtx.fillRect(bx,by,barW,bh);
+          chartCtx.strokeStyle=v.color;chartCtx.strokeRect(bx,by,barW,bh);
+          chartCtx.fillStyle=v.color;chartCtx.font='9px sans-serif';chartCtx.textAlign='center';
+          chartCtx.fillText(v.label,bx+barW/2,margin.t+ph+14);
+          chartCtx.fillText(v.val.toFixed(1)+'J',bx+barW/2,by-5);
+        });
+        chartCtx.fillStyle='#e94560';chartCtx.font='10px sans-serif';chartCtx.textAlign='center';
+        chartCtx.fillText('损失: '+lossPct.toFixed(1)+'%',margin.l+pw/2,margin.t+10);
+      }
+    } else if(activeChart==='xt'){
+      var hist=S.history;
+      if(hist.length<2){chartCtx.fillStyle='#5a6480';chartCtx.font='12px sans-serif';chartCtx.textAlign='center';chartCtx.fillText('播放后显示 x-t 图',W/2,H/2);return;}
+      var maxT=hist[hist.length-1].t||1;
+      var allX=hist.map(function(h){return h.x1}).concat(hist.map(function(h){return h.x2}));
+      var maxX=Math.max.apply(null,allX.map(Math.abs))*1.2||5;
+      chartCtx.strokeStyle='#00d4ff';chartCtx.lineWidth=2;chartCtx.beginPath();
+      hist.forEach(function(h,i){var px=margin.l+(h.t/maxT)*pw;var py=margin.t+ph/2-h.x1/maxX*ph*0.4;if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);});
+      chartCtx.stroke();
+      chartCtx.strokeStyle='#ff4466';chartCtx.lineWidth=2;chartCtx.beginPath();
+      hist.forEach(function(h,i){var px=margin.l+(h.t/maxT)*pw;var py=margin.t+ph/2-h.x2/maxX*ph*0.4;if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);});
+      chartCtx.stroke();
+      chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillStyle='#00d4ff';chartCtx.fillText('━ x₁',margin.l+5,margin.t+12);
+      chartCtx.fillStyle='#ff4466';chartCtx.fillText('━ x₂',margin.l+50,margin.t+12);
+      chartCtx.fillStyle='#8892b0';chartCtx.textAlign='center';chartCtx.fillText('t (s)',margin.l+pw/2,H-3);
+    } else if(activeChart==='vt'){
+      var hist2=S.history;
+      if(hist2.length<2){chartCtx.fillStyle='#5a6480';chartCtx.font='12px sans-serif';chartCtx.textAlign='center';chartCtx.fillText('播放后显示 v-t 图',W/2,H/2);return;}
+      var maxT2=hist2[hist2.length-1].t||1;
+      var allV=hist2.map(function(h){return h.v1}).concat(hist2.map(function(h){return h.v2}));
+      var maxV=Math.max.apply(null,allV.map(Math.abs))*1.2||5;
+      chartCtx.strokeStyle='#00d4ff';chartCtx.lineWidth=2;chartCtx.beginPath();
+      hist2.forEach(function(h,i){var px=margin.l+(h.t/maxT2)*pw;var py=margin.t+ph/2-h.v1/maxV*ph*0.4;if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);});
+      chartCtx.stroke();
+      chartCtx.strokeStyle='#ff4466';chartCtx.lineWidth=2;chartCtx.beginPath();
+      hist2.forEach(function(h,i){var px=margin.l+(h.t/maxT2)*pw;var py=margin.t+ph/2-h.v2/maxV*ph*0.4;if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);});
+      chartCtx.stroke();
+      // 如果 e=0，显示共速线
+      if(CFG.e<0.01 && S.collisions>0){
+        var vf=(CFG.m1*CFG.v1+CFG.m2*CFG.v2)/(CFG.m1+CFG.m2);
+        var vfY=margin.t+ph/2-vf/maxV*ph*0.4;
+        chartCtx.strokeStyle='#00ff8855';chartCtx.lineWidth=1;chartCtx.setLineDash([4,4]);
+        chartCtx.beginPath();chartCtx.moveTo(margin.l,vfY);chartCtx.lineTo(margin.l+pw,vfY);chartCtx.stroke();chartCtx.setLineDash([]);
+        chartCtx.fillStyle='#00ff88';chartCtx.font='9px sans-serif';chartCtx.textAlign='right';
+        chartCtx.fillText('v\'='+vf.toFixed(1),margin.l+pw,vfY-5);
+      }
+      chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillStyle='#00d4ff';chartCtx.fillText('━ v₁',margin.l+5,margin.t+12);
+      chartCtx.fillStyle='#ff4466';chartCtx.fillText('━ v₂',margin.l+50,margin.t+12);
+      chartCtx.fillStyle='#8892b0';chartCtx.textAlign='center';chartCtx.fillText('t (s)',margin.l+pw/2,H-3);
+    }
+  }
+
+  /* ---- 更新数据 ---- */
+  function updateData(){
+    var curP=CFG.m1*S.v1+CFG.m2*S.v2;
+    var curEk=0.5*CFG.m1*S.v1*S.v1+0.5*CFG.m2*S.v2*S.v2;
+    var dke=Math.abs(EK0-curEk);
+    var lossPct=EK0>0.01?(dke/EK0*100):0;
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataCol').textContent=S.collisions;
+    document.getElementById('dataP').innerHTML=curP.toFixed(2)+' <span class="unit">kg·m/s</span>';
+    document.getElementById('dataEk').innerHTML=curEk.toFixed(2)+' <span class="unit">J</span>';
+    document.getElementById('dataDKE').innerHTML=dke.toFixed(2)+' <span class="unit">J</span>';
+    document.getElementById('dataDKEp').textContent=lossPct.toFixed(1)+'%';
+    document.getElementById('fmP0').textContent=P0.toFixed(2);
+    document.getElementById('fmP1').textContent=curP.toFixed(2);
+    document.getElementById('fmDp').textContent=Math.abs(curP-P0).toFixed(4);
+    document.getElementById('fmDe').textContent=dke.toFixed(4);
+    document.getElementById('fmVerify').textContent=Math.abs(curP-P0)<0.01?'动量守恒: √':'动量守恒: ×';
+    // badge
+    var badge=document.getElementById('badgeWrap');
+    if(S.collisions===0){
+      badge.innerHTML='<span class="col-badge" style="background:rgba(255,184,0,0.15);color:#ffb800;border:1px solid #ffb800;">等待碰撞</span>';
+    } else if(CFG.e<0.01){
+      badge.innerHTML='<span class="col-badge" style="background:rgba(0,255,136,0.15);color:#00ff88;border:1px solid #00ff88;">合并运动 e=0</span>';
+    } else {
+      badge.innerHTML='<span class="col-badge" style="background:rgba(0,212,255,0.15);color:#00d4ff;border:1px solid #00d4ff;">弹开 e='+CFG.e.toFixed(2)+'</span>';
+    }
+  }
+
+  /* ---- 动画循环 ---- */
+  var lastTime=0,animId=null;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    var dts=dt*CFG.timeScale;
+    S.t+=dts;
+
+    // 更新位置
+    S.x1+=S.v1*dts;
+    S.x2+=S.v2*dts;
+
+    // 碰撞检测
+    if(!S.collided){
+      var dist=Math.abs(S.x2-S.x1);
+      var r1=getR(CFG.m1)/20, r2=getR(CFG.m2)/20;
+      if(dist<(r1+r2) && (S.v1-S.v2)>0){
+        var col=inelasticCollision();
+        S.v1=col.v1f;
+        S.v2=col.v2f;
+        S.collisions++;
+        S.collided=true;
+        S.flashT=S.t;
+        S.phase='colliding';
+        setTimeout(function(){S.phase='after';},300);
+      }
+    }
+
+    // 碰撞后重置碰撞标志
+    if(S.collided && S.t-S.flashT>0.5){
+      if(S.v1>S.v2){
+        // 还在靠近
+      } else {
+        S.collided=false;
+      }
+    }
+
+    S.history.push({t:S.t,x1:S.x1,x2:S.x2,v1:S.v1,v2:S.v2});
+    draw();updateData();drawChart();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.x1=0;S.x2=0;S.v1=CFG.v1;S.v2=CFG.v2;
+    S.collided=false;S.collisions=0;S.history=[];S.phase='before';S.flashT=-1;
+    P0=CFG.m1*CFG.v1+CFG.m2*CFG.v2;
+    EK0=0.5*CFG.m1*CFG.v1*CFG.v1+0.5*CFG.m2*CFG.v2*CFG.v2;
+    lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    draw();updateData();drawChart();
+  }
+
+  /* ---- 事件 ---- */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active')});b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.getElementById('sliderM1').addEventListener('input',function(){CFG.m1=parseFloat(this.value);document.getElementById('valM1').textContent=CFG.m1.toFixed(1)+' kg';reset();});
+  document.getElementById('sliderM2').addEventListener('input',function(){CFG.m2=parseFloat(this.value);document.getElementById('valM2').textContent=CFG.m2.toFixed(1)+' kg';reset();});
+  document.getElementById('sliderV1').addEventListener('input',function(){CFG.v1=parseFloat(this.value);document.getElementById('valV1').textContent=CFG.v1.toFixed(1)+' m/s';reset();});
+  document.getElementById('sliderV2').addEventListener('input',function(){CFG.v2=parseFloat(this.value);document.getElementById('valV2').textContent=CFG.v2.toFixed(1)+' m/s';reset();});
+  document.getElementById('sliderE').addEventListener('input',function(){CFG.e=parseFloat(this.value);document.getElementById('valE').textContent=CFG.e.toFixed(2);reset();});
+  document.querySelectorAll('.exp-chart-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.exp-chart-tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');activeChart=tab.dataset.chart;drawChart();
+    });
+  });
+  function resize(){var dpr=window.devicePixelRatio||1;var rect=canvas.parentElement.getBoundingClientRect();canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);var cr=chartCanvas.parentElement.getBoundingClientRect();chartCanvas.width=Math.round(cr.width*dpr);chartCanvas.height=Math.round(cr.height*dpr);chartCtx.setTransform(dpr,0,0,dpr,0,0);draw();drawChart();}
+  window.addEventListener('resize',resize);
+  resize();updateData();
+})();
+</script>
+{% endblock %}

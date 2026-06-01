@@ -1,0 +1,728 @@
+{% extends "base.html" %}
+{% block title %}库仑定律 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-charge1{color:#ff6b6b}.c-charge2{color:#4ecdc4}.c-force{color:#ffd93d}.c-dist{color:#a8e6cf}.c-accent{color:var(--accent,#e94560)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ff6b6b;">⚡ 库仑定律</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Coulomb's Law — F = kq₁q₂/r², k = 9×10⁹ N·m²/C²</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">F-r 平方反比</span><canvas id="chartFr"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">F vs r²</span><canvas id="chartFr2"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">log(F) vs log(r)</span><canvas id="chartLog"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电荷量 q₁</span><span class="exp-slider-value" id="valQ1">+5.0 μC</span></div>
+          <input type="range" id="sliderQ1" min="-10" max="10" step="0.5" value="5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电荷量 q₂</span><span class="exp-slider-value" id="valQ2">-5.0 μC</span></div>
+          <input type="range" id="sliderQ2" min="-10" max="10" step="0.5" value="-5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">距离 r</span><span class="exp-slider-value" id="valR">2.0 m</span></div>
+          <input type="range" id="sliderR" min="0.5" max="5" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">库仑力 F</div><div class="value c-force" id="dataF">0.00 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">q₁ 电荷</div><div class="value c-charge1" id="dataQ1">+5.0 <span class="unit">μC</span></div></div>
+          <div class="exp-data-item"><div class="label">q₂ 电荷</div><div class="value c-charge2" id="dataQ2">-5.0 <span class="unit">μC</span></div></div>
+          <div class="exp-data-item"><div class="label">距离 r</div><div class="value c-dist" id="dataR">2.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">力的方向</div><div class="value" id="dataDir" style="color:#ce93d8">吸引 <span class="unit">异号</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>F = k·|q₁|·|q₂| / r²</div>
+          <div>= 9×10⁹ × |<span class="formula" id="fmQ1">5</span>| × |<span class="formula" id="fmQ2">5</span>|×10⁻¹² / <span class="formula" id="fmR">4</span></div>
+          <div style="margin-top:4px;">F = <span class="result" id="fmF">0.056</span> N</div>
+          <div style="margin-top:4px;color:var(--cyan)" id="fmType">异号电荷 → 吸引力</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var K = 9e9; // 库仑常数
+  var CFG = { q1: 5e-6, q2: -5e-6, r: 2, timeScale: 1 };
+  var S = { t: 0, playing: false, rCurrent: 2, vx: 0 };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  /* ====== Canvas 尺寸自适应 ====== */
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  /* ====== 计算库仑力 ====== */
+  function calcForce(q1, q2, r) {
+    return K * Math.abs(q1) * Math.abs(q2) / (r * r);
+  }
+
+  /* ====== 绘制主场景 ====== */
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var cx = W / 2, cy = H / 2;
+    var r = S.rCurrent;
+    var F = calcForce(CFG.q1, CFG.q2, r);
+    var sameSign = (CFG.q1 * CFG.q2 > 0);
+
+    // 距离比例尺: r=5 对应画布宽度 60%
+    var scale = Math.min(W, H) * 0.06; // 每米对应像素
+    var separation = r * scale; // 两电荷间距的一半
+
+    var x1 = cx - separation / 2;
+    var x2 = cx + separation / 2;
+
+    // 绘制距离标注线
+    ctx.strokeStyle = '#444466';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x1, cy + 40);
+    ctx.lineTo(x2, cy + 40);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 距离文字
+    ctx.fillStyle = '#a8e6cf';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('r = ' + r.toFixed(1) + ' m', cx, cy + 55);
+
+    // 绘制力的箭头
+    var arrowScale = Math.min(F / 0.01, 120); // 缩放到合理长度
+    arrowScale = Math.max(arrowScale, 15);
+
+    if (F > 1e-10) {
+      if (sameSign) {
+        // 同号排斥: q1 箭头向左, q2 箭头向右
+        drawArrow(ctx, x1, cy, x1 - arrowScale, cy, '#ff6b6b', 'F₁');
+        drawArrow(ctx, x2, cy, x2 + arrowScale, cy, '#4ecdc4', 'F₂');
+      } else {
+        // 异号吸引: q1 箭头向右, q2 箭头向左
+        drawArrow(ctx, x1, cy, x1 + arrowScale, cy, '#ff6b6b', 'F₁');
+        drawArrow(ctx, x2, cy, x2 - arrowScale, cy, '#4ecdc4', 'F₂');
+      }
+    }
+
+    // 绘制电荷 1
+    drawCharge(ctx, x1, cy, CFG.q1, 20);
+    ctx.fillStyle = '#ff6b6b';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('q₁', x1, cy - 30);
+
+    // 绘制电荷 2
+    drawCharge(ctx, x2, cy, CFG.q2, 20);
+    ctx.fillStyle = '#4ecdc4';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('q₂', x2, cy - 30);
+
+    // 电场线（简略版）
+    drawElectricFieldLines(ctx, x1, cy, CFG.q1, x2, cy, CFG.q2, W, H);
+
+    // 中心力标签
+    if (F > 1e-10) {
+      ctx.fillStyle = '#ffd93d';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      var forceLabel = F > 1 ? F.toFixed(2) + ' N' : F > 0.001 ? (F * 1000).toFixed(1) + ' mN' : (F * 1e6).toFixed(1) + ' μN';
+      ctx.fillText('F = ' + forceLabel, cx, cy - 60);
+
+      // 吸引/排斥指示
+      ctx.font = '12px sans-serif';
+      ctx.fillStyle = sameSign ? '#ff6b6b' : '#4ecdc4';
+      ctx.fillText(sameSign ? '⟶ 排斥 ⟵' : '⟵ 吸引 ⟶', cx, cy - 75);
+    }
+
+    // 图例
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('● 正电荷 (红色)  ● 负电荷 (蓝色)', 10, H - 15);
+  }
+
+  /* ====== 绘制电荷圆 ====== */
+  function drawCharge(ctx, x, y, q, radius) {
+    var isPositive = q > 0;
+    var color = isPositive ? '#ff6b6b' : '#4ecdc4';
+
+    // 发光效果
+    var glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 2);
+    glow.addColorStop(0, isPositive ? 'rgba(255,107,107,0.3)' : 'rgba(78,205,196,0.3)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 电荷圆
+    var grad = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, radius);
+    grad.addColorStop(0, isPositive ? '#ffa0a0' : '#80e8e0');
+    grad.addColorStop(1, color);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = isPositive ? '#cc4444' : '#2a9d8f';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 正负号
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(isPositive ? '+' : '−', x, y);
+    ctx.textBaseline = 'alphabetic';
+
+    // 电荷量标签
+    ctx.fillStyle = '#ccc';
+    ctx.font = '10px sans-serif';
+    var label = (q * 1e6).toFixed(1) + ' μC';
+    ctx.fillText(label, x, y + radius + 14);
+  }
+
+  /* ====== 绘制力的箭头 ====== */
+  function drawArrow(ctx, x1, y1, x2, y2, color, label) {
+    var dx = x2 - x1, dy = y2 - y1;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 5) return;
+    var ux = dx / len, uy = dy / len;
+    var headLen = 10;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // 箭头头部
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen * ux + headLen * 0.4 * uy, y2 - headLen * uy - headLen * 0.4 * ux);
+    ctx.lineTo(x2 - headLen * ux - headLen * 0.4 * uy, y2 - headLen * uy + headLen * 0.4 * ux);
+    ctx.closePath();
+    ctx.fill();
+
+    // 标签
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, (x1 + x2) / 2, y1 - 12);
+  }
+
+  /* ====== 绘制电场线 ====== */
+  function drawElectricFieldLines(ctx, x1, y1, q1, x2, y2, q2, W, H) {
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = '#8888cc';
+    ctx.lineWidth = 1;
+    var sameSign = (q1 * q2 > 0);
+    var numLines = 6;
+
+    for (var i = 0; i < numLines; i++) {
+      var angle = (i / numLines) * Math.PI * 2;
+      var r1 = 22;
+      var r2 = 22;
+
+      if (sameSign) {
+        // 同号: 从正电荷向外画
+        if (q1 > 0) {
+          var sx = x1 + r1 * Math.cos(angle);
+          var sy = y1 + r1 * Math.sin(angle);
+          var ex = sx + 30 * Math.cos(angle);
+          var ey = sy + 30 * Math.sin(angle);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+        }
+        if (q2 > 0) {
+          var sx2 = x2 + r2 * Math.cos(angle);
+          var sy2 = y2 + r2 * Math.sin(angle);
+          var ex2 = sx2 + 30 * Math.cos(angle);
+          var ey2 = sy2 + 30 * Math.sin(angle);
+          ctx.beginPath();
+          ctx.moveTo(sx2, sy2);
+          ctx.lineTo(ex2, ey2);
+          ctx.stroke();
+        }
+      } else {
+        // 异号: 从正电荷画到负电荷
+        if (q1 > 0) {
+          var sx = x1 + r1 * Math.cos(angle);
+          var sy = y1 + r1 * Math.sin(angle);
+          var ex = x2 + r2 * Math.cos(angle + Math.PI);
+          var ey = y2 + r2 * Math.sin(angle + Math.PI);
+          var midX = (sx + ex) / 2;
+          var midY = (sy + ey) / 2 - 20 * Math.sin(angle);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.quadraticCurveTo(midX, midY, ex, ey);
+          ctx.stroke();
+        } else if (q2 > 0) {
+          var sx = x2 + r2 * Math.cos(angle);
+          var sy = y2 + r2 * Math.sin(angle);
+          var ex = x1 + r1 * Math.cos(angle + Math.PI);
+          var ey = y1 + r1 * Math.sin(angle + Math.PI);
+          var midX = (sx + ex) / 2;
+          var midY = (sy + ey) / 2 - 20 * Math.sin(angle);
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.quadraticCurveTo(midX, midY, ex, ey);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ====== 更新数据面板 ====== */
+  function updateData() {
+    var F = calcForce(CFG.q1, CFG.q2, S.rCurrent);
+    var sameSign = (CFG.q1 * CFG.q2 > 0);
+
+    document.getElementById('dataT').innerHTML = S.t.toFixed(2) + ' <span class="unit">s</span>';
+    document.getElementById('dataF').innerHTML = F.toFixed(4) + ' <span class="unit">N</span>';
+    document.getElementById('dataQ1').innerHTML = (CFG.q1 * 1e6).toFixed(1) + ' <span class="unit">μC</span>';
+    document.getElementById('dataQ2').innerHTML = (CFG.q2 * 1e6).toFixed(1) + ' <span class="unit">μC</span>';
+    document.getElementById('dataR').innerHTML = S.rCurrent.toFixed(2) + ' <span class="unit">m</span>';
+    document.getElementById('dataDir').innerHTML = sameSign
+      ? '排斥 <span class="unit">同号</span>'
+      : '吸引 <span class="unit">异号</span>';
+
+    document.getElementById('fmQ1').textContent = Math.abs(CFG.q1 * 1e6).toFixed(1);
+    document.getElementById('fmQ2').textContent = Math.abs(CFG.q2 * 1e6).toFixed(1);
+    document.getElementById('fmR').textContent = (S.rCurrent * S.rCurrent).toFixed(2);
+    document.getElementById('fmF').textContent = F.toFixed(4);
+    document.getElementById('fmType').textContent = sameSign ? '同号电荷 → 排斥力' : '异号电荷 → 吸引力';
+  }
+
+  /* ====== 图表绘制 ====== */
+  function drawChartFr(canvasId) {
+    var c = document.getElementById(canvasId);
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l: 40, r: 10, t: 24, b: 28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 刻度标签
+    cx.fillStyle = '#666688';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    for (var rr = 1; rr <= 5; rr++) {
+      var xx = pad.l + (rr / 5) * pw;
+      cx.fillText(rr + '', xx, pad.t + ph + 14);
+    }
+    cx.textAlign = 'right';
+    var Fmax = calcForce(CFG.q1, CFG.q2, 0.5);
+    for (var fi = 0; fi <= 4; fi++) {
+      var yy = pad.t + ph - (fi / 4) * ph;
+      var fv = (fi / 4) * Fmax;
+      cx.fillText(fv > 1 ? fv.toFixed(1) : fv.toFixed(3), pad.l - 4, yy + 3);
+    }
+
+    // 绘制曲线
+    cx.strokeStyle = '#ffd93d';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var rv = 0.5 + (i / 100) * 4.5;
+      var fv = calcForce(CFG.q1, CFG.q2, rv);
+      var px = pad.l + (rv / 5) * pw;
+      var py = pad.t + ph - (fv / Fmax) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前位置标记
+    var curF = calcForce(CFG.q1, CFG.q2, S.rCurrent);
+    var curX = pad.l + (S.rCurrent / 5) * pw;
+    var curY = pad.t + ph - (curF / Fmax) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('r (m)', pad.l + pw / 2, pad.t + ph + 25);
+  }
+
+  function drawChartFr2(canvasId) {
+    var c = document.getElementById(canvasId);
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l: 40, r: 10, t: 24, b: 28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // F vs r² 应该是一条反比直线 (F = k|q1q2| / r², 但这里画 F vs 1/r²)
+    // 实际上 F vs r² 是 F = k|q1q2|/(r²) 所以画 F vs 1/r² 得到直线
+    cx.fillStyle = '#666688';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    var r2max = 25; // 5²
+    for (var ri = 0; ri <= 5; ri++) {
+      var xx = pad.l + (ri / 5) * pw;
+      cx.fillText((ri * ri) + '', xx, pad.t + ph + 14);
+    }
+
+    var Fmax = calcForce(CFG.q1, CFG.q2, 0.5);
+    cx.textAlign = 'right';
+    for (var fi = 0; fi <= 4; fi++) {
+      var yy = pad.t + ph - (fi / 4) * ph;
+      var fv = (fi / 4) * Fmax;
+      cx.fillText(fv > 1 ? fv.toFixed(1) : fv.toFixed(3), pad.l - 4, yy + 3);
+    }
+
+    // 画 F = k|q1q2| / r² 曲线 (横轴是 r², 纵轴是 F)
+    cx.strokeStyle = '#4ecdc4';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var r2 = 0.25 + (i / 100) * 24.75;
+      var rv = Math.sqrt(r2);
+      var fv = calcForce(CFG.q1, CFG.q2, rv);
+      var px = pad.l + (r2 / r2max) * pw;
+      var py = pad.t + ph - (fv / Fmax) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前标记
+    var curR2 = S.rCurrent * S.rCurrent;
+    var curF = calcForce(CFG.q1, CFG.q2, S.rCurrent);
+    var curX = pad.l + (curR2 / r2max) * pw;
+    var curY = pad.t + ph - (curF / Fmax) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('r² (m²)', pad.l + pw / 2, pad.t + ph + 25);
+  }
+
+  function drawChartLog(canvasId) {
+    var c = document.getElementById(canvasId);
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l: 45, r: 10, t: 24, b: 28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // log(F) vs log(r): F = k|q1q2| / r² => log(F) = log(k|q1q2|) - 2*log(r)
+    // 斜率应为 -2
+    var logRmin = Math.log10(0.5), logRmax = Math.log10(5);
+    var Fmax = calcForce(CFG.q1, CFG.q2, 0.5);
+    var Fmin = calcForce(CFG.q1, CFG.q2, 5);
+    var logFmin = Math.log10(Math.max(Fmin, 1e-10));
+    var logFmax = Math.log10(Math.max(Fmax, 1e-10));
+
+    cx.fillStyle = '#666688';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    for (var i = 0; i <= 4; i++) {
+      var lr = logRmin + (i / 4) * (logRmax - logRmin);
+      var xx = pad.l + (i / 4) * pw;
+      cx.fillText(lr.toFixed(1), xx, pad.t + ph + 14);
+    }
+    cx.textAlign = 'right';
+    for (var i = 0; i <= 4; i++) {
+      var lf = logFmin + (i / 4) * (logFmax - logFmin);
+      var yy = pad.t + ph - (i / 4) * ph;
+      cx.fillText(lf.toFixed(1), pad.l - 4, yy + 3);
+    }
+
+    // 直线 (斜率 -2)
+    cx.strokeStyle = '#ce93d8';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var lr = logRmin + (i / 100) * (logRmax - logRmin);
+      var lf = logFmax - 2 * (lr - logRmin);
+      var px = pad.l + ((lr - logRmin) / (logRmax - logRmin)) * pw;
+      var py = pad.t + ph - ((lf - logFmin) / (logFmax - logFmin)) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前位置
+    var curLogR = Math.log10(S.rCurrent);
+    var curF = calcForce(CFG.q1, CFG.q2, S.rCurrent);
+    var curLogF = Math.log10(Math.max(curF, 1e-10));
+    var curX = pad.l + ((curLogR - logRmin) / (logRmax - logRmin)) * pw;
+    var curY = pad.t + ph - ((curLogF - logFmin) / (logFmax - logFmin)) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('log(r)', pad.l + pw / 2, pad.t + ph + 25);
+
+    // 斜率标注
+    cx.fillStyle = '#ce93d8';
+    cx.font = '10px sans-serif';
+    cx.textAlign = 'left';
+    cx.fillText('斜率 = -2', pad.l + 5, pad.t + 14);
+  }
+
+  /* ====== 动画循环 ====== */
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+
+    S.t += dt * CFG.timeScale;
+    // 模拟距离变化: 电荷从初始距离开始缓慢靠近/远离
+    var sameSign = (CFG.q1 * CFG.q2 > 0);
+    var force = calcForce(CFG.q1, CFG.q2, S.rCurrent);
+    var accel = force * 1e-4; // 虚拟加速度缩放
+    if (sameSign) {
+      S.rCurrent += accel * dt * 0.3; // 排斥: 距离增大
+    } else {
+      S.rCurrent -= accel * dt * 0.3; // 吸引: 距离减小
+    }
+    S.rCurrent = Math.max(0.5, Math.min(5, S.rCurrent));
+
+    // 同步滑块
+    document.getElementById('sliderR').value = S.rCurrent;
+    document.getElementById('valR').textContent = S.rCurrent.toFixed(1) + ' m';
+
+    draw();
+    updateData();
+    drawChartFr('chartFr');
+    drawChartFr2('chartFr2');
+    drawChartLog('chartLog');
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  /* ====== 重置 ====== */
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    S.rCurrent = CFG.r;
+    S.vx = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartFr('chartFr');
+    drawChartFr2('chartFr2');
+    drawChartLog('chartLog');
+  }
+
+  /* ====== 事件绑定 ====== */
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) {
+      lastTime = 0;
+      animId = requestAnimationFrame(animate);
+    }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderQ1').addEventListener('input', function() {
+    CFG.q1 = parseFloat(this.value) * 1e-6;
+    document.getElementById('valQ1').textContent = (CFG.q1 * 1e6 > 0 ? '+' : '') + (CFG.q1 * 1e6).toFixed(1) + ' μC';
+    updateData();
+    draw();
+    drawChartFr('chartFr');
+    drawChartFr2('chartFr2');
+    drawChartLog('chartLog');
+  });
+
+  document.getElementById('sliderQ2').addEventListener('input', function() {
+    CFG.q2 = parseFloat(this.value) * 1e-6;
+    document.getElementById('valQ2').textContent = (CFG.q2 * 1e6 > 0 ? '+' : '') + (CFG.q2 * 1e6).toFixed(1) + ' μC';
+    updateData();
+    draw();
+    drawChartFr('chartFr');
+    drawChartFr2('chartFr2');
+    drawChartLog('chartLog');
+  });
+
+  document.getElementById('sliderR').addEventListener('input', function() {
+    CFG.r = parseFloat(this.value);
+    S.rCurrent = CFG.r;
+    document.getElementById('valR').textContent = CFG.r.toFixed(1) + ' m';
+    updateData();
+    draw();
+    drawChartFr('chartFr');
+    drawChartFr2('chartFr2');
+    drawChartLog('chartLog');
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartFr('chartFr');
+    drawChartFr2('chartFr2');
+    drawChartLog('chartLog');
+  });
+
+  resize();
+  updateData();
+  drawChartFr('chartFr');
+  drawChartFr2('chartFr2');
+  drawChartLog('chartLog');
+})();
+</script>
+{% endblock %}

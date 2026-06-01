@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+{% block title %}功与功率实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-chart-tabs{display:flex;gap:3px;margin-bottom:6px}
+  .exp-chart-tab{flex:1;padding:4px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-chart-tab.active{background:var(--cyan);color:#0f0f1a;border-color:var(--cyan)}
+  .chart-canvas-wrap{width:100%;height:120px;position:relative;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  .chart-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .work-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;margin-top:6px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🔧 功与功率实验</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">W = Fs·cosθ &nbsp;&nbsp; P = W/t = Fv</div>
+  </div>
+  <div style="padding:6px 20px; background:#0f0f1a; border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan); text-decoration:none; font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">力 F</span><span class="exp-slider-value" id="valF">20.0 N</span></div>
+          <input type="range" id="sliderF" min="1" max="50" step="0.5" value="20">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">位移 s</span><span class="exp-slider-value" id="valS">10.0 m</span></div>
+          <input type="range" id="sliderS" min="1" max="20" step="0.5" value="10">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">夹角 θ</span><span class="exp-slider-value" id="valTheta">60°</span></div>
+          <input type="range" id="sliderTheta" min="0" max="180" step="1" value="60">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">功 W</div><div class="value c-green" id="dataW">0.0 <span class="unit">J</span></div></div>
+          <div class="exp-data-item"><div class="label">功率 P</div><div class="value c-amber" id="dataP">0.0 <span class="unit">W</span></div></div>
+          <div class="exp-data-item"><div class="label">已走距离</div><div class="value c-velocity" id="dataDist">0.0 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">cosθ</div><div class="value c-purple" id="dataCos">0.500</div></div>
+        </div>
+        <div style="text-align:center;margin-top:6px;" id="badgeWrap"></div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>W = F·s·cosθ</div>
+          <div>W = <span class="formula" id="fmF">20</span> × <span class="formula" id="fmS">10</span> × <span class="formula" id="fmCos">0.500</span></div>
+          <div>W = <span class="result" id="fmW">100.0</span> J</div>
+          <div>P = W/t = <span class="result" id="fmP">0.0</span> W</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📈 图表</h3>
+        <div class="exp-chart-tabs">
+          <button class="exp-chart-tab active" data-chart="wtheta">W-θ</button>
+          <button class="exp-chart-tab" data-chart="pt">P-t</button>
+          <button class="exp-chart-tab" data-chart="wacc">功累积</button>
+          <button class="exp-chart-tab" data-chart="angle">角度指示</button>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ---- 配置 ---- */
+  var CFG={F:20,s:10,theta:60,timeScale:1};
+  var S={t:0,playing:false,dist:0,work:0,history:[]};
+  var activeChart='wtheta';
+  var cosTheta=Math.cos(CFG.theta*Math.PI/180);
+
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  var chartCanvas=document.getElementById('chartCanvas'),chartCtx=chartCanvas.getContext('2d');
+
+  /* ---- 计算功 ---- */
+  function calcWork(d){return CFG.F*d*cosTheta;}
+
+  /* ---- 绘制箭头 ---- */
+  function drawArrow(c,x1,y1,x2,y2,color,lw,label){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<3)return;
+    var angle=Math.atan2(dy,dx);
+    c.strokeStyle=color;c.lineWidth=lw;c.lineCap='round';
+    c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();
+    var hl=Math.min(10,len*0.3);
+    c.fillStyle=color;c.beginPath();c.moveTo(x2,y2);
+    c.lineTo(x2-hl*Math.cos(angle-0.35),y2-hl*Math.sin(angle-0.35));
+    c.lineTo(x2-hl*Math.cos(angle+0.35),y2-hl*Math.sin(angle+0.35));
+    c.closePath();c.fill();
+    if(label){
+      var mx=(x1+x2)/2,my=(y1+y2)/2;
+      var nx=-dy/len*14,ny=dx/len*14;
+      c.fillStyle=color;c.font='bold 12px sans-serif';c.textAlign='center';
+      c.fillText(label,mx+nx,my+ny);
+    }
+  }
+
+  /* ---- 绘制主场景 ---- */
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1),H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    // 网格
+    ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    var groundY=H*0.7;
+    // 地面
+    ctx.strokeStyle='#2ecc7155';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(30,groundY);ctx.lineTo(W-30,groundY);ctx.stroke();
+    // 刻度
+    ctx.strokeStyle='#5a648033';ctx.lineWidth=1;
+    for(var tx=80;tx<W-30;tx+=50){ctx.beginPath();ctx.moveTo(tx,groundY);ctx.lineTo(tx,groundY+6);ctx.stroke();}
+
+    // 物体位置（根据已走距离）
+    var maxDisplay=W-120;
+    var progress=Math.min(S.dist/CFG.s,1);
+    var objX=80+progress*maxDisplay;
+    var objY=groundY-20;
+
+    // 位移阴影区域（地面到物体之间）
+    if(S.dist>0){
+      var grad=ctx.createLinearGradient(80,groundY,objX,groundY);
+      grad.addColorStop(0,'rgba(0,212,255,0)');
+      grad.addColorStop(1,'rgba(0,212,255,0.15)');
+      ctx.fillStyle=grad;
+      ctx.fillRect(80,groundY-3,objX-80,6);
+    }
+
+    // 物体（箱子）
+    ctx.fillStyle='#ffb800';ctx.fillRect(objX-18,objY-18,36,36);
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(objX-18,objY-18,36,36);
+    ctx.fillStyle='#0f0f1a';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('m',objX,objY+4);
+
+    // 力箭头（从物体中心出发，角度为θ相对于x轴正方向）
+    var radTheta=-CFG.theta*Math.PI/180; // Canvas y轴向下
+    var forceLen=Math.min(CFG.F*2,120);
+    var fEx=objX+forceLen*Math.cos(radTheta);
+    var fEy=objY+forceLen*Math.sin(radTheta);
+    drawArrow(ctx,objX,objY,fEx,fEy,'#ff4466',3,'F');
+
+    // 位移箭头（水平向右）
+    if(S.dist>0.1){
+      var dispLen=Math.min(S.dist/CFG.s*80,80);
+      drawArrow(ctx,objX,objY+30,objX+dispLen,objY+30,'#00d4ff',2.5,'s');
+    }
+
+    // 角度弧线
+    if(CFG.theta>0){
+      ctx.strokeStyle='#ffb80088';ctx.lineWidth=1.5;
+      var arcR=30;
+      var startAngle=0; // 水平向右
+      var endAngle=-CFG.theta*Math.PI/180;
+      ctx.beginPath();
+      if(CFG.theta<=180){
+        ctx.arc(objX,objY,arcR,startAngle,endAngle,true);
+      } else {
+        ctx.arc(objX,objY,arcR,startAngle,endAngle,false);
+      }
+      ctx.stroke();
+      // 角度文字
+      ctx.fillStyle='#ffb800';ctx.font='11px sans-serif';ctx.textAlign='center';
+      var midAngle=-(CFG.theta/2)*Math.PI/180;
+      ctx.fillText('θ='+CFG.theta+'°',objX+(arcR+14)*Math.cos(midAngle),objY+(arcR+14)*Math.sin(midAngle));
+    }
+
+    // 角度填充区域（扇形半透明）
+    if(CFG.theta>2 && CFG.theta<180){
+      ctx.fillStyle='rgba(255,184,0,0.08)';
+      ctx.beginPath();
+      ctx.moveTo(objX,objY);
+      ctx.arc(objX,objY,arcR+10,0,-CFG.theta*Math.PI/180,true);
+      ctx.closePath();ctx.fill();
+    }
+
+    // 功的标签
+    var W_val=calcWork(S.dist);
+    ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.fillStyle='#00ff88';
+    ctx.fillText('W = '+W_val.toFixed(1)+' J',W/2,30);
+
+    // 功的正负指示
+    if(cosTheta>0.01){
+      ctx.fillStyle='rgba(0,255,136,0.1)';
+    } else if(cosTheta<-0.01){
+      ctx.fillStyle='rgba(255,68,102,0.1)';
+    } else {
+      ctx.fillStyle='rgba(255,184,0,0.1)';
+    }
+    ctx.fillRect(W/2-60,14,120,22);
+
+    // 底部信息
+    ctx.fillStyle='#5a6480';ctx.font='11px sans-serif';ctx.textAlign='left';
+    ctx.fillText('t='+S.t.toFixed(2)+'s  s走='+S.dist.toFixed(2)+'m',10,H-10);
+  }
+
+  /* ---- 绘制图表 ---- */
+  function drawChart(){
+    var W=chartCanvas.width/(window.devicePixelRatio||1),H=chartCanvas.height/(window.devicePixelRatio||1);
+    chartCtx.clearRect(0,0,W,H);chartCtx.fillStyle='rgba(0,0,0,0.2)';chartCtx.fillRect(0,0,W,H);
+    var margin={l:40,r:10,t:14,b:22},pw=W-margin.l-margin.r,ph=H-margin.t-margin.b;
+
+    chartCtx.strokeStyle='#5a6480';chartCtx.lineWidth=1;
+    chartCtx.beginPath();chartCtx.moveTo(margin.l,margin.t);chartCtx.lineTo(margin.l,margin.t+ph);chartCtx.lineTo(margin.l+pw,margin.t+ph);chartCtx.stroke();
+
+    if(activeChart==='wtheta'){
+      // W-θ 余弦曲线
+      var maxW=CFG.F*CFG.s;
+      chartCtx.strokeStyle='#00ff88';chartCtx.lineWidth=2;chartCtx.beginPath();
+      for(var ang=0;ang<=180;ang+=1){
+        var w=maxW*Math.cos(ang*Math.PI/180);
+        var px=margin.l+(ang/180)*pw;
+        var py=margin.t+ph/2-w/maxW*ph*0.4;
+        if(ang===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 零线
+      var zeroY=margin.t+ph/2;
+      chartCtx.strokeStyle='#5a6480';chartCtx.lineWidth=1;chartCtx.setLineDash([3,3]);
+      chartCtx.beginPath();chartCtx.moveTo(margin.l,zeroY);chartCtx.lineTo(margin.l+pw,zeroY);chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      // 当前角度标记
+      var curAng=CFG.theta;
+      var curW=maxW*Math.cos(curAng*Math.PI/180);
+      var mkX=margin.l+(curAng/180)*pw;
+      var mkY=margin.t+ph/2-curW/maxW*ph*0.4;
+      chartCtx.fillStyle='#fff';chartCtx.beginPath();chartCtx.arc(mkX,mkY,4,0,Math.PI*2);chartCtx.fill();
+      chartCtx.fillStyle='#00ff88';chartCtx.font='9px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('W='+curW.toFixed(1)+'J',mkX+8,mkY-4);
+      chartCtx.fillStyle='#8892b0';chartCtx.textAlign='center';chartCtx.fillText('θ (°)',margin.l+pw/2,H-3);
+      // 正功/负功区域
+      var grad1=chartCtx.createLinearGradient(margin.l,0,margin.l+pw/2,0);
+      grad1.addColorStop(0,'rgba(0,255,136,0.05)');grad1.addColorStop(1,'rgba(0,255,136,0.05)');
+      chartCtx.fillStyle='rgba(0,255,136,0.05)';chartCtx.fillRect(margin.l,margin.t,pw/2,ph/2);
+      chartCtx.fillStyle='rgba(255,68,102,0.05)';chartCtx.fillRect(margin.l+pw/2,margin.t+ph/2,pw/2,ph/2);
+      chartCtx.font='9px sans-serif';chartCtx.fillStyle='#00ff88';chartCtx.textAlign='center';
+      chartCtx.fillText('正功区',margin.l+pw*0.25,margin.t+12);
+      chartCtx.fillStyle='#ff4466';chartCtx.fillText('负功区',margin.l+pw*0.75,margin.t+ph-4);
+    } else if(activeChart==='pt'){
+      // P-t 图
+      var hist=S.history;
+      if(hist.length<2){
+        chartCtx.fillStyle='#5a6480';chartCtx.font='11px sans-serif';chartCtx.textAlign='center';
+        chartCtx.fillText('播放后显示 P-t 图',W/2,H/2);return;
+      }
+      var maxT=hist[hist.length-1].t||1;
+      var maxP=Math.max.apply(null,hist.map(function(h){return Math.abs(h.p)}))*1.3||5;
+      chartCtx.strokeStyle='#ffb800';chartCtx.lineWidth=2;chartCtx.beginPath();
+      hist.forEach(function(h,i){
+        var px=margin.l+(h.t/maxT)*pw;
+        var py=margin.t+ph-h.p/maxP*ph*0.85;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      });
+      chartCtx.stroke();
+      chartCtx.font='10px sans-serif';chartCtx.textAlign='left';chartCtx.fillStyle='#ffb800';
+      chartCtx.fillText('━ P(t)',margin.l+5,margin.t+12);
+      chartCtx.fillStyle='#8892b0';chartCtx.textAlign='center';chartCtx.fillText('t (s)',margin.l+pw/2,H-3);
+    } else if(activeChart==='wacc'){
+      // 功累积
+      var hist2=S.history;
+      if(hist2.length<2){
+        chartCtx.fillStyle='#5a6480';chartCtx.font='11px sans-serif';chartCtx.textAlign='center';
+        chartCtx.fillText('播放后显示功累积',W/2,H/2);return;
+      }
+      var maxT2=hist2[hist2.length-1].t||1;
+      var maxW2=Math.max.apply(null,hist2.map(function(h){return Math.abs(h.w)}))*1.3||5;
+      // 面积填充
+      chartCtx.fillStyle='rgba(0,255,136,0.1)';
+      chartCtx.beginPath();
+      chartCtx.moveTo(margin.l,margin.t+ph);
+      hist2.forEach(function(h){
+        var px=margin.l+(h.t/maxT2)*pw;
+        var py=margin.t+ph-h.w/maxW2*ph*0.85;
+        chartCtx.lineTo(px,py);
+      });
+      chartCtx.lineTo(margin.l+pw,margin.t+ph);
+      chartCtx.closePath();chartCtx.fill();
+      // 曲线
+      chartCtx.strokeStyle='#00ff88';chartCtx.lineWidth=2;chartCtx.beginPath();
+      hist2.forEach(function(h,i){
+        var px=margin.l+(h.t/maxT2)*pw;
+        var py=margin.t+ph-h.w/maxW2*ph*0.85;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      });
+      chartCtx.stroke();
+      chartCtx.font='10px sans-serif';chartCtx.textAlign='left';chartCtx.fillStyle='#00ff88';
+      chartCtx.fillText('━ W(t)',margin.l+5,margin.t+12);
+      chartCtx.fillStyle='#8892b0';chartCtx.textAlign='center';chartCtx.fillText('t (s)',margin.l+pw/2,H-3);
+    } else if(activeChart==='angle'){
+      // 角度指示器（大圆形仪表）
+      var pcx=margin.l+pw/2, pcy=margin.t+ph/2;
+      var r=Math.min(pw,ph)*0.38;
+      // 外圈
+      chartCtx.strokeStyle='#5a6480';chartCtx.lineWidth=2;
+      chartCtx.beginPath();chartCtx.arc(pcx,pcy,r,0,Math.PI*2);chartCtx.stroke();
+      // 水平参考线
+      chartCtx.strokeStyle='#5a648055';chartCtx.lineWidth=1;
+      chartCtx.beginPath();chartCtx.moveTo(pcx-r-5,pcy);chartCtx.lineTo(pcx+r+5,pcy);chartCtx.stroke();
+      // 角度弧
+      var arcColor=cosTheta>0.01?'#00ff88':(cosTheta<-0.01?'#ff4466':'#ffb800');
+      chartCtx.strokeStyle=arcColor;chartCtx.lineWidth=3;
+      chartCtx.beginPath();chartCtx.arc(pcx,pcy,r*0.7,0,-CFG.theta*Math.PI/180,CFG.theta<=180);chartCtx.stroke();
+      // 填充扇形
+      chartCtx.fillStyle=arcColor+'22';
+      chartCtx.beginPath();chartCtx.moveTo(pcx,pcy);
+      chartCtx.arc(pcx,pcy,r*0.7,0,-CFG.theta*Math.PI/180,CFG.theta<=180);
+      chartCtx.closePath();chartCtx.fill();
+      // 力方向箭头
+      var fAng=-CFG.theta*Math.PI/180;
+      chartCtx.strokeStyle='#ff4466';chartCtx.lineWidth=2;
+      chartCtx.beginPath();chartCtx.moveTo(pcx,pcy);
+      chartCtx.lineTo(pcx+r*0.65*Math.cos(fAng),pcy+r*0.65*Math.sin(fAng));chartCtx.stroke();
+      // 角度文字
+      chartCtx.fillStyle=arcColor;chartCtx.font='bold 14px sans-serif';chartCtx.textAlign='center';
+      chartCtx.fillText('θ='+CFG.theta+'°',pcx,pcy+r+16);
+      chartCtx.fillStyle='#8892b0';chartCtx.font='10px sans-serif';
+      chartCtx.fillText('cosθ='+cosTheta.toFixed(3),pcx,pcy+r+28);
+    }
+  }
+
+  /* ---- 更新数据 ---- */
+  function updateData(){
+    cosTheta=Math.cos(CFG.theta*Math.PI/180);
+    var W_val=calcWork(S.dist);
+    var P_val=S.t>0.01?W_val/S.t:0;
+    var v=S.t>0.01?S.dist/S.t:0;
+    document.getElementById('dataW').innerHTML=W_val.toFixed(1)+' <span class="unit">J</span>';
+    document.getElementById('dataP').innerHTML=P_val.toFixed(1)+' <span class="unit">W</span>';
+    document.getElementById('dataDist').innerHTML=S.dist.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('dataCos').textContent=cosTheta.toFixed(3);
+    document.getElementById('fmF').textContent=CFG.F;
+    document.getElementById('fmS').textContent=CFG.s;
+    document.getElementById('fmCos').textContent=cosTheta.toFixed(3);
+    document.getElementById('fmW').textContent=W_val.toFixed(1);
+    document.getElementById('fmP').textContent=P_val.toFixed(1);
+    // badge
+    var badge=document.getElementById('badgeWrap');
+    if(cosTheta>0.01){
+      badge.innerHTML='<span class="work-badge" style="background:rgba(0,255,136,0.15);color:#00ff88;border:1px solid #00ff88;">✓ 正功（加速）</span>';
+    } else if(cosTheta<-0.01){
+      badge.innerHTML='<span class="work-badge" style="background:rgba(255,68,102,0.15);color:#ff4466;border:1px solid #ff4466;">✗ 负功（减速）</span>';
+    } else {
+      badge.innerHTML='<span class="work-badge" style="background:rgba(255,184,0,0.15);color:#ffb800;border:1px solid #ffb800;">— 零功（不做功）</span>';
+    }
+  }
+
+  /* ---- 动画循环 ---- */
+  var lastTime=0,animId=null;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;
+    // 匀速运动（简化）
+    var v=S.t>0.01?CFG.s/5:0; // 5秒走完位移
+    S.dist=Math.min(v*S.t,CFG.s);
+    S.work=calcWork(S.dist);
+    var curP=S.t>0.01?S.work/S.t:0;
+    S.history.push({t:S.t,dist:S.dist,w:S.work,p:curP});
+    draw();updateData();drawChart();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.dist=0;S.work=0;S.history=[];
+    lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    cosTheta=Math.cos(CFG.theta*Math.PI/180);
+    S.history.push({t:0,dist:0,w:0,p:0});
+    draw();updateData();drawChart();
+  }
+
+  /* ---- 事件 ---- */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active')});b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.getElementById('sliderF').addEventListener('input',function(){CFG.F=parseFloat(this.value);document.getElementById('valF').textContent=CFG.F.toFixed(1)+' N';reset();});
+  document.getElementById('sliderS').addEventListener('input',function(){CFG.s=parseFloat(this.value);document.getElementById('valS').textContent=CFG.s.toFixed(1)+' m';reset();});
+  document.getElementById('sliderTheta').addEventListener('input',function(){CFG.theta=parseFloat(this.value);document.getElementById('valTheta').textContent=CFG.theta+'°';reset();});
+  document.querySelectorAll('.exp-chart-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.exp-chart-tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');activeChart=tab.dataset.chart;drawChart();
+    });
+  });
+  function resize(){var dpr=window.devicePixelRatio||1;var rect=canvas.parentElement.getBoundingClientRect();canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);var cr=chartCanvas.parentElement.getBoundingClientRect();chartCanvas.width=Math.round(cr.width*dpr);chartCanvas.height=Math.round(cr.height*dpr);chartCtx.setTransform(dpr,0,0,dpr,0,0);draw();drawChart();}
+  window.addEventListener('resize',resize);
+  resize();updateData();
+})();
+</script>
+{% endblock %}
