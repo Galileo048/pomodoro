@@ -18,10 +18,14 @@ Flask 应用工厂模块
 """
 
 import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
+
+# 加载 .env 文件中的环境变量
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
 
 # ============================================================
 # 全局扩展实例

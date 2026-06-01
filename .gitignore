@@ -10,3 +10,4 @@ media/
 
 # Large installers
 *.exe
+physics_platform/.env
