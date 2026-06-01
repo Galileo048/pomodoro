@@ -308,6 +308,13 @@ def ai_diagnosis():
     data = request.get_json() or {}
     topic_id = data.get('topic_id')
 
+    # 检查 API 密钥是否配置
+    if not DEEPSEEK_API_KEY:
+        return jsonify({
+            'analysis': '⚠️ AI 诊断服务暂未配置。\n\n请联系管理员配置 DeepSeek API 密钥后即可使用此功能。\n\n当前你可以通过「查看错题」功能手动分析薄弱知识点。',
+            'recommendations': []
+        })
+
     # 获取用户的薄弱知识点
     results = diagnose_user(current_user.id)
 
