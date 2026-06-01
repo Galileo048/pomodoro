@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}二次函数交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--green);">📈 二次函数 y = ax² + bx + c</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Quadratic Function — 抛物线、顶点、对称轴、判别式</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">系数 a</span><span class="exp-slider-value" id="valA">1.0</span></div>
+          <input type="range" id="sliderA" min="-5" max="5" step="0.1" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">系数 b</span><span class="exp-slider-value" id="valB">0.0</span></div>
+          <input type="range" id="sliderB" min="-10" max="10" step="0.1" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">系数 c</span><span class="exp-slider-value" id="valC">0.0</span></div>
+          <input type="range" id="sliderC" min="-10" max="10" step="0.1" value="0">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 函数信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">顶点 x</div><div class="value c-cyan" id="dataVx">0.00</div></div>
+          <div class="exp-data-item"><div class="label">顶点 y</div><div class="value c-accent" id="dataVy">0.00</div></div>
+          <div class="exp-data-item"><div class="label">判别式 Δ</div><div class="value c-amber" id="dataDelta">0.00</div></div>
+          <div class="exp-data-item"><div class="label">根的个数</div><div class="value c-green" id="dataRoots">1</div></div>
+          <div class="exp-data-item"><div class="label">开口方向</div><div class="value c-purple" id="dataOpen">向上</div></div>
+          <div class="exp-data-item"><div class="label">最值</div><div class="value c-cyan" id="dataMinMax">最小值</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y = <span class="result" id="fmA">1.0</span>x² + <span class="result" id="fmB">0.0</span>x + <span class="result" id="fmC">0.0</span></div>
+          <div>顶点: (<span class="result" id="fmVx">0.00</span>, <span class="result" id="fmVy">0.00</span>)</div>
+          <div>对称轴: x = <span class="result" id="fmAxis">0.00</span></div>
+          <div>Δ = b²-4ac = <span class="result" id="fmDelta">0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {a: 1, b: 0, c: 0};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -10, xMax = 10, yMin = -10, yMax = 10;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    // Skip if a is very close to 0
+    if (Math.abs(CFG.a) < 0.01) {
+      // Draw as line y = bx + c
+      ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      var ly1 = CFG.b * xMin + CFG.c, ly2 = CFG.b * xMax + CFG.c;
+      ctx.moveTo(tx(xMin), ty(ly1)); ctx.lineTo(tx(xMax), ty(ly2));
+      ctx.stroke();
+      ctx.fillStyle = '#ff4466';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('a ≈ 0, 退化为一次函数', pad + 5, pad + 18);
+      return;
+    }
+
+    // Parabola
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var px = 0; px <= 600; px++) {
+      var x = xMin + (px / 600) * (xMax - xMin);
+      var y = CFG.a * x * x + CFG.b * x + CFG.c;
+      if (y < yMin - 30 || y > yMax + 30) { started = false; continue; }
+      var sx = tx(x), sy = ty(y);
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    // Vertex
+    var vx = -CFG.b / (2 * CFG.a);
+    var vy = CFG.a * vx * vx + CFG.b * vx + CFG.c;
+    if (vx >= xMin && vx <= xMax && vy >= yMin && vy <= yMax) {
+      var vtx = tx(vx), vty = ty(vy);
+      // Glow
+      var glow = ctx.createRadialGradient(vtx, vty, 0, vtx, vty, 14);
+      glow.addColorStop(0, 'rgba(255,68,102,0.5)');
+      glow.addColorStop(1, 'rgba(255,68,102,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(vtx, vty, 14, 0, Math.PI * 2); ctx.fill();
+      // Dot
+      ctx.fillStyle = '#ff4466';
+      ctx.beginPath(); ctx.arc(vtx, vty, 5, 0, Math.PI * 2); ctx.fill();
+      // Label
+      ctx.fillStyle = '#ff4466';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('(' + vx.toFixed(2) + ', ' + vy.toFixed(2) + ')', vtx + 10, vty - 10);
+    }
+
+    // Axis of symmetry (dashed)
+    if (vx >= xMin && vx <= xMax) {
+      ctx.strokeStyle = '#a78bfa88'; ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(tx(vx), pad); ctx.lineTo(tx(vx), pad + ch); ctx.stroke();
+      ctx.setLineDash([]);
+      // Label
+      ctx.fillStyle = '#a78bfa';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('x=' + vx.toFixed(1), tx(vx), pad + 14);
+    }
+
+    // X-intercepts (roots)
+    var delta = CFG.b * CFG.b - 4 * CFG.a * CFG.c;
+    if (delta >= 0) {
+      var sqrtD = Math.sqrt(delta);
+      var x1 = (-CFG.b - sqrtD) / (2 * CFG.a);
+      var x2 = (-CFG.b + sqrtD) / (2 * CFG.a);
+
+      function drawRoot(rx, color, label) {
+        if (rx < xMin || rx > xMax) return;
+        var rtx = tx(rx), rty = ty(0);
+        var glow2 = ctx.createRadialGradient(rtx, rty, 0, rtx, rty, 12);
+        glow2.addColorStop(0, color + '66');
+        glow2.addColorStop(1, color + '00');
+        ctx.fillStyle = glow2;
+        ctx.beginPath(); ctx.arc(rtx, rty, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(rtx, rty, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(label + '=' + rx.toFixed(2), rtx, rty - 14);
+      }
+
+      if (Math.abs(delta) < 0.001) {
+        drawRoot(x1, '#ffb800', 'x₀');
+      } else {
+        drawRoot(x1, '#00ff88', 'x₁');
+        drawRoot(x2, '#00d4ff', 'x₂');
+      }
+    }
+
+    // Equation display
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    var aStr = CFG.a.toFixed(1);
+    var bStr = CFG.b >= 0 ? ' + ' + CFG.b.toFixed(1) : ' - ' + Math.abs(CFG.b).toFixed(1);
+    var cStr = CFG.c >= 0 ? ' + ' + CFG.c.toFixed(1) : ' - ' + Math.abs(CFG.c).toFixed(1);
+    ctx.fillText('y = ' + aStr + 'x²' + bStr + 'x' + cStr, pad + 5, pad + 18);
+  }
+
+  function updateInfo() {
+    var vx = -CFG.b / (2 * CFG.a);
+    var vy = CFG.a * vx * vx + CFG.b * vx + CFG.c;
+    var delta = CFG.b * CFG.b - 4 * CFG.a * CFG.c;
+
+    document.getElementById('dataVx').textContent = vx.toFixed(2);
+    document.getElementById('dataVy').textContent = vy.toFixed(2);
+    document.getElementById('dataDelta').textContent = delta.toFixed(2);
+
+    var rootCount = 0;
+    if (Math.abs(CFG.a) < 0.01) rootCount = 0;
+    else if (delta > 0.001) rootCount = 2;
+    else if (delta < -0.001) rootCount = 0;
+    else rootCount = 1;
+    document.getElementById('dataRoots').textContent = rootCount;
+
+    document.getElementById('dataOpen').textContent = CFG.a > 0 ? '向上 ∪' : '向下 ∩';
+    document.getElementById('dataMinMax').textContent = CFG.a > 0 ? '最小值 ' + vy.toFixed(2) : '最大值 ' + vy.toFixed(2);
+
+    document.getElementById('fmA').textContent = CFG.a.toFixed(1);
+    document.getElementById('fmB').textContent = CFG.b.toFixed(1);
+    document.getElementById('fmC').textContent = CFG.c.toFixed(1);
+    document.getElementById('fmVx').textContent = vx.toFixed(2);
+    document.getElementById('fmVy').textContent = vy.toFixed(2);
+    document.getElementById('fmAxis').textContent = vx.toFixed(2);
+    document.getElementById('fmDelta').textContent = delta.toFixed(2);
+  }
+
+  document.getElementById('sliderA').addEventListener('input', function() {
+    CFG.a = parseFloat(this.value); if (Math.abs(CFG.a) < 0.01) CFG.a = 0.01;
+    document.getElementById('valA').textContent = CFG.a.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderB').addEventListener('input', function() {
+    CFG.b = parseFloat(this.value);
+    document.getElementById('valB').textContent = CFG.b.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderC').addEventListener('input', function() {
+    CFG.c = parseFloat(this.value);
+    document.getElementById('valC').textContent = CFG.c.toFixed(1);
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

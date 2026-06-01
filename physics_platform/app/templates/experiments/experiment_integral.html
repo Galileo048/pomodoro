@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}定积分几何意义交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .func-selector{display:flex;gap:4px;flex-wrap:wrap}
+  .func-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .func-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .func-btn:hover:not(.active){border-color:var(--cyan)}
+  .toggle-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .toggle-row label{font-size:12px;color:var(--text-primary);cursor:pointer}
+  .toggle-row input[type="checkbox"]{accent-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--amber);">📊 定积分的几何意义 — 面积与黎曼和</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Definite Integral — 阴影面积, 蓝正红负, 黎曼和逼近</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 函数选择</h3>
+        <div class="func-selector" id="funcSelector">
+          <button class="func-btn active" data-func="x2">y = x²</button>
+          <button class="func-btn" data-func="sin">y = sin(x)</button>
+          <button class="func-btn" data-func="cos">y = cos(x)</button>
+          <button class="func-btn" data-func="sqrt">y = √x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>🎛️ 积分区间</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">下限 a</span><span class="exp-slider-value" id="valA">0.0</span></div>
+          <input type="range" id="sliderA" min="-4" max="4" step="0.1" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">上限 b</span><span class="exp-slider-value" id="valB">3.0</span></div>
+          <input type="range" id="sliderB" min="-4" max="4" step="0.1" value="3">
+        </div>
+        <div class="toggle-row" style="margin-top:8px;">
+          <input type="checkbox" id="chkRiemann">
+          <label for="chkRiemann">显示黎曼和矩形</label>
+        </div>
+        <div class="exp-slider-group" id="riemannGroup" style="display:none;">
+          <div class="exp-slider-header"><span class="exp-slider-label">矩形数量 n</span><span class="exp-slider-value" id="valN">10</span></div>
+          <input type="range" id="sliderN" min="2" max="100" step="1" value="10">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 积分信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">积分区间</div><div class="value c-cyan" id="dataInterval">[0, 3]</div></div>
+          <div class="exp-data-item"><div class="label">正面积</div><div class="value c-green" id="dataPositive">—</div></div>
+          <div class="exp-data-item"><div class="label">负面积</div><div class="value c-accent" id="dataNegative">—</div></div>
+          <div class="exp-data-item"><div class="label">净面积 ∫f(x)dx</div><div class="value c-amber" id="dataTotal">—</div></div>
+          <div class="exp-data-item"><div class="label">黎曼和 (n=<span id="dataN">10</span>)</div><div class="value c-purple" id="dataRiemann">—</div></div>
+          <div class="exp-data-item"><div class="label">近似误差</div><div class="value c-accent" id="dataApproxError">—</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>∫[<span class="result" id="fmA">0</span>, <span class="result" id="fmB">3</span>] f(x)dx = <span class="result" id="fmResult">—</span></div>
+          <div>黎曼和 = Σf(xᵢ*)Δx = <span class="result" id="fmRiemann">—</span></div>
+          <div>Δx = (b-a)/n = <span class="result" id="fmDx">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var funcs = {
+    x2:   { f: function(x){return x*x;},      name: 'x²',    intStr: 'x³/3' },
+    sin:  { f: function(x){return Math.sin(x);}, name: 'sin(x)', intStr: '-cos(x)' },
+    cos:  { f: function(x){return Math.cos(x);}, name: 'cos(x)', intStr: 'sin(x)' },
+    sqrt: { f: function(x){return x>=0?Math.sqrt(x):0;}, name: '√x', intStr: '(2/3)x^(3/2)' }
+  };
+
+  // Antiderivatives for exact calculation
+  var antiDeriv = {
+    x2:   function(x){return x*x*x/3;},
+    sin:  function(x){return -Math.cos(x);},
+    cos:  function(x){return Math.sin(x);},
+    sqrt: function(x){return x>=0?(2/3)*Math.pow(x,1.5):0;}
+  };
+
+  var currentFunc = 'x2';
+  var CFG = { a: 0, b: 3, n: 10, showRiemann: false };
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  // Numerical integration (Simpson's rule, high accuracy)
+  function numericalIntegral(f, a, b, n) {
+    if (a >= b) return 0;
+    var h = (b - a) / n;
+    var sum = f(a) + f(b);
+    for (var i = 1; i < n; i++) {
+      sum += (i % 2 === 0 ? 2 : 4) * f(a + i * h);
+    }
+    return sum * h / 3;
+  }
+
+  function exactIntegral(a, b) {
+    return antiDeriv[currentFunc](b) - antiDeriv[currentFunc](a);
+  }
+
+  function riemannSum(f, a, b, n, method) {
+    var dx = (b - a) / n;
+    var sum = 0;
+    for (var i = 0; i < n; i++) {
+      var xi;
+      if (method === 'left') xi = a + i * dx;
+      else if (method === 'right') xi = a + (i + 1) * dx;
+      else xi = a + (i + 0.5) * dx; // midpoint
+      sum += f(xi) * dx;
+    }
+    return sum;
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -5, xMax = 5, yMin = -5, yMax = 5;
+    var f = funcs[currentFunc].f;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    // Riemann sum rectangles
+    if (CFG.showRiemann) {
+      var a = Math.min(CFG.a, CFG.b), b = Math.max(CFG.a, CFG.b);
+      var dx = (b - a) / CFG.n;
+      for (var ri = 0; ri < CFG.n; ri++) {
+        var rx = a + ri * dx;
+        var rxi = rx + dx / 2; // midpoint rule
+        var ry = f(rxi);
+        var left = tx(rx), right = tx(rx + dx);
+        var top = ty(Math.max(ry, 0)), bottom = ty(Math.min(ry, 0));
+        var zeroY = ty(0);
+
+        if (ry >= 0) {
+          ctx.fillStyle = 'rgba(0,212,255,0.25)';
+          ctx.fillRect(left, top, right - left, zeroY - top);
+          ctx.strokeStyle = '#00d4ff88';
+        } else {
+          ctx.fillStyle = 'rgba(255,68,102,0.25)';
+          ctx.fillRect(left, zeroY, right - left, bottom - zeroY);
+          ctx.strokeStyle = '#ff446688';
+        }
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(left, top, right - left, bottom - top);
+      }
+    }
+
+    // Shaded area under curve (positive = blue, negative = red)
+    var aVal = Math.min(CFG.a, CFG.b), bVal = Math.max(CFG.a, CFG.b);
+    var steps = 300;
+    var dxStep = (bVal - aVal) / steps;
+
+    // Positive area
+    ctx.fillStyle = 'rgba(0,212,255,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(tx(aVal), ty(0));
+    for (var si = 0; si <= steps; si++) {
+      var sx = aVal + si * dxStep;
+      var sy = f(sx);
+      if (sy > 0) ctx.lineTo(tx(sx), ty(sy));
+      else ctx.lineTo(tx(sx), ty(0));
+    }
+    ctx.lineTo(tx(bVal), ty(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // Negative area
+    ctx.fillStyle = 'rgba(255,68,102,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(tx(aVal), ty(0));
+    for (var si2 = 0; si2 <= steps; si2++) {
+      var sx2 = aVal + si2 * dxStep;
+      var sy2 = f(sx2);
+      if (sy2 < 0) ctx.lineTo(tx(sx2), ty(sy2));
+      else ctx.lineTo(tx(sx2), ty(0));
+    }
+    ctx.lineTo(tx(bVal), ty(0));
+    ctx.closePath();
+    ctx.fill();
+
+    // Boundary lines at a and b
+    ctx.strokeStyle = '#ffb80088'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(tx(aVal), pad); ctx.lineTo(tx(aVal), pad + ch); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(bVal), pad); ctx.lineTo(tx(bVal), pad + ch); ctx.stroke();
+    ctx.setLineDash([]);
+    // Labels
+    ctx.fillStyle = '#ffb800'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('a=' + aVal.toFixed(1), tx(aVal), pad + ch + 18);
+    ctx.fillText('b=' + bVal.toFixed(1), tx(bVal), pad + ch + 18);
+
+    // Function curve
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var px = 0; px <= 500; px++) {
+      var x = xMin + (px / 500) * (xMax - xMin);
+      var y = f(x);
+      if (y < yMin - 10 || y > yMax + 10) { started = false; continue; }
+      var fsx = tx(x), fsy = ty(y);
+      if (!started) { ctx.moveTo(fsx, fsy); started = true; }
+      else ctx.lineTo(fsx, fsy);
+    }
+    ctx.stroke();
+
+    // Equation display
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('y = ' + funcs[currentFunc].name, pad + 5, pad + 18);
+
+    var exact = exactIntegral(aVal, bVal);
+    ctx.fillStyle = '#ffb800';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('∫[' + aVal.toFixed(1) + ',' + bVal.toFixed(1) + '] f(x)dx = ' + exact.toFixed(4), pad + 5, pad + 35);
+  }
+
+  function updateInfo() {
+    var f = funcs[currentFunc].f;
+    var aVal = Math.min(CFG.a, CFG.b), bVal = Math.max(CFG.a, CFG.b);
+
+    // Exact integral
+    var exact = exactIntegral(aVal, bVal);
+
+    // Compute positive and negative areas separately
+    var steps = 500;
+    var dx = (bVal - aVal) / steps;
+    var posArea = 0, negArea = 0;
+    for (var i = 0; i < steps; i++) {
+      var xi = aVal + (i + 0.5) * dx;
+      var yi = f(xi);
+      if (yi > 0) posArea += yi * dx;
+      else negArea += yi * dx;
+    }
+
+    // Riemann sum (midpoint)
+    var riemann = riemannSum(f, aVal, bVal, CFG.n, 'mid');
+
+    document.getElementById('dataInterval').textContent = '[' + aVal.toFixed(1) + ', ' + bVal.toFixed(1) + ']';
+    document.getElementById('dataPositive').textContent = posArea.toFixed(4);
+    document.getElementById('dataNegative').textContent = negArea.toFixed(4);
+    document.getElementById('dataTotal').textContent = exact.toFixed(4);
+    document.getElementById('dataN').textContent = CFG.n;
+    document.getElementById('dataRiemann').textContent = riemann.toFixed(4);
+    document.getElementById('dataApproxError').textContent = Math.abs(riemann - exact).toFixed(6);
+
+    document.getElementById('fmA').textContent = aVal.toFixed(1);
+    document.getElementById('fmB').textContent = bVal.toFixed(1);
+    document.getElementById('fmResult').textContent = exact.toFixed(4);
+    document.getElementById('fmRiemann').textContent = riemann.toFixed(4);
+    document.getElementById('fmDx').textContent = ((bVal - aVal) / CFG.n).toFixed(4);
+  }
+
+  // Function selector
+  document.querySelectorAll('.func-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.func-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentFunc = this.dataset.func;
+      draw(); updateInfo();
+    });
+  });
+
+  // Sliders
+  document.getElementById('sliderA').addEventListener('input', function() {
+    CFG.a = parseFloat(this.value);
+    document.getElementById('valA').textContent = CFG.a.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderB').addEventListener('input', function() {
+    CFG.b = parseFloat(this.value);
+    document.getElementById('valB').textContent = CFG.b.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderN').addEventListener('input', function() {
+    CFG.n = parseInt(this.value);
+    document.getElementById('valN').textContent = CFG.n;
+    draw(); updateInfo();
+  });
+
+  // Riemann toggle
+  document.getElementById('chkRiemann').addEventListener('change', function() {
+    CFG.showRiemann = this.checked;
+    document.getElementById('riemannGroup').style.display = this.checked ? 'block' : 'none';
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}圆周运动 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-toggle-row{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-toggle-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-toggle-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.1)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accel{color:var(--red)}.c-disp{color:var(--green)}.c-ball{color:var(--amber)}.c-accent{color:var(--accent,#e94560)}.c-force{color:#ff8a65}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ff8a65;">🔄 匀速圆周运动</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Uniform Circular Motion — v = ωR, a = v²/R</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">x-t 水平投影</span><canvas id="chartXT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">y-t 竖直投影</span><canvas id="chartYT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">v-t 线速度</span><canvas id="chartVT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">a-t 向心加速度</span><canvas id="chartAT"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">半径 R</span><span class="exp-slider-value" id="valR">2 m</span></div>
+          <input type="range" id="sliderR" min="0.5" max="5" step="0.1" value="2">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">角速度 ω</span><span class="exp-slider-value" id="valOmega">2 rad/s</span></div>
+          <input type="range" id="sliderOmega" min="0.5" max="10" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-toggle="trail">轨迹</button>
+          <button class="exp-toggle-btn active" data-toggle="velocity">速度矢量</button>
+          <button class="exp-toggle-btn active" data-toggle="accel">向心加速度</button>
+          <button class="exp-toggle-btn active" data-toggle="projection">投影</button>
+          <button class="exp-toggle-btn active" data-toggle="grid">网格</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">角度 θ</div><div class="value c-ball" id="dataTheta">0.00 <span class="unit">rad</span></div></div>
+          <div class="exp-data-item"><div class="label">线速度 v</div><div class="value c-velocity" id="dataV">4.00 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">向心加速度 a</div><div class="value c-accel" id="dataA">8.00 <span class="unit">m/s²</span></div></div>
+          <div class="exp-data-item"><div class="label">x 坐标</div><div class="value c-disp" id="dataX">2.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">y 坐标</div><div class="value c-disp" id="dataY">0.00 <span class="unit">m</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>v = ωR = <span class="formula" id="fmV">4.00</span> m/s</div>
+          <div>a = v²/R = <span class="formula" id="fmA">8.00</span> m/s²</div>
+          <div>T = 2π/ω = <span class="formula" id="fmT">3.14</span> s</div>
+          <div>f = 1/T = <span class="formula" id="fmF">0.32</span> Hz</div>
+          <div style="margin-top:4px;color:var(--green)">周期: <span class="result" id="fmPeriod">3.14</span> s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG={R:2,omega:2,timeScale:1};
+  var SHOW={trail:true,velocity:true,accel:true,projection:true,grid:true};
+  var S={t:0,theta:0,playing:false,history:[],trail:[]};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  var chartXT=document.getElementById('chartXT'),chartYT=document.getElementById('chartYT'),
+      chartVT=document.getElementById('chartVT'),chartAT=document.getElementById('chartAT');
+
+  function getV(){return CFG.omega*CFG.R;}
+  function getAn(){return CFG.omega*CFG.omega*CFG.R;}
+  function getPeriod(){return 2*Math.PI/CFG.omega;}
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas,chartXT,chartYT,chartVT,chartAT].forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    /* 圆心和缩放 */
+    var centerX=W*0.42,centerY=H*0.45;
+    var scalePx=Math.min(W*0.14,H*0.18)/CFG.R;
+
+    /* 网格 */
+    if(SHOW.grid){
+      ctx.strokeStyle='#1a1a30';ctx.lineWidth=1;
+      for(var gx=0;gx<W;gx+=scalePx){ctx.beginPath();ctx.moveTo(centerX+gx,0);ctx.lineTo(centerX+gx,H);ctx.stroke();ctx.beginPath();ctx.moveTo(centerX-gx,0);ctx.lineTo(centerX-gx,H);ctx.stroke();}
+      for(var gy=0;gy<H;gy+=scalePx){ctx.beginPath();ctx.moveTo(0,centerY+gy);W&&ctx.lineTo(W,centerY+gy);ctx.stroke();ctx.beginPath();ctx.moveTo(0,centerY-gy);W&&ctx.lineTo(W,centerY-gy);ctx.stroke();}
+    }
+
+    /* 坐标轴 */
+    ctx.strokeStyle='#444466';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(30,centerY);ctx.lineTo(W-20,centerY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(centerX,20);ctx.lineTo(centerX,H-20);ctx.stroke();
+    /* 轴标签 */
+    ctx.fillStyle='#8888a0';ctx.font='13px sans-serif';
+    ctx.textAlign='right';ctx.fillText('x',W-22,centerY-8);
+    ctx.textAlign='left';ctx.fillText('y',centerX+8,22);
+
+    /* 轨道圆 */
+    ctx.strokeStyle='#333355';ctx.lineWidth=1.5;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.arc(centerX,centerY,CFG.R*scalePx,0,Math.PI*2);ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* 半径标注 */
+    ctx.strokeStyle='#55557080';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(centerX,centerY);ctx.lineTo(centerX+CFG.R*scalePx,centerY);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#8888a0';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('R='+CFG.R.toFixed(1)+'m',centerX+CFG.R*scalePx/2,centerY-8);
+
+    /* 圆心 */
+    ctx.fillStyle='#555';ctx.beginPath();ctx.arc(centerX,centerY,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#888';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('O',centerX,centerY+16);
+
+    /* 计算当前位置 */
+    var px=centerX+CFG.R*scalePx*Math.cos(S.theta);
+    var py=centerY-CFG.R*scalePx*Math.sin(S.theta);
+
+    /* 轨迹尾迹 */
+    if(SHOW.trail&&S.trail.length>1){
+      ctx.strokeStyle='#ffd93d33';ctx.lineWidth=1.5;ctx.beginPath();
+      S.trail.forEach(function(pt,i){
+        var sx=centerX+CFG.R*scalePx*Math.cos(pt);
+        var sy=centerY-CFG.R*scalePx*Math.sin(pt);
+        if(i===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);
+      });ctx.stroke();
+    }
+
+    /* 投影线 */
+    if(SHOW.projection){
+      /* x投影 */
+      ctx.strokeStyle='#00d4ff33';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,centerY);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#00d4ff';ctx.beginPath();ctx.arc(px,centerY,4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#00d4ff88';ctx.font='11px sans-serif';ctx.textAlign='center';
+      ctx.fillText('x='+(CFG.R*Math.cos(S.theta)).toFixed(2),px,centerY+18);
+
+      /* y投影 */
+      ctx.strokeStyle='#ff6b6b33';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(centerX,py);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#ff6b6b';ctx.beginPath();ctx.arc(centerX,py,4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#ff6b6b88';ctx.font='11px sans-serif';ctx.textAlign='right';
+      ctx.fillText('y='+(CFG.R*Math.sin(S.theta)).toFixed(2),centerX-8,py+4);
+    }
+
+    /* 向心加速度箭头（指向圆心） */
+    if(SHOW.accel){
+      var aLen=Math.min(getAn()*scalePx*0.5,80);
+      var aAngle=Math.atan2(centerY-py,centerX-px);
+      drawVecArrow(ctx,px,py,px+aLen*Math.cos(aAngle),py+aLen*Math.sin(aAngle),'#ff6b6b','aₙ='+getAn().toFixed(1));
+    }
+
+    /* 速度箭头（切线方向） */
+    if(SHOW.velocity){
+      var vLen=Math.min(getV()*scalePx*0.4,80);
+      var vAngle=S.theta+Math.PI/2; /* 切线方向 = 半径方向 + 90度 */
+      drawVecArrow(ctx,px,py,px+vLen*Math.cos(vAngle),py+vLen*Math.sin(vAngle),'#00d4ff','v='+getV().toFixed(1));
+    }
+
+    /* 物体 */
+    var glow=ctx.createRadialGradient(px,py,0,px,py,20);
+    glow.addColorStop(0,'rgba(255,217,61,0.4)');glow.addColorStop(1,'rgba(255,217,61,0)');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(px,py,20,0,Math.PI*2);ctx.fill();
+    var ballGrad=ctx.createRadialGradient(px-2,py-2,1,px,py,9);
+    ballGrad.addColorStop(0,'#fff7a0');ballGrad.addColorStop(1,'#ffd93d');
+    ctx.fillStyle=ballGrad;ctx.beginPath();ctx.arc(px,py,9,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#cc9900';ctx.lineWidth=1.5;ctx.stroke();
+
+    /* 角度弧线 */
+    if(S.theta%(2*Math.PI)>0.01){
+      var arcR=25;
+      ctx.strokeStyle='#ffd93d88';ctx.lineWidth=1.5;ctx.beginPath();
+      ctx.arc(centerX,centerY,arcR,0,-S.theta%(2*Math.PI),true);ctx.stroke();
+      var labelAngle=-S.theta%(2*Math.PI)/2;
+      ctx.fillStyle='#ffd93d';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+      ctx.fillText('θ',centerX+arcR*1.3*Math.cos(labelAngle),centerY+arcR*1.3*Math.sin(labelAngle)+3);
+    }
+
+    /* 右侧信息 */
+    ctx.fillStyle='#8888a0';ctx.font='12px sans-serif';ctx.textAlign='left';
+    ctx.fillText('R = '+CFG.R.toFixed(1)+' m',W-150,30);
+    ctx.fillText('ω = '+CFG.omega.toFixed(1)+' rad/s',W-150,48);
+    ctx.fillText('v = '+getV().toFixed(2)+' m/s',W-150,66);
+    ctx.fillText('T = '+getPeriod().toFixed(2)+' s',W-150,84);
+  }
+
+  function drawVecArrow(ctx,x1,y1,x2,y2,color,label){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<3)return;
+    ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    var angle=Math.atan2(dy,dx),hs=9;
+    ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-hs*Math.cos(angle-0.35),y2-hs*Math.sin(angle-0.35));
+    ctx.lineTo(x2-hs*Math.cos(angle+0.35),y2-hs*Math.sin(angle+0.35));
+    ctx.closePath();ctx.fill();
+    if(label){ctx.fillStyle=color;ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText(label,x2+8,y2-5);}
+  }
+
+  /* ===== 图表 ===== */
+  function drawChart(canvas,data,opts){
+    var ctx2=canvas.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx2.setTransform(dpr,0,0,dpr,0,0);ctx2.clearRect(0,0,W,H);
+    ctx2.fillStyle='#161625';ctx2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:15,bottom:22,left:45},cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var xMin=0,xMax=0,yMin=0,yMax=0;
+    var series=Array.isArray(data[0])?data:[data];
+    series.forEach(function(s){s.forEach(function(d){if(d.x<xMin)xMin=d.x;if(d.x>xMax)xMax=d.x;if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});});
+    if(xMax<=xMin)xMax=xMin+1;if(yMax<=yMin)yMax=yMin+1;
+    var xR=xMax-xMin,yR=yMax-yMin;
+    xMin-=xR*0.05;xMax+=xR*0.05;yMin-=yR*0.1;yMax+=yR*0.1;
+    function toC(px,py){return{x:pad.left+(px-xMin)/(xMax-xMin)*cw,y:pad.top+(1-(py-yMin)/(yMax-yMin))*ch};}
+    ctx2.strokeStyle='#1e1e35';ctx2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;ctx2.beginPath();ctx2.moveTo(pad.left,gy);ctx2.lineTo(pad.left+cw,gy);ctx2.stroke();}
+    for(var j=0;j<=4;j++){var gx=pad.left+(j/4)*cw;ctx2.beginPath();ctx2.moveTo(gx,pad.top);ctx2.lineTo(gx,pad.top+ch);ctx2.stroke();}
+    ctx2.strokeStyle='#444466';ctx2.lineWidth=1.5;
+    var zeroY=toC(0,0).y;if(zeroY>=pad.top&&zeroY<=pad.top+ch){ctx2.beginPath();ctx2.moveTo(pad.left,zeroY);ctx2.lineTo(pad.left+cw,zeroY);ctx2.stroke();}
+    var zeroX=toC(0,0).x;if(zeroX>=pad.left&&zeroX<=pad.left+cw){ctx2.beginPath();ctx2.moveTo(zeroX,pad.top);ctx2.lineTo(zeroX,pad.top+ch);ctx2.stroke();}
+    ctx2.fillStyle='#555570';ctx2.font='10px sans-serif';ctx2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);ctx2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    ctx2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);ctx2.fillText(val2.toFixed(1),pad.left-5,pad.top+(1-l/4)*ch+3);}
+    var colors=opts.colors||['#00d4ff'];
+    series.forEach(function(s,si){if(s.length<2)return;ctx2.strokeStyle=colors[si%colors.length];ctx2.lineWidth=2;ctx2.beginPath();
+      s.forEach(function(d,i){var p=toC(d.x,d.y);if(i===0)ctx2.moveTo(p.x,p.y);else ctx2.lineTo(p.x,p.y);});ctx2.stroke();});
+    series.forEach(function(s,si){if(s.length===0)return;var last=s[s.length-1],lp=toC(last.x,last.y);
+      ctx2.fillStyle=colors[si%colors.length];ctx2.beginPath();ctx2.arc(lp.x,lp.y,4,0,Math.PI*2);ctx2.fill();});
+  }
+
+  function updateCharts(){
+    if(S.history.length<2)return;
+    drawChart(chartXT,S.history.map(function(h){return{x:h.t,y:h.x};}),{colors:['#00d4ff']});
+    drawChart(chartYT,S.history.map(function(h){return{x:h.t,y:h.y};}),{colors:['#ff6b6b']});
+    drawChart(chartVT,S.history.map(function(h){return{x:h.t,y:h.v};}),{colors:['#4ecdc4']});
+    drawChart(chartAT,S.history.map(function(h){return{x:h.t,y:h.an};}),{colors:['#ff8a65']});
+  }
+
+  function updateData(){
+    var v=getV(),an=getAn(),T=getPeriod();
+    var x=CFG.R*Math.cos(S.theta);
+    var y=CFG.R*Math.sin(S.theta);
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataTheta').innerHTML=(S.theta%(2*Math.PI)).toFixed(2)+' <span class="unit">rad</span>';
+    document.getElementById('dataV').innerHTML=v.toFixed(2)+' <span class="unit">m/s</span>';
+    document.getElementById('dataA').innerHTML=an.toFixed(2)+' <span class="unit">m/s²</span>';
+    document.getElementById('dataX').innerHTML=x.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('dataY').innerHTML=y.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('fmV').textContent=v.toFixed(2);
+    document.getElementById('fmA').textContent=an.toFixed(2);
+    document.getElementById('fmT').textContent=T.toFixed(2);
+    document.getElementById('fmF').textContent=(1/T).toFixed(2);
+    document.getElementById('fmPeriod').textContent=T.toFixed(2);
+  }
+
+  var lastTime=0,animId=null,HISTORY_INT=0.03,lastHistT=0;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;
+    S.theta+=CFG.omega*dt*CFG.timeScale;
+    S.trail.push(S.theta);
+    if(S.trail.length>300)S.trail.shift();
+    var x=CFG.R*Math.cos(S.theta);
+    var y=CFG.R*Math.sin(S.theta);
+    if(S.t-lastHistT>=HISTORY_INT){
+      S.history.push({t:S.t,x:x,y:y,v:getV(),an:getAn()});lastHistT=S.t;
+    }
+    drawSim();updateData();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.theta=0;S.history=[];S.trail=[];lastHistT=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();
+    [chartXT,chartYT,chartVT,chartAT].forEach(function(c){c.getContext('2d').clearRect(0,0,c.width,c.height);});
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.querySelectorAll('.exp-toggle-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){var key=btn.dataset.toggle;SHOW[key]=!SHOW[key];btn.classList.toggle('active');drawSim();});
+  });
+
+  document.getElementById('sliderR').addEventListener('input',function(){
+    CFG.R=parseFloat(this.value);document.getElementById('valR').textContent=CFG.R.toFixed(1)+' m';reset();
+  });
+  document.getElementById('sliderOmega').addEventListener('input',function(){
+    CFG.omega=parseFloat(this.value);document.getElementById('valOmega').textContent=CFG.omega.toFixed(1)+' rad/s';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

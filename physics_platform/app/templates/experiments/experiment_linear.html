@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}一次函数交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">📐 一次函数 y = kx + b</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Linear Function — 斜率控制旋转，截距控制平移</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">斜率 k</span><span class="exp-slider-value" id="valK">1.0</span></div>
+          <input type="range" id="sliderK" min="-10" max="10" step="0.1" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">截距 b</span><span class="exp-slider-value" id="valB">0.0</span></div>
+          <input type="range" id="sliderB" min="-10" max="10" step="0.1" value="0">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 函数信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">斜率 k</div><div class="value c-cyan" id="dataK">1.00</div></div>
+          <div class="exp-data-item"><div class="label">截距 b</div><div class="value c-accent" id="dataB">0.00</div></div>
+          <div class="exp-data-item"><div class="label">x 截距</div><div class="value c-green" id="dataXInt">—</div></div>
+          <div class="exp-data-item"><div class="label">y 截距</div><div class="value c-amber" id="dataYInt">0.00</div></div>
+          <div class="exp-data-item"><div class="label">倾斜角 θ</div><div class="value c-purple" id="dataTheta">45.0°</div></div>
+          <div class="exp-data-item"><div class="label">增减性</div><div class="value c-cyan" id="dataMono">单调递增</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y = <span class="result" id="fmK">1.0</span>x + <span class="result" id="fmB">0.0</span></div>
+          <div>倾斜角 θ = arctan(k) = <span class="result" id="fmTheta">45.0°</span></div>
+          <div id="fmXInt">x 截距: x = 0.00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {k: 1, b: 0};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -10, xMax = 10, yMin = -10, yMax = 10;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30';
+    ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+
+    // Origin label
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    // The line y = kx + b
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var px = 0; px <= 500; px++) {
+      var x = xMin + (px / 500) * (xMax - xMin);
+      var y = CFG.k * x + CFG.b;
+      if (y < yMin - 20 || y > yMax + 20) { started = false; continue; }
+      var sx = tx(x), sy = ty(y);
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    // Y-intercept point (0, b)
+    if (CFG.b >= yMin && CFG.b <= yMax) {
+      var yIntX = tx(0), yIntY = ty(CFG.b);
+      // Glow
+      var glow = ctx.createRadialGradient(yIntX, yIntY, 0, yIntX, yIntY, 12);
+      glow.addColorStop(0, 'rgba(255,184,0,0.4)');
+      glow.addColorStop(1, 'rgba(255,184,0,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(yIntX, yIntY, 12, 0, Math.PI * 2); ctx.fill();
+      // Dot
+      ctx.fillStyle = '#ffb800';
+      ctx.beginPath(); ctx.arc(yIntX, yIntY, 5, 0, Math.PI * 2); ctx.fill();
+      // Label
+      ctx.fillStyle = '#ffb800';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('(' + '0, ' + CFG.b.toFixed(1) + ')', yIntX + 10, yIntY - 8);
+    }
+
+    // X-intercept point (-b/k, 0)
+    if (CFG.k !== 0) {
+      var xInt = -CFG.b / CFG.k;
+      if (xInt >= xMin && xInt <= xMax) {
+        var xIntX = tx(xInt), xIntY = ty(0);
+        // Glow
+        var glow2 = ctx.createRadialGradient(xIntX, xIntY, 0, xIntX, xIntY, 12);
+        glow2.addColorStop(0, 'rgba(0,255,136,0.4)');
+        glow2.addColorStop(1, 'rgba(0,255,136,0)');
+        ctx.fillStyle = glow2;
+        ctx.beginPath(); ctx.arc(xIntX, xIntY, 12, 0, Math.PI * 2); ctx.fill();
+        // Dot
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath(); ctx.arc(xIntX, xIntY, 5, 0, Math.PI * 2); ctx.fill();
+        // Label
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('(' + xInt.toFixed(1) + ', 0)', xIntX, yIntY - 14);
+      }
+    }
+
+    // Angle arc at origin for inclination angle
+    if (CFG.k !== 0) {
+      var theta = Math.atan(CFG.k);
+      var arcR = 30;
+      ctx.strokeStyle = '#a78bfa';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (theta > 0) {
+        ctx.arc(tx(0), ty(0), arcR, 0, -theta, true);
+      } else {
+        ctx.arc(tx(0), ty(0), arcR, 0, -theta, false);
+      }
+      ctx.stroke();
+      // Angle label
+      var labelAngle = theta / 2;
+      var lx = tx(0) + (arcR + 14) * Math.cos(-labelAngle);
+      var ly = ty(0) + (arcR + 14) * Math.sin(-labelAngle);
+      ctx.fillStyle = '#a78bfa';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('θ=' + (Math.abs(theta) * 180 / Math.PI).toFixed(1) + '°', lx, ly);
+    }
+
+    // Equation display
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    var eqStr = 'y = ' + CFG.k.toFixed(1) + 'x ' + (CFG.b >= 0 ? '+ ' : '- ') + Math.abs(CFG.b).toFixed(1);
+    ctx.fillText(eqStr, pad + 5, pad + 18);
+  }
+
+  function updateInfo() {
+    document.getElementById('dataK').textContent = CFG.k.toFixed(2);
+    document.getElementById('dataB').textContent = CFG.b.toFixed(2);
+    document.getElementById('dataYInt').textContent = CFG.b.toFixed(2);
+
+    if (CFG.k !== 0) {
+      var xInt = -CFG.b / CFG.k;
+      document.getElementById('dataXInt').textContent = xInt.toFixed(2);
+    } else {
+      document.getElementById('dataXInt').textContent = CFG.b === 0 ? '全轴' : '无';
+    }
+
+    var theta = Math.atan(CFG.k) * 180 / Math.PI;
+    document.getElementById('dataTheta').textContent = theta.toFixed(1) + '°';
+
+    if (CFG.k > 0) document.getElementById('dataMono').textContent = '单调递增';
+    else if (CFG.k < 0) document.getElementById('dataMono').textContent = '单调递减';
+    else document.getElementById('dataMono').textContent = '常函数';
+
+    document.getElementById('fmK').textContent = CFG.k.toFixed(1);
+    document.getElementById('fmB').textContent = CFG.b.toFixed(1);
+    document.getElementById('fmTheta').textContent = theta.toFixed(1) + '°';
+
+    if (CFG.k !== 0) {
+      var xInt = -CFG.b / CFG.k;
+      document.getElementById('fmXInt').textContent = 'x 截距: x = ' + xInt.toFixed(2);
+    } else {
+      document.getElementById('fmXInt').textContent = CFG.b === 0 ? '与 x 轴重合' : '与 x 轴平行, 无截距';
+    }
+  }
+
+  document.getElementById('sliderK').addEventListener('input', function() {
+    CFG.k = parseFloat(this.value);
+    document.getElementById('valK').textContent = CFG.k.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderB').addEventListener('input', function() {
+    CFG.b = parseFloat(this.value);
+    document.getElementById('valB').textContent = CFG.b.toFixed(1);
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

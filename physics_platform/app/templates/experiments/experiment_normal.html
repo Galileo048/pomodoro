@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}正态分布交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+  .exp-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted)}
+  .exp-legend-dot{width:10px;height:10px;border-radius:2px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">📊 正态分布 N(μ, σ²)</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Normal Distribution — 钟形曲线, 68-95-99.7 法则</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">均值 μ</span><span class="exp-slider-value" id="valMu">0.0</span></div>
+          <input type="range" id="sliderMu" min="-5" max="5" step="0.1" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">标准差 σ</span><span class="exp-slider-value" id="valSigma">1.0</span></div>
+          <input type="range" id="sliderSigma" min="0.5" max="3" step="0.1" value="1">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 分布信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">均值 μ</div><div class="value c-cyan" id="dataMu">0.00</div></div>
+          <div class="exp-data-item"><div class="label">标准差 σ</div><div class="value c-amber" id="dataSigma">1.00</div></div>
+          <div class="exp-data-item"><div class="label">方差 σ²</div><div class="value c-accent" id="dataVar">1.00</div></div>
+          <div class="exp-data-item"><div class="label">峰值 f(μ)</div><div class="value c-green" id="dataPeak">0.399</div></div>
+          <div class="exp-data-item"><div class="label">±1σ 区间</div><div class="value c-purple" id="dataR1">68.2%</div></div>
+          <div class="exp-data-item"><div class="label">±2σ 区间</div><div class="value c-purple" id="dataR2">95.4%</div></div>
+          <div class="exp-data-item"><div class="label">±3σ 区间</div><div class="value c-purple" id="dataR3">99.7%</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>f(x) = (1/(σ√(2π))) · e<sup>-(x-μ)²/(2σ²)</sup></div>
+          <div>N(<span class="result" id="fmMu">0.0</span>, <span class="result" id="fmSigma2">1.0</span>)</div>
+          <div>P(μ-σ < X < μ+σ) ≈ 68.27%</div>
+          <div>P(μ-2σ < X < μ+2σ) ≈ 95.45%</div>
+          <div>P(μ-3σ < X < μ+3σ) ≈ 99.73%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {mu: 0, sigma: 1};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  // Standard normal PDF
+  function normalPDF(x, mu, sigma) {
+    var z = (x - mu) / sigma;
+    return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+  }
+
+  // Approximate CDF using error function approximation
+  function erf(x) {
+    var a1 =  0.254829592, a2 = -0.284496736, a3 =  1.421413741;
+    var a4 = -1.453152027, a5 =  1.061405429, p  =  0.3275911;
+    var sign = x < 0 ? -1 : 1;
+    x = Math.abs(x);
+    var t = 1.0 / (1.0 + p * x);
+    var y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+    return sign * y;
+  }
+
+  function normalCDF(x, mu, sigma) {
+    return 0.5 * (1 + erf((x - mu) / (sigma * Math.sqrt(2))));
+  }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var mu = CFG.mu, sigma = CFG.sigma;
+    var xMin = -6, xMax = 6;
+    var peakVal = normalPDF(mu, mu, sigma);
+    var yMin = -0.05, yMax = Math.max(peakVal * 1.3, 0.5);
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+
+    // Fill 3-sigma regions (from outermost to innermost)
+    var regions = [
+      { k: 3, color: 'rgba(167,139,250,0.15)', label: '99.7%' },
+      { k: 2, color: 'rgba(0,212,255,0.18)', label: '95.4%' },
+      { k: 1, color: 'rgba(0,255,136,0.22)', label: '68.2%' }
+    ];
+
+    regions.forEach(function(r) {
+      ctx.fillStyle = r.color;
+      ctx.beginPath();
+      var leftX = mu - r.k * sigma;
+      var rightX = mu + r.k * sigma;
+      // Move to x-axis at left boundary
+      ctx.moveTo(tx(leftX), ty(0));
+      // Curve to right boundary
+      for (var px = 0; px <= 300; px++) {
+        var x = leftX + (px / 300) * (rightX - leftX);
+        var y = normalPDF(x, mu, sigma);
+        ctx.lineTo(tx(x), ty(y));
+      }
+      // Close back to x-axis
+      ctx.lineTo(tx(rightX), ty(0));
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // Vertical dashed lines at ±1σ, ±2σ, ±3σ
+    for (var sk = 1; sk <= 3; sk++) {
+      ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+      // Left
+      ctx.beginPath(); ctx.moveTo(tx(mu - sk * sigma), ty(0)); ctx.lineTo(tx(mu - sk * sigma), ty(normalPDF(mu - sk * sigma, mu, sigma))); ctx.stroke();
+      // Right
+      ctx.beginPath(); ctx.moveTo(tx(mu + sk * sigma), ty(0)); ctx.lineTo(tx(mu + sk * sigma), ty(normalPDF(mu + sk * sigma, mu, sigma))); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Labels at bottom
+      ctx.fillStyle = '#ffffff66'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText((mu - sk * sigma).toFixed(1), tx(mu - sk * sigma), ty(0) + 14);
+      ctx.fillText((mu + sk * sigma).toFixed(1), tx(mu + sk * sigma), ty(0) + 14);
+    }
+
+    // Bell curve
+    ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (var px2 = 0; px2 <= 500; px2++) {
+      var x2 = xMin + (px2 / 500) * (xMax - xMin);
+      var y2 = normalPDF(x2, mu, sigma);
+      if (px2 === 0) ctx.moveTo(tx(x2), ty(y2));
+      else ctx.lineTo(tx(x2), ty(y2));
+    }
+    ctx.stroke();
+
+    // μ vertical line (solid)
+    ctx.strokeStyle = '#ff4466'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(tx(mu), ty(0)); ctx.lineTo(tx(mu), ty(peakVal)); ctx.stroke();
+
+    // μ label
+    ctx.fillStyle = '#ff4466'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('μ=' + mu.toFixed(1), tx(mu), ty(peakVal) - 10);
+
+    // Peak point
+    var glow = ctx.createRadialGradient(tx(mu), ty(peakVal), 0, tx(mu), ty(peakVal), 12);
+    glow.addColorStop(0, 'rgba(255,68,102,0.5)');
+    glow.addColorStop(1, 'rgba(255,68,102,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(tx(mu), ty(peakVal), 12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff4466';
+    ctx.beginPath(); ctx.arc(tx(mu), ty(peakVal), 4, 0, Math.PI * 2); ctx.fill();
+
+    // Equation display
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('N(' + mu.toFixed(1) + ', ' + (sigma * sigma).toFixed(2) + ')', pad + 5, pad + 18);
+
+    // Legend
+    ctx.fillStyle = '#00ff88'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('■ ±1σ: 68.2%', pad + 5, pad + 35);
+    ctx.fillStyle = '#00d4ff';
+    ctx.fillText('■ ±2σ: 95.4%', pad + 120, pad + 35);
+    ctx.fillStyle = '#a78bfa';
+    ctx.fillText('■ ±3σ: 99.7%', pad + 235, pad + 35);
+  }
+
+  function updateInfo() {
+    var mu = CFG.mu, sigma = CFG.sigma;
+    document.getElementById('dataMu').textContent = mu.toFixed(2);
+    document.getElementById('dataSigma').textContent = sigma.toFixed(2);
+    document.getElementById('dataVar').textContent = (sigma * sigma).toFixed(2);
+    document.getElementById('dataPeak').textContent = normalPDF(mu, mu, sigma).toFixed(4);
+    document.getElementById('dataR1').textContent = ((normalCDF(mu + sigma, mu, sigma) - normalCDF(mu - sigma, mu, sigma)) * 100).toFixed(1) + '%';
+    document.getElementById('dataR2').textContent = ((normalCDF(mu + 2 * sigma, mu, sigma) - normalCDF(mu - 2 * sigma, mu, sigma)) * 100).toFixed(1) + '%';
+    document.getElementById('dataR3').textContent = ((normalCDF(mu + 3 * sigma, mu, sigma) - normalCDF(mu - 3 * sigma, mu, sigma)) * 100).toFixed(1) + '%';
+    document.getElementById('fmMu').textContent = mu.toFixed(1);
+    document.getElementById('fmSigma2').textContent = (sigma * sigma).toFixed(2);
+  }
+
+  document.getElementById('sliderMu').addEventListener('input', function() {
+    CFG.mu = parseFloat(this.value);
+    document.getElementById('valMu').textContent = CFG.mu.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderSigma').addEventListener('input', function() {
+    CFG.sigma = parseFloat(this.value);
+    document.getElementById('valSigma').textContent = CFG.sigma.toFixed(1);
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

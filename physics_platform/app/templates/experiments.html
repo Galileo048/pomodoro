@@ -9,92 +9,56 @@
             🧪 交互动画实验室
         </h1>
         <p style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">
-            拖动参数，实时观察物理/数学规律的变化
+            拖动参数，实时观察物理/数学规律的变化 · 共 {{ experiments|length }} 个交互实验
         </p>
     </div>
 
     <!-- 物理实验 -->
+    {% set physics = experiments | selectattr('category', 'equalto', '物理') | list %}
+    {% if physics %}
     <div style="margin-bottom:1.5rem;">
         <h2 style="font-size:1.1rem; font-weight:600; color:var(--cyan); margin-bottom:0.8rem;">
-            📐 物理实验
+            📐 物理实验 ({{ physics|length }})
         </h2>
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
-
-            <a href="{{ url_for('experiments.run', experiment_id='projectile') }}"
-               class="card-dark" style="text-decoration:none; padding:1.2rem; cursor:pointer; border:1px solid rgba(0,212,255,0.15); transition:transform 0.2s, border-color 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(0,212,255,0.4)'"
-               onmouseout="this.style.transform=''; this.style.borderColor='rgba(0,212,255,0.15)'">
-                <div style="font-size:1.5rem; margin-bottom:0.5rem;">🎯</div>
-                <div style="font-size:1rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">平抛运动</div>
-                <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.5;">
-                    水平匀速 + 竖直自由落体<br>
-                    可调：初速度、高度、重力加速度
-                </div>
-                <div style="margin-top:0.6rem; display:flex; gap:0.3rem;">
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(0,212,255,0.1); color:var(--cyan);">运动学</span>
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(0,255,136,0.1); color:var(--green);">可交互</span>
-                </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0.8rem;">
+            {% for exp in physics %}
+            <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
+               class="card-dark" style="text-decoration:none; padding:1rem; cursor:pointer; border:1px solid rgba(0,212,255,0.12); transition:transform 0.2s, border-color 0.2s;"
+               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(0,212,255,0.35)'"
+               onmouseout="this.style.transform=''; this.style.borderColor='rgba(0,212,255,0.12)'">
+                <div style="font-size:0.95rem; font-weight:600; color:var(--text-bright); margin-bottom:0.2rem;">{{ exp.title }}</div>
+                <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.4;">{{ exp.description }}</div>
+                {% if exp.params %}
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.3rem; opacity:0.7;">{{ exp.params }}</div>
+                {% endif %}
             </a>
-
-            <a href="{{ url_for('experiments.run', experiment_id='freefall') }}"
-               class="card-dark" style="text-decoration:none; padding:1.2rem; cursor:pointer; border:1px solid rgba(255,184,0,0.15); transition:transform 0.2s, border-color 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(255,184,0,0.4)'"
-               onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,184,0,0.15)'">
-                <div style="font-size:1.5rem; margin-bottom:0.5rem;">🍎</div>
-                <div style="font-size:1rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">自由落体运动</div>
-                <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.5;">
-                    只受重力，初速度为零<br>
-                    可调：高度、星球重力加速度
-                </div>
-                <div style="margin-top:0.6rem; display:flex; gap:0.3rem;">
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,184,0,0.1); color:var(--amber);">运动学</span>
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(0,255,136,0.1); color:var(--green);">可交互</span>
-                </div>
-            </a>
-
-            <a href="{{ url_for('experiments.run', experiment_id='projectile_angle') }}"
-               class="card-dark" style="text-decoration:none; padding:1.2rem; cursor:pointer; border:1px solid rgba(139,92,246,0.15); transition:transform 0.2s, border-color 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(139,92,246,0.4)'"
-               onmouseout="this.style.transform=''; this.style.borderColor='rgba(139,92,246,0.15)'">
-                <div style="font-size:1.5rem; margin-bottom:0.5rem;">🚀</div>
-                <div style="font-size:1rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">斜抛运动</div>
-                <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.5;">
-                    不同角度的抛体轨迹对比<br>
-                    可调：初速度、抛射角、重力加速度
-                </div>
-                <div style="margin-top:0.6rem; display:flex; gap:0.3rem;">
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(139,92,246,0.1); color:var(--purple);">运动学</span>
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(0,255,136,0.1); color:var(--green);">可交互</span>
-                </div>
-            </a>
-
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
 
     <!-- 数学实验 -->
+    {% set math = experiments | selectattr('category', 'equalto', '数学') | list %}
+    {% if math %}
     <div>
         <h2 style="font-size:1.1rem; font-weight:600; color:var(--amber); margin-bottom:0.8rem;">
-            📊 数学实验
+            📊 数学实验 ({{ math|length }})
         </h2>
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
-
-            <a href="{{ url_for('experiments.run', experiment_id='trig_function') }}"
-               class="card-dark" style="text-decoration:none; padding:1.2rem; cursor:pointer; border:1px solid rgba(255,107,107,0.15); transition:transform 0.2s, border-color 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(255,107,107,0.4)'"
-               onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,107,107,0.15)'">
-                <div style="font-size:1.5rem; margin-bottom:0.5rem;">📈</div>
-                <div style="font-size:1rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">三角函数 y=Asin(ωx+φ)</div>
-                <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.5;">
-                    振幅、频率、相位实时调节<br>
-                    可调：A、ω、φ
-                </div>
-                <div style="margin-top:0.6rem; display:flex; gap:0.3rem;">
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,107,107,0.1); color:var(--red);">三角函数</span>
-                    <span style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(0,255,136,0.1); color:var(--green);">可交互</span>
-                </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0.8rem;">
+            {% for exp in math %}
+            <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
+               class="card-dark" style="text-decoration:none; padding:1rem; cursor:pointer; border:1px solid rgba(255,184,0,0.12); transition:transform 0.2s, border-color 0.2s;"
+               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(255,184,0,0.35)'"
+               onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,184,0,0.12)'">
+                <div style="font-size:0.95rem; font-weight:600; color:var(--text-bright); margin-bottom:0.2rem;">{{ exp.title }}</div>
+                <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.4;">{{ exp.description }}</div>
+                {% if exp.params %}
+                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.3rem; opacity:0.7;">{{ exp.params }}</div>
+                {% endif %}
             </a>
-
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
 </div>
 {% endblock %}

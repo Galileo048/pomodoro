@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}牛顿第二定律 F=ma — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accel{color:var(--red)}.c-disp{color:var(--green)}.c-ball{color:var(--amber)}.c-accent{color:var(--accent,#e94560)}.c-force{color:#ff8a65}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🚀 牛顿第二定律 F=ma</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Newton's Second Law — 力与加速度成正比，与质量成反比</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">x-t 位移</span><canvas id="chartXT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">v-t 速度</span><canvas id="chartVT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">a-t 加速度</span><canvas id="chartAT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">F-a 关系</span><canvas id="chartFA"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">合外力 F</span><span class="exp-slider-value" id="valF">10 N</span></div>
+          <input type="range" id="sliderF" min="1" max="50" step="0.5" value="10">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">质量 m</span><span class="exp-slider-value" id="valM">2 kg</span></div>
+          <input type="range" id="sliderM" min="0.5" max="20" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">位移 x</div><div class="value c-disp" id="dataX">0.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">速度 v</div><div class="value c-velocity" id="dataV">0.00 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">加速度 a</div><div class="value c-accel" id="dataA">0.00 <span class="unit">m/s²</span></div></div>
+          <div class="exp-data-item"><div class="label">合外力 F</div><div class="value c-force" id="dataF">10.0 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">动能 Eₖ</div><div class="value c-ball" id="dataEk">0.00 <span class="unit">J</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>F = ma = <span class="formula" id="fmFa">10.00</span> N</div>
+          <div>a = F/m = <span class="formula" id="fmA">5.00</span> m/s²</div>
+          <div>x = ½at² = <span class="formula" id="fmX">0.00</span> m</div>
+          <div>v = at = <span class="formula" id="fmV">0.00</span> m/s</div>
+          <div style="margin-top:4px;color:var(--green)">v² = 2ax = <span class="result" id="fmV2">0.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  /* ===== 配置与状态 ===== */
+  var CFG={F:10,m:2,timeScale:1};
+  var S={t:0,x:0,v:0,a:0,playing:false,history:[]};
+
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  var chartXT=document.getElementById('chartXT'),chartVT=document.getElementById('chartVT'),
+      chartAT=document.getElementById('chartAT'),chartFA=document.getElementById('chartFA');
+
+  /* 计算加速度 */
+  function getAccel(){return CFG.F/CFG.m;}
+
+  /* ===== 画布缩放 ===== */
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas,chartXT,chartVT,chartAT,chartFA].forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  /* ===== 主场景绘制 ===== */
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    /* 地面 */
+    var groundY=H*0.68;
+    ctx.fillStyle='#1a2a1a';ctx.fillRect(0,groundY,W,H-groundY);
+    ctx.strokeStyle='#2ecc7155';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,groundY);ctx.lineTo(W,groundY);ctx.stroke();
+    /* 地面纹理线 */
+    ctx.strokeStyle='#2ecc7122';ctx.lineWidth=1;
+    for(var gx=0;gx<W;gx+=15){ctx.beginPath();ctx.moveTo(gx,groundY);ctx.lineTo(gx-8,groundY+10);ctx.stroke();}
+
+    /* 标尺 */
+    var scalePx=W*0.005; /* 每米像素数 */
+    ctx.strokeStyle='#444466';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    var markStep=10;
+    for(var mx=markStep;mx*scalePx<W-100;mx+=markStep){
+      var sx=W*0.08+mx*scalePx;
+      ctx.beginPath();ctx.moveTo(sx,groundY);ctx.lineTo(sx,groundY+8);ctx.stroke();
+      ctx.fillStyle='#555570';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(mx+'m',sx,groundY+20);
+    }
+    ctx.setLineDash([]);
+
+    /* 箱子 */
+    var boxW=40+CFG.m*3; /* 宽度随质量变化 */
+    var boxH=30+CFG.m*2;
+    var boxX=W*0.12+S.x*scalePx*0.1; /* 箱子随位移向右移动（缩放0.1防止跑飞） */
+    var boxY=groundY-boxH;
+    /* 摩擦力方向的纹理 */
+    ctx.fillStyle='#3a3a5a';
+    for(var tx=boxX+5;tx<boxX+boxW-5;tx+=6){ctx.fillRect(tx,groundY-2,3,2);}
+
+    /* 箱子渐变 */
+    var boxGrad=ctx.createLinearGradient(boxX,boxY,boxX+boxW,boxY+boxH);
+    boxGrad.addColorStop(0,'#4a5568');boxGrad.addColorStop(0.5,'#5a6577');boxGrad.addColorStop(1,'#3a4558');
+    ctx.fillStyle=boxGrad;
+    ctx.fillRect(boxX,boxY,boxW,boxH);
+    ctx.strokeStyle='#6a7588';ctx.lineWidth=1.5;ctx.strokeRect(boxX,boxY,boxW,boxH);
+
+    /* 质量标签 */
+    ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('m='+CFG.m.toFixed(1)+'kg',boxX+boxW/2,boxY+boxH/2+4);
+
+    /* 力箭头 F (向右) */
+    var forceLen=Math.min(CFG.F*3,200);
+    var arrowY=boxY+boxH/2;
+    drawVecArrow(ctx,boxX+boxW,arrowY,boxX+boxW+forceLen,arrowY,'#ff8a65','F='+CFG.F.toFixed(1)+'N');
+
+    /* 加速度箭头 (向右,绿色) */
+    var accelLen=Math.min(getAccel()*15,180);
+    drawVecArrow(ctx,boxX+boxW,arrowY+25,boxX+boxW+accelLen,arrowY+25,'#66bb6a','a='+getAccel().toFixed(2)+'m/s²');
+
+    /* 摩擦力(向左,虚线) */
+    if(S.t>0){
+      var fricLen=Math.min(CFG.F*2,150);
+      ctx.strokeStyle='#aaa';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.beginPath();
+      ctx.moveTo(boxX,arrowY);ctx.lineTo(boxX-fricLen,arrowY);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#aaa';ctx.font='11px sans-serif';ctx.textAlign='right';ctx.fillText('f',boxX-fricLen-5,arrowY+4);
+    }
+
+    /* 速度箭头(向右) */
+    if(S.v>0.01){
+      var vLen=Math.min(S.v*4,160);
+      drawVecArrow(ctx,boxX+boxW/2,boxY-15,boxX+boxW/2+vLen,boxY-15,'#00d4ff','v='+S.v.toFixed(1)+'m/s');
+    }
+
+    /* 标题文字 */
+    ctx.fillStyle='#ffd93d';ctx.font='bold 14px sans-serif';ctx.textAlign='left';
+    ctx.fillText('F = m·a = '+CFG.F.toFixed(1)+' × '+getAccel().toFixed(2)+' = '+(CFG.F).toFixed(1)+' N',20,30);
+    ctx.fillStyle='#8888a0';ctx.font='12px sans-serif';
+    ctx.fillText('合力 F = '+CFG.F.toFixed(1)+' N | 质量 m = '+CFG.m.toFixed(1)+' kg',20,48);
+  }
+
+  /* 绘制箭头 */
+  function drawVecArrow(ctx,x1,y1,x2,y2,color,label){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<3)return;
+    ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    var angle=Math.atan2(dy,dx),hs=9;
+    ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-hs*Math.cos(angle-0.35),y2-hs*Math.sin(angle-0.35));
+    ctx.lineTo(x2-hs*Math.cos(angle+0.35),y2-hs*Math.sin(angle+0.35));
+    ctx.closePath();ctx.fill();
+    if(label){ctx.fillStyle=color;ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText(label,x2+8,y2-5);}
+  }
+
+  /* ===== 图表绘制 ===== */
+  function drawChart(canvas,data,opts){
+    var ctx2=canvas.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx2.setTransform(dpr,0,0,dpr,0,0);ctx2.clearRect(0,0,W,H);
+    ctx2.fillStyle='#161625';ctx2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:15,bottom:22,left:45},cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var xMin=0,xMax=0,yMin=0,yMax=0;
+    var series=Array.isArray(data[0])?data:[data];
+    series.forEach(function(s){s.forEach(function(d){if(d.x<xMin)xMin=d.x;if(d.x>xMax)xMax=d.x;if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});});
+    if(xMax<=xMin)xMax=xMin+1;if(yMax<=yMin)yMax=yMin+1;
+    var xR=xMax-xMin,yR=yMax-yMin;
+    xMin-=xR*0.05;xMax+=xR*0.05;yMin-=yR*0.1;yMax+=yR*0.1;
+    function toC(px,py){return{x:pad.left+(px-xMin)/(xMax-xMin)*cw,y:pad.top+(1-(py-yMin)/(yMax-yMin))*ch};}
+    /* 网格 */
+    ctx2.strokeStyle='#1e1e35';ctx2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;ctx2.beginPath();ctx2.moveTo(pad.left,gy);ctx2.lineTo(pad.left+cw,gy);ctx2.stroke();}
+    for(var j=0;j<=4;j++){var gx=pad.left+(j/4)*cw;ctx2.beginPath();ctx2.moveTo(gx,pad.top);ctx2.lineTo(gx,pad.top+ch);ctx2.stroke();}
+    /* 零线 */
+    ctx2.strokeStyle='#444466';ctx2.lineWidth=1.5;
+    var zeroY=toC(0,0).y;if(zeroY>=pad.top&&zeroY<=pad.top+ch){ctx2.beginPath();ctx2.moveTo(pad.left,zeroY);ctx2.lineTo(pad.left+cw,zeroY);ctx2.stroke();}
+    var zeroX=toC(0,0).x;if(zeroX>=pad.left&&zeroX<=pad.left+cw){ctx2.beginPath();ctx2.moveTo(zeroX,pad.top);ctx2.lineTo(zeroX,pad.top+ch);ctx2.stroke();}
+    /* 刻度 */
+    ctx2.fillStyle='#555570';ctx2.font='10px sans-serif';ctx2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);ctx2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    ctx2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);ctx2.fillText(val2.toFixed(1),pad.left-5,pad.top+(1-l/4)*ch+3);}
+    /* 曲线 */
+    var colors=opts.colors||['#00d4ff'];
+    series.forEach(function(s,si){if(s.length<2)return;ctx2.strokeStyle=colors[si%colors.length];ctx2.lineWidth=2;ctx2.beginPath();
+      s.forEach(function(d,i){var p=toC(d.x,d.y);if(i===0)ctx2.moveTo(p.x,p.y);else ctx2.lineTo(p.x,p.y);});ctx2.stroke();});
+    /* 末端圆点 */
+    series.forEach(function(s,si){if(s.length===0)return;var last=s[s.length-1],lp=toC(last.x,last.y);
+      ctx2.fillStyle=colors[si%colors.length];ctx2.beginPath();ctx2.arc(lp.x,lp.y,4,0,Math.PI*2);ctx2.fill();});
+  }
+
+  function updateCharts(){
+    if(S.history.length<2)return;
+    drawChart(chartXT,S.history.map(function(h){return{x:h.t,y:h.x};}),{colors:['#4ecdc4']});
+    drawChart(chartVT,S.history.map(function(h){return{x:h.t,y:h.v};}),{colors:['#00d4ff']});
+    drawChart(chartAT,S.history.map(function(h){return{x:h.t,y:h.a};}),{colors:['#ff6b6b']});
+    /* F-a 图: 画一条斜率为m的直线 + 当前工作点 */
+    var maxA=Math.max(10,getAccel()*1.5);
+    var faLine=[];
+    for(var ai=0;ai<=20;ai++){var aa=ai/20*maxA;faLine.push({x:aa,y:CFG.m*aa});}
+    var faPoints=[{x:getAccel(),y:CFG.F}];
+    drawChart(chartFA,[faLine,faPoints],{colors:['#8888a0','#ff8a65']});
+  }
+
+  /* ===== 数据更新 ===== */
+  function updateData(){
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataX').innerHTML=S.x.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('dataV').innerHTML=S.v.toFixed(2)+' <span class="unit">m/s</span>';
+    document.getElementById('dataA').innerHTML=getAccel().toFixed(2)+' <span class="unit">m/s²</span>';
+    document.getElementById('dataF').innerHTML=CFG.F.toFixed(1)+' <span class="unit">N</span>';
+    document.getElementById('dataEk').innerHTML=(0.5*CFG.m*S.v*S.v).toFixed(1)+' <span class="unit">J</span>';
+    document.getElementById('fmFa').textContent=CFG.F.toFixed(2);
+    document.getElementById('fmA').textContent=getAccel().toFixed(2);
+    document.getElementById('fmX').textContent=S.x.toFixed(2);
+    document.getElementById('fmV').textContent=S.v.toFixed(2);
+    document.getElementById('fmV2').textContent=(2*getAccel()*S.x).toFixed(2);
+  }
+
+  /* ===== 动画循环 ===== */
+  var lastTime=0,animId=null,HISTORY_INT=0.03,lastHistT=0;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;
+    S.a=getAccel();
+    S.v=S.a*S.t;
+    S.x=0.5*S.a*S.t*S.t;
+    if(S.t-lastHistT>=HISTORY_INT){S.history.push({t:S.t,x:S.x,v:S.v,a:S.a});lastHistT=S.t;}
+    drawSim();updateData();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.x=0;S.v=0;S.a=getAccel();S.history=[];lastHistT=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();
+    [chartXT,chartVT,chartAT,chartFA].forEach(function(c){c.getContext('2d').clearRect(0,0,c.width,c.height);});
+  }
+
+  /* ===== 事件绑定 ===== */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderF').addEventListener('input',function(){
+    CFG.F=parseFloat(this.value);document.getElementById('valF').textContent=CFG.F.toFixed(1)+' N';reset();
+  });
+  document.getElementById('sliderM').addEventListener('input',function(){
+    CFG.m=parseFloat(this.value);document.getElementById('valM').textContent=CFG.m.toFixed(1)+' kg';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

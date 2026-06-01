@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}弹簧弹力 胡克定律 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accel{color:var(--red)}.c-disp{color:var(--green)}.c-ball{color:var(--amber)}.c-accent{color:var(--accent,#e94560)}.c-force{color:#ff8a65}.c-energy{color:#ce93d8}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ce93d8;">🔧 弹簧弹力 胡克定律</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Hooke's Law — F = -kx, T = 2π√(m/k)</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">x-t 位移</span><canvas id="chartXT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">v-t 速度</span><canvas id="chartVT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">F-x 弹力</span><canvas id="chartFX"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">能量 E</span><canvas id="chartE"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">劲度系数 k</span><span class="exp-slider-value" id="valK">10 N/m</span></div>
+          <input type="range" id="sliderK" min="1" max="100" step="0.5" value="10">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">质量 m</span><span class="exp-slider-value" id="valM">1 kg</span></div>
+          <input type="range" id="sliderM" min="0.1" max="5" step="0.1" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">振幅 A (初始位移)</span><span class="exp-slider-value" id="valA">2 m</span></div>
+          <input type="range" id="sliderA" min="0.5" max="5" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">位移 x</div><div class="value c-disp" id="dataX">2.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">速度 v</div><div class="value c-velocity" id="dataV">0.00 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">弹力 F</div><div class="value c-force" id="dataF">-20.0 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">动能 Eₖ</div><div class="value c-ball" id="dataEk">0.00 <span class="unit">J</span></div></div>
+          <div class="exp-data-item"><div class="label">势能 Eₚ</div><div class="value c-energy" id="dataEp">20.0 <span class="unit">J</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>ω = √(k/m) = <span class="formula" id="fmOmega">3.16</span> rad/s</div>
+          <div>T = 2π/ω = <span class="formula" id="fmT">1.99</span> s</div>
+          <div>F = -kx = <span class="formula" id="fmF">-20.00</span> N</div>
+          <div>Eₖ + Eₚ = <span class="formula" id="fmE">20.00</span> J</div>
+          <div style="margin-top:4px;color:var(--green)">总能量守恒 ✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG={k:10,m:1,A:2,timeScale:1};
+  var S={t:0,x:0,v:0,playing:false,history:[]};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  var chartXT=document.getElementById('chartXT'),chartVT=document.getElementById('chartVT'),
+      chartFX=document.getElementById('chartFX'),chartE=document.getElementById('chartE');
+
+  function getOmega(){return Math.sqrt(CFG.k/CFG.m);}
+  function getPeriod(){return 2*Math.PI/getOmega();}
+
+  /* 简谐运动状态: x=Acos(ωt), v=-Aωsin(ωt) */
+  function getSHM(t){
+    var omega=getOmega();
+    return{x:CFG.A*Math.cos(omega*t),v:-CFG.A*omega*Math.sin(omega*t)};
+  }
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas,chartXT,chartVT,chartFX,chartE].forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  /* 画弹簧 */
+  function drawSpring(ctx,x1,y1,x2,y2,coils,amp){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<1)return;
+    var ux=dx/len,uy=dy/len;
+    var nx=-uy,ny=ux;
+    var segLen=len/(coils*2+2);
+    ctx.beginPath();ctx.moveTo(x1,y1);
+    /* 起始直段 */
+    var cx=x1+ux*segLen,cy=y1+uy*segLen;
+    ctx.lineTo(cx,cy);
+    /* 锯齿弹簧 */
+    for(var i=0;i<coils*2;i++){
+      var side=(i%2===0)?1:-1;
+      cx+=ux*segLen;cy+=uy*segLen;
+      ctx.lineTo(cx+nx*amp*side,cy+ny*amp*side);
+    }
+    cx+=ux*segLen;cy+=uy*segLen;
+    ctx.lineTo(cx,cy);
+    ctx.lineTo(x2,y2);
+    ctx.strokeStyle='#aaa';ctx.lineWidth=2;ctx.stroke();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    var midX=W/2,midY=H*0.5;
+    var scalePx=W*0.06; /* 每米像素数 */
+
+    /* 平衡位置标记 */
+    ctx.strokeStyle='#444466';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(midX,40);ctx.lineTo(midX,H-40);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#555570';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('平衡位置 x=0',midX,H-25);
+
+    /* 刻度线 */
+    for(var mx=-5;mx<=5;mx++){
+      if(mx===0)continue;
+      var sx=midX+mx*scalePx;
+      if(sx>40&&sx<W-40){
+        ctx.strokeStyle='#333355';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(sx,midY-8);ctx.lineTo(sx,midY+8);ctx.stroke();
+        ctx.fillStyle='#555570';ctx.font='10px sans-serif';ctx.textAlign='center';
+        ctx.fillText(mx+'m',sx,midY+22);
+      }
+    }
+
+    /* 左侧墙壁 */
+    var wallX=midX-5*scalePx;
+    if(wallX<30)wallX=30;
+    ctx.fillStyle='#3a3a5a';ctx.fillRect(wallX-8,50,8,H-100);
+    ctx.strokeStyle='#5a5a7a';ctx.lineWidth=1;
+    for(var wy=50;wy<H-50;wy+=10){ctx.beginPath();ctx.moveTo(wallX-8,wy);ctx.lineTo(wallX-14,wy+6);ctx.stroke();}
+
+    /* 物体位置 */
+    var blockX=midX+S.x*scalePx;
+    var blockW=30+CFG.m*6;
+    var blockH=25+CFG.m*4;
+    var blockY=midY-blockH/2;
+
+    /* 弹簧 */
+    drawSpring(ctx,wallX,blockY+blockH/2,blockX,blockY+blockH/2,12,Math.max(4,12-Math.abs(S.x)*2));
+
+    /* 物块 */
+    var blockGrad=ctx.createLinearGradient(blockX,blockY,blockX+blockW,blockY+blockH);
+    blockGrad.addColorStop(0,'#5a6577');blockGrad.addColorStop(1,'#3a4558');
+    ctx.fillStyle=blockGrad;ctx.fillRect(blockX,blockY,blockW,blockH);
+    ctx.strokeStyle='#6a7588';ctx.lineWidth=1.5;ctx.strokeRect(blockX,blockY,blockW,blockH);
+    ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('m',blockX+blockW/2,blockY+blockH/2+4);
+
+    /* 弹力箭头 */
+    var force=-CFG.k*S.x;
+    if(Math.abs(force)>0.5){
+      var fLen=Math.min(Math.abs(force)*3,120);
+      var fDir=force>0?1:-1;
+      drawVecArrow(ctx,blockX+blockW/2,midY+blockH/2+25,
+                   blockX+blockW/2+fDir*fLen,midY+blockH/2+25,
+                   '#ff8a65','F='+force.toFixed(1)+'N');
+    }
+
+    /* 速度箭头 */
+    if(Math.abs(S.v)>0.1){
+      var vLen=Math.min(Math.abs(S.v)*8,120);
+      var vDir=S.v>0?1:-1;
+      drawVecArrow(ctx,blockX+blockW/2,blockY-15,
+                   blockX+blockW/2+vDir*vLen,blockY-15,
+                   '#00d4ff','v='+S.v.toFixed(2)+'m/s');
+    }
+
+    /* 能量柱 */
+    var totalE=0.5*CFG.k*CFG.A*CFG.A;
+    var KE=0.5*CFG.m*S.v*S.v;
+    var PE=0.5*CFG.k*S.x*S.x;
+    var barX=W-80,barY=60,barW=24,barH=H-140;
+    ctx.fillStyle='#1a1a30';ctx.fillRect(barX-5,barY-5,barW+10,barH+10);
+    ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.strokeRect(barX-5,barY-5,barW*2+15,barH+10);
+
+    /* KE 柱 */
+    var keH=(totalE>0?KE/totalE:0)*barH;
+    ctx.fillStyle='#ffd93d';ctx.fillRect(barX,barY+barH-keH,barW,keH);
+    ctx.fillStyle='#ffd93d';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Eₖ',barX+barW/2,barY+barH+14);
+
+    /* PE 柱 */
+    var peH=(totalE>0?PE/totalE:0)*barH;
+    ctx.fillStyle='#ce93d8';ctx.fillRect(barX+barW+6,barY+barH-peH,barW,peH);
+    ctx.fillStyle='#ce93d8';ctx.fillText('Eₚ',barX+barW+6+barW/2,barY+barH+14);
+  }
+
+  function drawVecArrow(ctx,x1,y1,x2,y2,color,label){
+    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    if(len<3)return;
+    ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    var angle=Math.atan2(dy,dx),hs=9;
+    ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-hs*Math.cos(angle-0.35),y2-hs*Math.sin(angle-0.35));
+    ctx.lineTo(x2-hs*Math.cos(angle+0.35),y2-hs*Math.sin(angle+0.35));
+    ctx.closePath();ctx.fill();
+    if(label){ctx.fillStyle=color;ctx.font='bold 11px sans-serif';ctx.textAlign='left';ctx.fillText(label,x2+8,y2-5);}
+  }
+
+  /* ===== 图表 ===== */
+  function drawChart(canvas,data,opts){
+    var ctx2=canvas.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx2.setTransform(dpr,0,0,dpr,0,0);ctx2.clearRect(0,0,W,H);
+    ctx2.fillStyle='#161625';ctx2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:15,bottom:22,left:45},cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var xMin=0,xMax=0,yMin=0,yMax=0;
+    var series=Array.isArray(data[0])?data:[data];
+    series.forEach(function(s){s.forEach(function(d){if(d.x<xMin)xMin=d.x;if(d.x>xMax)xMax=d.x;if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});});
+    if(xMax<=xMin)xMax=xMin+1;if(yMax<=yMin)yMax=yMin+1;
+    var xR=xMax-xMin,yR=yMax-yMin;
+    xMin-=xR*0.05;xMax+=xR*0.05;yMin-=yR*0.1;yMax+=yR*0.1;
+    function toC(px,py){return{x:pad.left+(px-xMin)/(xMax-xMin)*cw,y:pad.top+(1-(py-yMin)/(yMax-yMin))*ch};}
+    ctx2.strokeStyle='#1e1e35';ctx2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;ctx2.beginPath();ctx2.moveTo(pad.left,gy);ctx2.lineTo(pad.left+cw,gy);ctx2.stroke();}
+    for(var j=0;j<=4;j++){var gx=pad.left+(j/4)*cw;ctx2.beginPath();ctx2.moveTo(gx,pad.top);ctx2.lineTo(gx,pad.top+ch);ctx2.stroke();}
+    ctx2.strokeStyle='#444466';ctx2.lineWidth=1.5;
+    var zeroY=toC(0,0).y;if(zeroY>=pad.top&&zeroY<=pad.top+ch){ctx2.beginPath();ctx2.moveTo(pad.left,zeroY);ctx2.lineTo(pad.left+cw,zeroY);ctx2.stroke();}
+    var zeroX=toC(0,0).x;if(zeroX>=pad.left&&zeroX<=pad.left+cw){ctx2.beginPath();ctx2.moveTo(zeroX,pad.top);ctx2.lineTo(zeroX,pad.top+ch);ctx2.stroke();}
+    ctx2.fillStyle='#555570';ctx2.font='10px sans-serif';ctx2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);ctx2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    ctx2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);ctx2.fillText(val2.toFixed(1),pad.left-5,pad.top+(1-l/4)*ch+3);}
+    var colors=opts.colors||['#00d4ff'];
+    series.forEach(function(s,si){if(s.length<2)return;ctx2.strokeStyle=colors[si%colors.length];ctx2.lineWidth=2;ctx2.beginPath();
+      s.forEach(function(d,i){var p=toC(d.x,d.y);if(i===0)ctx2.moveTo(p.x,p.y);else ctx2.lineTo(p.x,p.y);});ctx2.stroke();});
+    series.forEach(function(s,si){if(s.length===0)return;var last=s[s.length-1],lp=toC(last.x,last.y);
+      ctx2.fillStyle=colors[si%colors.length];ctx2.beginPath();ctx2.arc(lp.x,lp.y,4,0,Math.PI*2);ctx2.fill();});
+  }
+
+  function updateCharts(){
+    if(S.history.length<2)return;
+    drawChart(chartXT,S.history.map(function(h){return{x:h.t,y:h.x};}),{colors:['#4ecdc4']});
+    drawChart(chartVT,S.history.map(function(h){return{x:h.t,y:h.v};}),{colors:['#00d4ff']});
+    /* F-x 图: F=-kx 直线 + 当前点 */
+    var fxLine=[];for(var xi=-5;xi<=5;xi+=0.2){fxLine.push({x:xi,y:-CFG.k*xi});}
+    drawChart(chartFX,[fxLine,[{x:S.x,y:-CFG.k*S.x}]],{colors:['#8888a0','#ff8a65']});
+    /* 能量图: KE + PE */
+    drawChart(chartE,[
+      S.history.map(function(h){return{x:h.t,y:h.ke};}),
+      S.history.map(function(h){return{x:h.t,y:h.pe};})
+    ],{colors:['#ffd93d','#ce93d8']});
+  }
+
+  function updateData(){
+    var omega=getOmega(),T=getPeriod();
+    var force=-CFG.k*S.x;
+    var KE=0.5*CFG.m*S.v*S.v;
+    var PE=0.5*CFG.k*S.x*S.x;
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataX').innerHTML=S.x.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('dataV').innerHTML=S.v.toFixed(2)+' <span class="unit">m/s</span>';
+    document.getElementById('dataF').innerHTML=force.toFixed(1)+' <span class="unit">N</span>';
+    document.getElementById('dataEk').innerHTML=KE.toFixed(2)+' <span class="unit">J</span>';
+    document.getElementById('dataEp').innerHTML=PE.toFixed(2)+' <span class="unit">J</span>';
+    document.getElementById('fmOmega').textContent=omega.toFixed(2);
+    document.getElementById('fmT').textContent=T.toFixed(2);
+    document.getElementById('fmF').textContent=force.toFixed(2);
+    document.getElementById('fmE').textContent=(KE+PE).toFixed(2);
+  }
+
+  var lastTime=0,animId=null,HISTORY_INT=0.02,lastHistT=0;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;
+    var shm=getSHM(S.t);
+    S.x=shm.x;S.v=shm.v;
+    var KE=0.5*CFG.m*S.v*S.v;
+    var PE=0.5*CFG.k*S.x*S.x;
+    if(S.t-lastHistT>=HISTORY_INT){
+      S.history.push({t:S.t,x:S.x,v:S.v,ke:KE,pe:PE});lastHistT=S.t;
+    }
+    drawSim();updateData();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.x=CFG.A;S.v=0;S.history=[];lastHistT=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();
+    [chartXT,chartVT,chartFX,chartE].forEach(function(c){c.getContext('2d').clearRect(0,0,c.width,c.height);});
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderK').addEventListener('input',function(){
+    CFG.k=parseFloat(this.value);document.getElementById('valK').textContent=CFG.k.toFixed(1)+' N/m';reset();
+  });
+  document.getElementById('sliderM').addEventListener('input',function(){
+    CFG.m=parseFloat(this.value);document.getElementById('valM').textContent=CFG.m.toFixed(1)+' kg';reset();
+  });
+  document.getElementById('sliderA').addEventListener('input',function(){
+    CFG.A=parseFloat(this.value);document.getElementById('valA').textContent=CFG.A.toFixed(1)+' m';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

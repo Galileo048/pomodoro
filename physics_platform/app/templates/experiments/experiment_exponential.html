@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}指数函数交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--amber);">📈 指数函数 y = aˣ</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Exponential Function — a>1 增长, 0&lt;a&lt;1 衰减</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">底数 a</span><span class="exp-slider-value" id="valA">2.0</span></div>
+          <input type="range" id="sliderA" min="0.1" max="10" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 函数信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">底数 a</div><div class="value c-cyan" id="dataA">2.00</div></div>
+          <div class="exp-data-item"><div class="label">函数类型</div><div class="value c-green" id="dataType">增长</div></div>
+          <div class="exp-data-item"><div class="label">f(1)</div><div class="value c-amber" id="dataF1">2.00</div></div>
+          <div class="exp-data-item"><div class="label">f(2)</div><div class="value c-accent" id="dataF2">4.00</div></div>
+          <div class="exp-data-item"><div class="label">定点</div><div class="value c-purple">(0, 1)</div></div>
+          <div class="exp-data-item"><div class="label">渐近线</div><div class="value c-cyan">y = 0</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y = <span class="result" id="fmA">2.0</span>ˣ</div>
+          <div>f(0) = 1 (定点)</div>
+          <div>f(1) = <span class="result" id="fmF1">2.00</span></div>
+          <div>f(2) = <span class="result" id="fmF2">4.00</span></div>
+          <div>f(-1) = <span class="result" id="fmFm1">0.50</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {a: 2};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -5, xMax = 5, yMin = -2, yMax = 12;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    // Reference line y = x (dashed)
+    ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(tx(xMin), ty(xMin)); ctx.lineTo(tx(xMax), ty(xMax)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffffff44'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('y = x', tx(xMax - 1) + 4, ty(xMax - 1) - 4);
+
+    // Asymptote y = 0 (dashed, already the x-axis, but emphasize)
+    ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1; ctx.setLineDash([6, 3]);
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Exponential curve y = a^x
+    ctx.strokeStyle = '#ffb800'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var px = 0; px <= 600; px++) {
+      var x = xMin + (px / 600) * (xMax - xMin);
+      var y = Math.pow(CFG.a, x);
+      if (y < yMin - 10 || y > yMax + 10) { started = false; continue; }
+      var sx = tx(x), sy = ty(y);
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    // Fixed point (0, 1)
+    var fpx = tx(0), fpy = ty(1);
+    var glow = ctx.createRadialGradient(fpx, fpy, 0, fpx, fpy, 14);
+    glow.addColorStop(0, 'rgba(167,139,250,0.5)');
+    glow.addColorStop(1, 'rgba(167,139,250,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(fpx, fpy, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#a78bfa';
+    ctx.beginPath(); ctx.arc(fpx, fpy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('(0, 1) 定点', fpx + 10, fpy - 10);
+
+    // Mark f(1) and f(2)
+    function drawPointAtX(xVal, color, label) {
+      var yVal = Math.pow(CFG.a, xVal);
+      if (yVal > yMax + 5) return;
+      var ptx2 = tx(xVal), pty2 = ty(yVal);
+      // Projection lines
+      ctx.strokeStyle = color + '44'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(ptx2, ty(0)); ctx.lineTo(ptx2, pty2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tx(0), pty2); ctx.lineTo(ptx2, pty2); ctx.stroke();
+      ctx.setLineDash([]);
+      // Dot
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(ptx2, pty2, 4, 0, Math.PI * 2); ctx.fill();
+      // Label
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(label + '=' + yVal.toFixed(1), ptx2, pty2 - 8);
+    }
+
+    drawPointAtX(1, '#00d4ff', 'f(1)');
+    drawPointAtX(2, '#00ff88', 'f(2)');
+
+    // Growth/decay indicator
+    ctx.fillStyle = CFG.a > 1 ? '#00ff88' : (CFG.a < 1 ? '#ff4466' : '#8888a0');
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'left';
+    var typeStr = CFG.a > 1 ? '指数增长 (a > 1)' : (CFG.a < 1 ? '指数衰减 (0 < a < 1)' : '常数 (a = 1)');
+    ctx.fillText(typeStr, pad + 5, pad + 18);
+
+    // Equation
+    ctx.fillStyle = '#ffb800';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('y = ' + CFG.a.toFixed(1) + 'ˣ', pad + 5, pad + 35);
+  }
+
+  function updateInfo() {
+    var a = CFG.a;
+    document.getElementById('dataA').textContent = a.toFixed(2);
+    document.getElementById('dataType').textContent = a > 1 ? '增长 ↑' : (a < 1 ? '衰减 ↓' : '常数');
+
+    var f1 = Math.pow(a, 1);
+    var f2 = Math.pow(a, 2);
+    document.getElementById('dataF1').textContent = f1.toFixed(2);
+    document.getElementById('dataF2').textContent = f2.toFixed(2);
+
+    document.getElementById('fmA').textContent = a.toFixed(1);
+    document.getElementById('fmF1').textContent = f1.toFixed(2);
+    document.getElementById('fmF2').textContent = f2.toFixed(2);
+    document.getElementById('fmFm1').textContent = Math.pow(a, -1).toFixed(2);
+  }
+
+  document.getElementById('sliderA').addEventListener('input', function() {
+    CFG.a = parseFloat(this.value);
+    if (CFG.a < 0.1) CFG.a = 0.1;
+    document.getElementById('valA').textContent = CFG.a.toFixed(1);
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,652 @@
+{% extends "base.html" %}
+{% block title %}竖直上抛运动 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-velocity{color:var(--cyan)}.c-accel{color:var(--red)}.c-disp{color:var(--green)}.c-ball{color:var(--amber)}.c-accent{color:var(--accent,#e94560)}.c-purple{color:#a855f7}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <!-- 实验标题栏 -->
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--amber);">⬆️ 竖直上抛运动</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Vertical Throw — v = v₀ − gt; h = v₀t − ½gt²</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <!-- 左侧：动画 + 图表 -->
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box">
+          <span class="exp-chart-label">h-t 高度-时间</span>
+          <canvas id="chartHT"></canvas>
+        </div>
+        <div class="exp-chart-box">
+          <span class="exp-chart-label">v-t 速度-时间</span>
+          <canvas id="chartVT"></canvas>
+        </div>
+        <div class="exp-chart-box">
+          <span class="exp-chart-label">a-t 加速度-时间</span>
+          <canvas id="chartAT"></canvas>
+        </div>
+        <div class="exp-chart-box">
+          <span class="exp-chart-label">能量 E-t</span>
+          <canvas id="chartET"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- 右侧：控制面板 -->
+    <div class="exp-side-panel">
+      <!-- 参数设置 -->
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header">
+            <span class="exp-slider-label">初速度 v₀</span>
+            <span class="exp-slider-value" id="valV0">20.0 m/s</span>
+          </div>
+          <input type="range" id="sliderV0" min="1" max="50" step="0.5" value="20">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header">
+            <span class="exp-slider-label">重力加速度 g</span>
+            <span class="exp-slider-value" id="valG">9.8 m/s²</span>
+          </div>
+          <input type="range" id="sliderG" min="1" max="25" step="0.1" value="9.8">
+        </div>
+        <!-- 星球快捷按钮 -->
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">星球</span></div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button class="exp-speed-btn active" data-g="9.8" onclick="setPlanet(this,9.8)">🌍 地球</button>
+            <button class="exp-speed-btn" data-g="1.6" onclick="setPlanet(this,1.6)">🌙 月球</button>
+            <button class="exp-speed-btn" data-g="3.7" onclick="setPlanet(this,3.7)">🔴 火星</button>
+            <button class="exp-speed-btn" data-g="24.8" onclick="setPlanet(this,24.8)">🪐 木星</button>
+          </div>
+        </div>
+      </div>
+      <!-- 控制按钮 -->
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <!-- 实时数据 -->
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item">
+            <div class="label">时间 t</div>
+            <div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div>
+          </div>
+          <div class="exp-data-item">
+            <div class="label">高度 h</div>
+            <div class="value c-disp" id="dataH">0.00 <span class="unit">m</span></div>
+          </div>
+          <div class="exp-data-item">
+            <div class="label">速度 v</div>
+            <div class="value c-velocity" id="dataV">20.0 <span class="unit">m/s</span></div>
+          </div>
+          <div class="exp-data-item">
+            <div class="label">加速度</div>
+            <div class="value c-accel" id="dataA">−9.8 <span class="unit">m/s²</span></div>
+          </div>
+          <div class="exp-data-item">
+            <div class="label">动能 Eₖ</div>
+            <div class="value c-ball" id="dataEk">0.00 <span class="unit">J</span></div>
+          </div>
+          <div class="exp-data-item">
+            <div class="label">重力势能 Eₚ</div>
+            <div class="value c-purple" id="dataEp">0.00 <span class="unit">J</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 公式验证 -->
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>v = v₀ − gt = <span class="formula" id="fmV">20.00</span> m/s</div>
+          <div>h = v₀t − ½gt² = <span class="formula" id="fmH">0.00</span> m</div>
+          <div style="margin-top:4px;color:var(--green)">最高点 H = <span class="result" id="fmHmax">0.00</span> m</div>
+          <div>上升时间 t₁ = <span class="result" id="fmTup">0.00</span> s</div>
+          <div>总时间 T = <span class="result" id="fmTtotal">0.00</span> s</div>
+          <div style="margin-top:4px;color:var(--cyan)">v² = v₀² − 2gh → <span class="result" id="fmCheck">✓ 成立</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== 配置参数 =====
+  var CFG = { v0: 20, g: 9.8, timeScale: 1 };
+  // ===== 运动状态 =====
+  var S = { t: 0, h: 0, v: 0, playing: false, finished: false, history: [], maxH: 0, totalT: 0, upT: 0 };
+
+  // ===== Canvas 元素 =====
+  var simCanvas = document.getElementById('simCanvas');
+  var simCtx = simCanvas.getContext('2d');
+  var chartHT = document.getElementById('chartHT');
+  var chartVT = document.getElementById('chartVT');
+  var chartAT = document.getElementById('chartAT');
+  var chartET = document.getElementById('chartET');
+
+  // ===== 计算关键量 =====
+  function getMaxHeight() { return CFG.v0 * CFG.v0 / (2 * CFG.g); }
+  function getUpTime() { return CFG.v0 / CFG.g; }
+  function getTotalTime() { return 2 * CFG.v0 / CFG.g; }
+  // 质量假设 m=1kg 用于能量计算
+  var MASS = 1;
+
+  // ===== 运动物理量计算 =====
+  function getPos(t) { return CFG.v0 * t - 0.5 * CFG.g * t * t; }
+  function getVel(t) { return CFG.v0 - CFG.g * t; }
+  function getEnergy(t) {
+    var v = getVel(t);
+    var h = Math.max(getPos(t), 0);
+    var ek = 0.5 * MASS * v * v;
+    var ep = MASS * CFG.g * h;
+    return { ek: ek, ep: ep, total: ek + ep };
+  }
+
+  // ===== 坐标系参数 =====
+  var ppm = 3; // pixels per meter
+  var axisOriginX = 60, axisOriginY = 0;
+
+  function calcScale() {
+    var w = simCanvas.width, h = simCanvas.height;
+    if (w < 100 || h < 100) { ppm = 1; axisOriginX = 60; axisOriginY = h - 50; return; }
+    var maxH = getMaxHeight();
+    ppm = Math.max(Math.min((h - 100) / (maxH * 1.2), 20), 0.2);
+    axisOriginX = 60;
+    axisOriginY = h - 50;
+  }
+
+  function toScreenH物理高(h物理) {
+    // h物理 是物理高度（向上为正），转换为屏幕坐标（向下为正）
+    return axisOriginY - h物理 * ppm;
+  }
+
+  // ===== 绘制箭头 =====
+  function drawArrow(ctx, x1, y1, x2, y2, color, label) {
+    var dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    var angle = Math.atan2(dy, dx), hs = 8;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - hs * Math.cos(angle - 0.35), y2 - hs * Math.sin(angle - 0.35));
+    ctx.lineTo(x2 - hs * Math.cos(angle + 0.35), y2 - hs * Math.sin(angle + 0.35));
+    ctx.closePath(); ctx.fill();
+    if (label) {
+      ctx.fillStyle = color; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(label, x2 + 6, y2 - 6);
+    }
+  }
+
+  // ===== 绘制主场景 =====
+  function drawSim() {
+    var W = simCanvas.width, H = simCanvas.height, ctx = simCtx;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, W, H);
+
+    var axisY = axisOriginY; // 地面线
+    var maxH = getMaxHeight();
+
+    // 地面
+    ctx.fillStyle = '#1a2a1a'; ctx.fillRect(0, axisY, W, 4);
+    ctx.strokeStyle = '#2ecc7155'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, axisY); ctx.lineTo(W, axisY); ctx.stroke();
+    // 地面斜线
+    ctx.strokeStyle = '#2ecc7133'; ctx.lineWidth = 1;
+    for (var gx = 0; gx < W; gx += 12) {
+      ctx.beginPath(); ctx.moveTo(gx, axisY); ctx.lineTo(gx - 6, axisY + 8); ctx.stroke();
+    }
+
+    // 竖直标尺
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(axisOriginX, axisY); ctx.lineTo(axisOriginX, 20); ctx.stroke();
+    ctx.fillStyle = '#444466'; ctx.beginPath();
+    ctx.moveTo(axisOriginX, 20); ctx.lineTo(axisOriginX - 5, 30); ctx.lineTo(axisOriginX + 5, 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#8888a0'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('h / m', axisOriginX - 10, 18);
+
+    // 高度刻度
+    var hStep = getHGridStep(maxH);
+    ctx.fillStyle = '#555570'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    for (var hm = hStep; hm <= maxH * 1.1; hm += hStep) {
+      var sy = toScreenH物理高(hm);
+      if (sy < 25 || sy > axisY - 5) continue;
+      ctx.beginPath(); ctx.moveTo(axisOriginX - 3, sy); ctx.lineTo(axisOriginX + 3, sy); ctx.stroke();
+      ctx.fillText(hm.toFixed(0), axisOriginX - 8, sy + 3);
+    }
+
+    // 最高点虚线
+    var maxHSy = toScreenH物理高(maxH);
+    ctx.strokeStyle = '#ffd93d33'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(axisOriginX - 10, maxHSy); ctx.lineTo(W - 20, maxHSy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#ffd93d88'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('H=' + maxH.toFixed(1) + 'm', axisOriginX + 10, maxHSy - 5);
+
+    // 物体位置高度线
+    var hPhys = Math.max(S.h, 0);
+    var ballY = toScreenH物理高(hPhys);
+    var ballX = axisOriginX + 40;
+
+    // 轨迹（半透明竖直轨迹线）
+    if (S.history.length > 1) {
+      ctx.strokeStyle = '#ffd93d33'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      S.history.forEach(function(h, i) {
+        var sy = toScreenH物理高(Math.max(h.h, 0));
+        if (i === 0) ctx.moveTo(ballX, sy);
+        else ctx.lineTo(ballX, sy);
+      });
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // 发光
+    var glow = ctx.createRadialGradient(ballX, ballY, 0, ballX, ballY, 25);
+    glow.addColorStop(0, 'rgba(255,217,61,0.3)');
+    glow.addColorStop(1, 'rgba(255,217,61,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(ballX, ballY, 25, 0, Math.PI * 2); ctx.fill();
+
+    // 小球
+    var ballGrad = ctx.createRadialGradient(ballX - 2, ballY - 2, 1, ballX, ballY, 10);
+    ballGrad.addColorStop(0, '#fff7a0'); ballGrad.addColorStop(1, '#ffd93d');
+    ctx.fillStyle = ballGrad; ctx.beginPath(); ctx.arc(ballX, ballY, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#cc9900'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // 速度箭头（竖直方向）
+    if (S.t > 0.05 && Math.abs(S.v) > 0.1) {
+      var vArrowLen = Math.min(Math.abs(S.v) * 3, 100);
+      var vDir = S.v > 0 ? -1 : 1; // 正速度向上（屏幕y减小）
+      var vColor = S.v >= 0 ? '#4ecdc4' : '#ff6b6b';
+      drawArrow(ctx, ballX + 20, ballY, ballX + 20, ballY + vDir * vArrowLen, vColor,
+        'v=' + S.v.toFixed(1));
+    }
+
+    // 重力加速度箭头（始终向下）
+    var aArrowLen = Math.min(CFG.g * 4, 60);
+    drawArrow(ctx, ballX - 20, ballY, ballX - 20, ballY + aArrowLen, '#ff4444',
+      'g=' + CFG.g.toFixed(1));
+
+    // 高度标注
+    ctx.fillStyle = '#ffd93d'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('h=' + hPhys.toFixed(1) + 'm', ballX, ballY - 30);
+
+    // 状态标注
+    if (S.t > 0.1) {
+      var stateText = '';
+      if (Math.abs(S.v) < 0.3 && S.h > 1) stateText = '⚡ 最高点附近';
+      else if (S.v > 0.1) stateText = '⬆️ 上升中';
+      else if (S.v < -0.1) stateText = '⬇️ 下落中';
+      else stateText = '— 静止';
+      ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+      ctx.fillText(stateText, W / 2, H - 15);
+    }
+
+    // 落地提示
+    if (S.finished) {
+      ctx.fillStyle = '#e94560'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('🎯 落地! T=' + S.totalT.toFixed(2) + 's  H=' + maxH.toFixed(1) + 'm', W / 2, H - 15);
+    }
+  }
+
+  function getHGridStep(maxH) {
+    if (maxH < 20) return 2;
+    if (maxH < 50) return 5;
+    if (maxH < 100) return 10;
+    if (maxH < 200) return 20;
+    return 50;
+  }
+
+  // ===== 图表绘制 =====
+  function drawChart(canvas, data, opts) {
+    var ctx = canvas.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#161625'; ctx.fillRect(0, 0, W, H);
+
+    if (!data || data.length < 2) return;
+    var pad = { top: 28, right: 15, bottom: 22, left: 45 };
+    var cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+    if (cw <= 0 || ch <= 0) return;
+
+    var xMin = 0, xMax = 0, yMin = 0, yMax = 0;
+    var series = Array.isArray(data[0]) ? data : [data];
+    series.forEach(function(s) {
+      s.forEach(function(d) {
+        if (d.x < xMin) xMin = d.x;
+        if (d.x > xMax) xMax = d.x;
+        if (d.y < yMin) yMin = d.y;
+        if (d.y > yMax) yMax = d.y;
+      });
+    });
+    if (xMax <= xMin) xMax = xMin + 1;
+    if (yMax <= yMin) yMax = yMin + 1;
+    var xRange = xMax - xMin, yRange = yMax - yMin;
+    xMin -= xRange * 0.05; xMax += xRange * 0.05;
+    yMin -= yRange * 0.15; yMax += yRange * 0.15;
+
+    function toC(px, py) {
+      return {
+        x: pad.left + (px - xMin) / (xMax - xMin) * cw,
+        y: pad.top + (1 - (py - yMin) / (yMax - yMin)) * ch
+      };
+    }
+
+    // 网格
+    ctx.strokeStyle = '#1e1e35'; ctx.lineWidth = 1;
+    for (var i = 0; i <= 4; i++) {
+      var gy = pad.top + (i / 4) * ch;
+      ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(pad.left + cw, gy); ctx.stroke();
+    }
+    for (var j = 0; j <= 4; j++) {
+      var gx = pad.left + (j / 4) * cw;
+      ctx.beginPath(); ctx.moveTo(gx, pad.top); ctx.lineTo(gx, pad.top + ch); ctx.stroke();
+    }
+
+    // 零线
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    var zeroY = toC(0, 0).y;
+    if (zeroY >= pad.top && zeroY <= pad.top + ch) {
+      ctx.beginPath(); ctx.moveTo(pad.left, zeroY); ctx.lineTo(pad.left + cw, zeroY); ctx.stroke();
+    }
+    var zeroX = toC(0, 0).x;
+    if (zeroX >= pad.left && zeroX <= pad.left + cw) {
+      ctx.beginPath(); ctx.moveTo(zeroX, pad.top); ctx.lineTo(zeroX, pad.top + ch); ctx.stroke();
+    }
+
+    // 刻度
+    ctx.fillStyle = '#555570'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    for (var k = 0; k <= 4; k++) {
+      var val = xMin + (k / 4) * (xMax - xMin);
+      ctx.fillText(val.toFixed(1), pad.left + (k / 4) * cw, pad.top + ch + 14);
+    }
+    ctx.textAlign = 'right';
+    for (var l = 0; l <= 4; l++) {
+      var val2 = yMin + (l / 4) * (yMax - yMin);
+      ctx.fillText(val2.toFixed(0), pad.left - 5, pad.top + (1 - l / 4) * ch + 3);
+    }
+
+    // 曲线
+    var colors = opts.colors || ['#00d4ff'];
+    series.forEach(function(s, si) {
+      if (s.length < 2) return;
+      ctx.strokeStyle = colors[si % colors.length]; ctx.lineWidth = 2;
+      ctx.beginPath();
+      s.forEach(function(d, i) {
+        var p = toC(d.x, d.y);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    });
+
+    // 终点
+    series.forEach(function(s, si) {
+      if (s.length === 0) return;
+      var last = s[s.length - 1], lp = toC(last.x, last.y);
+      ctx.fillStyle = colors[si % colors.length];
+      ctx.beginPath(); ctx.arc(lp.x, lp.y, 4, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // 图例
+    if (opts.legend) {
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+      opts.legend.forEach(function(item, i) {
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(pad.left + 5, pad.top + 5 + i * 14, 12, 2);
+        ctx.fillText(item, pad.left + 22, pad.top + 9 + i * 14);
+      });
+    }
+  }
+
+  function updateCharts() {
+    if (S.history.length < 2) return;
+    // h-t 图：抛物线
+    drawChart(chartHT, S.history.map(function(h) { return { x: h.t, y: h.h }; }), { colors: ['#4ecdc4'] });
+    // v-t 图：直线，穿过零点
+    drawChart(chartVT, S.history.map(function(h) { return { x: h.t, y: h.v }; }), { colors: ['#00d4ff'] });
+    // a-t 图：恒定 -g
+    drawChart(chartAT, S.history.map(function(h) { return { x: h.t, y: -CFG.g }; }), { colors: ['#ff6b6b'] });
+    // 能量图：Ek + Ep + Total
+    drawChart(chartET, [
+      S.history.map(function(h) { return { x: h.t, y: h.ek }; }),
+      S.history.map(function(h) { return { x: h.t, y: h.ep }; }),
+      S.history.map(function(h) { return { x: h.t, y: h.ek + h.ep }; })
+    ], {
+      colors: ['#ffd93d', '#a855f7', '#4ecdc4'],
+      legend: ['动能 Eₖ', '势能 Eₚ', '总能量 E']
+    });
+  }
+
+  // ===== 更新数据面板 =====
+  function updateData() {
+    var v = S.v, h = Math.max(S.h, 0);
+    var ek = 0.5 * MASS * v * v;
+    var ep = MASS * CFG.g * h;
+    var maxH = getMaxHeight();
+    var upT = getUpTime();
+    var totalT = getTotalTime();
+
+    document.getElementById('dataT').innerHTML = S.t.toFixed(2) + ' <span class="unit">s</span>';
+    document.getElementById('dataH').innerHTML = h.toFixed(2) + ' <span class="unit">m</span>';
+    document.getElementById('dataV').innerHTML = v.toFixed(2) + ' <span class="unit">m/s</span>';
+    document.getElementById('dataA').innerHTML = '−' + CFG.g.toFixed(1) + ' <span class="unit">m/s²</span>';
+    document.getElementById('dataEk').innerHTML = ek.toFixed(1) + ' <span class="unit">J</span>';
+    document.getElementById('dataEp').innerHTML = ep.toFixed(1) + ' <span class="unit">J</span>';
+
+    // 公式验证
+    document.getElementById('fmV').textContent = v.toFixed(2);
+    document.getElementById('fmH').textContent = h.toFixed(2);
+    document.getElementById('fmHmax').textContent = maxH.toFixed(2);
+    document.getElementById('fmTup').textContent = upT.toFixed(2);
+    document.getElementById('fmTtotal').textContent = totalT.toFixed(2);
+
+    // v² = v₀² - 2gh 验证
+    var lhs = v * v;
+    var rhs = CFG.v0 * CFG.v0 - 2 * CFG.g * h;
+    var check = Math.abs(lhs - rhs) < 0.5;
+    document.getElementById('fmCheck').textContent = check ? '✓ 成立' : '≈ 近似';
+    document.getElementById('fmCheck').style.color = check ? '#4ecdc4' : '#ffd93d';
+  }
+
+  // ===== 动画循环 =====
+  var lastTime = 0, animId = null, HISTORY_INTERVAL = 0.04, lastHistoryT = 0;
+  function animate(timestamp) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = timestamp;
+    var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+    lastTime = timestamp;
+
+    S.t += dt * CFG.timeScale;
+    var totalT = getTotalTime();
+
+    if (S.t >= totalT) {
+      // 落地，停止
+      S.t = totalT;
+      S.h = 0;
+      S.v = -CFG.v0;
+      S.playing = false;
+      S.finished = true;
+      // 记录最终点
+      S.history.push({ t: S.t, h: 0, v: S.v, ek: 0, ep: 0 });
+      document.getElementById('btnPlay').textContent = '▶ 播放';
+    } else {
+      S.h = getPos(S.t);
+      S.v = getVel(S.t);
+      if (S.h < 0) S.h = 0;
+      var e = getEnergy(S.t);
+      if (S.t - lastHistoryT >= HISTORY_INTERVAL) {
+        S.history.push({ t: S.t, h: S.h, v: S.v, ek: e.ek, ep: e.ep });
+        lastHistoryT = S.t;
+      }
+    }
+
+    S.maxH = getMaxHeight();
+    S.totalT = getTotalTime();
+    S.upT = getUpTime();
+
+    drawSim();
+    updateData();
+    updateCharts();
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  // ===== 重置 =====
+  function reset() {
+    S.playing = false;
+    S.finished = false;
+    S.t = 0;
+    S.h = 0;
+    S.v = CFG.v0;
+    S.history = [];
+    S.maxH = getMaxHeight();
+    S.totalT = getTotalTime();
+    S.upT = getUpTime();
+    lastHistoryT = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    drawSim();
+    updateData();
+    [chartHT, chartVT, chartAT, chartET].forEach(function(c) {
+      c.getContext('2d').clearRect(0, 0, c.width, c.height);
+    });
+  }
+
+  // ===== 播放/暂停 =====
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    if (S.finished) { reset(); return; }
+    S.playing = !S.playing;
+    document.getElementById('btnPlay').textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+
+  // ===== 重置按钮 =====
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  // ===== 速度按钮 =====
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      CFG.timeScale = parseFloat(btn.dataset.speed);
+    });
+  });
+
+  // ===== 星球快捷按钮 =====
+  window.setPlanet = function(btn, g) {
+    CFG.g = g;
+    document.getElementById('sliderG').value = g;
+    document.getElementById('valG').textContent = g.toFixed(1) + ' m/s²';
+    // 更新星球按钮状态（只更新 g 相关的按钮）
+    var planetBtns = btn.parentElement.querySelectorAll('.exp-speed-btn');
+    planetBtns.forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    reset();
+  };
+
+  // ===== 滑块控制 =====
+  document.getElementById('sliderV0').addEventListener('input', function() {
+    CFG.v0 = parseFloat(this.value);
+    document.getElementById('valV0').textContent = CFG.v0.toFixed(1) + ' m/s';
+    reset();
+  });
+  document.getElementById('sliderG').addEventListener('input', function() {
+    CFG.g = parseFloat(this.value);
+    document.getElementById('valG').textContent = CFG.g.toFixed(1) + ' m/s²';
+    // 清除星球按钮高亮
+    var planetBtns = document.querySelectorAll('[data-g]');
+    planetBtns.forEach(function(b) {
+      b.classList.remove('active');
+      if (Math.abs(parseFloat(b.dataset.g) - CFG.g) < 0.01) b.classList.add('active');
+    });
+    reset();
+  });
+
+  // ===== 窗口自适应 =====
+  var resizeTimer = null;
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    [simCanvas, chartHT, chartVT, chartAT, chartET].forEach(function(c) {
+      var rect = c.parentElement.getBoundingClientRect();
+      var w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+      if (c.width !== w || c.height !== h) {
+        c.width = w; c.height = h;
+        c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+    });
+    calcScale();
+    drawSim();
+    updateCharts();
+  }
+
+  window.addEventListener('resize', function() {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 100);
+  });
+
+  // ===== 初始化 =====
+  resize();
+  S.v = CFG.v0;
+  S.maxH = getMaxHeight();
+  S.totalT = getTotalTime();
+  S.upT = getUpTime();
+  updateData();
+})();
+</script>
+{% endblock %}

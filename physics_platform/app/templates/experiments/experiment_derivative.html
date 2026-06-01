@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}导数几何意义交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .func-selector{display:flex;gap:4px;flex-wrap:wrap}
+  .func-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .func-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .func-btn:hover:not(.active){border-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">📐 导数的几何意义 — 切线与斜率</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Derivative — 割线趋近切线, Δx→0 时斜率→导数值</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 函数选择</h3>
+        <div class="func-selector" id="funcSelector">
+          <button class="func-btn active" data-func="x2">y = x²</button>
+          <button class="func-btn" data-func="x3">y = x³</button>
+          <button class="func-btn" data-func="sin">y = sin(x)</button>
+          <button class="func-btn" data-func="exp">y = eˣ</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>🎛️ 参数调节</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">切点 x₀</span><span class="exp-slider-value" id="valX0">1.0</span></div>
+          <input type="range" id="sliderX0" min="-3" max="3" step="0.05" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">Δx (割线偏移)</span><span class="exp-slider-value" id="valDx">1.00</span></div>
+          <input type="range" id="sliderDx" min="0.01" max="3" step="0.01" value="1">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 动画控制</h3>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <button class="exp-btn exp-btn-play" id="btnAnimate" style="flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent,#e94560);color:#fff;">▶ 割线→切线</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset" style="flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--border);color:var(--text-primary);">↺ 重置</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">观察 Δx→0 时割线如何趋近切线</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 斜率信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">x₀</div><div class="value c-cyan" id="dataX0">1.00</div></div>
+          <div class="exp-data-item"><div class="label">f(x₀)</div><div class="value c-amber" id="dataFx0">1.00</div></div>
+          <div class="exp-data-item"><div class="label">割线斜率 Δy/Δx</div><div class="value c-purple" id="dataSecant">—</div></div>
+          <div class="exp-data-item"><div class="label">导数 f'(x₀)</div><div class="value c-green" id="dataDeriv">2.00</div></div>
+          <div class="exp-data-item"><div class="label">Δx</div><div class="value c-accent" id="dataDx">1.00</div></div>
+          <div class="exp-data-item"><div class="label">误差</div><div class="value c-amber" id="dataError">—</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>f(x₀) = <span class="result" id="fmFx0">1.00</span></div>
+          <div>f'(x₀) = <span class="result" id="fmDeriv">2.00</span></div>
+          <div>割线: Δy/Δx = <span class="result" id="fmSecant">—</span></div>
+          <div>lim Δx→0: 割线→切线</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var funcs = {
+    x2:  { f: function(x){return x*x;},            df: function(x){return 2*x;},       name: 'x²',   fStr: '2x' },
+    x3:  { f: function(x){return x*x*x;},          df: function(x){return 3*x*x;},     name: 'x³',   fStr: '3x²' },
+    sin: { f: function(x){return Math.sin(x);},     df: function(x){return Math.cos(x);}, name: 'sin(x)', fStr: 'cos(x)' },
+    exp: { f: function(x){return Math.exp(x);},     df: function(x){return Math.exp(x);}, name: 'eˣ',   fStr: 'eˣ' }
+  };
+
+  var currentFunc = 'x2';
+  var CFG = { x0: 1, dx: 1 };
+  var animating = false, animDx = 1;
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var xMin = -5, xMax = 5, yMin = -5, yMax = 5;
+    var f = funcs[currentFunc].f;
+    var df = funcs[currentFunc].df;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    // Function curve
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var px = 0; px <= 500; px++) {
+      var x = xMin + (px / 500) * (xMax - xMin);
+      var y = f(x);
+      if (y < yMin - 10 || y > yMax + 10) { started = false; continue; }
+      var sx = tx(x), sy = ty(y);
+      if (!started) { ctx.moveTo(sx, sy); started = true; }
+      else ctx.lineTo(sx, sy);
+    }
+    ctx.stroke();
+
+    var x0 = CFG.x0;
+    var dx = animating ? animDx : CFG.dx;
+    var y0 = f(x0);
+    var y1 = f(x0 + dx);
+    var slope = df(x0);
+    var secantSlope = (y1 - y0) / dx;
+
+    // Secant line (if dx is large enough to see)
+    if (dx > 0.05) {
+      ctx.strokeStyle = '#a78bfa88'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+      var secX1 = x0 - 2, secY1 = y0 + secantSlope * (secX1 - x0);
+      var secX2 = x0 + 2, secY2 = y0 + secantSlope * (secX2 - x0);
+      // Clip to visible range
+      ctx.beginPath();
+      ctx.moveTo(tx(secX1), ty(secY1));
+      ctx.lineTo(tx(secX2), ty(secY2));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Second point (x0+dx, f(x0+dx))
+      if (y1 >= yMin - 5 && y1 <= yMax + 5) {
+        var glow2 = ctx.createRadialGradient(tx(x0 + dx), ty(y1), 0, tx(x0 + dx), ty(y1), 10);
+        glow2.addColorStop(0, 'rgba(167,139,250,0.4)');
+        glow2.addColorStop(1, 'rgba(167,139,250,0)');
+        ctx.fillStyle = glow2;
+        ctx.beginPath(); ctx.arc(tx(x0 + dx), ty(y1), 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#a78bfa';
+        ctx.beginPath(); ctx.arc(tx(x0 + dx), ty(y1), 4, 0, Math.PI * 2); ctx.fill();
+        // Label
+        ctx.fillStyle = '#a78bfa'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('(' + (x0 + dx).toFixed(1) + ', ' + y1.toFixed(2) + ')', tx(x0 + dx) + 8, ty(y1) - 8);
+      }
+    }
+
+    // Tangent line
+    ctx.strokeStyle = '#ff4466'; ctx.lineWidth = 2; ctx.setLineDash([]);
+    var tX1 = x0 - 3, tY1 = y0 + slope * (tX1 - x0);
+    var tX2 = x0 + 3, tY2 = y0 + slope * (tX2 - x0);
+    ctx.beginPath();
+    ctx.moveTo(tx(tX1), ty(tY1));
+    ctx.lineTo(tx(tX2), ty(tY2));
+    ctx.stroke();
+
+    // Tangent point
+    var glow = ctx.createRadialGradient(tx(x0), ty(y0), 0, tx(x0), ty(y0), 14);
+    glow.addColorStop(0, 'rgba(255,68,102,0.5)');
+    glow.addColorStop(1, 'rgba(255,68,102,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(tx(x0), ty(y0), 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff4466';
+    ctx.beginPath(); ctx.arc(tx(x0), ty(y0), 5, 0, Math.PI * 2); ctx.fill();
+
+    // Point label
+    ctx.fillStyle = '#ff4466';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('(' + x0.toFixed(2) + ', ' + y0.toFixed(2) + ')', tx(x0) + 10, ty(y0) - 12);
+
+    // Slope triangle
+    if (dx > 0.05 && y1 >= yMin - 5 && y1 <= yMax + 5) {
+      ctx.strokeStyle = '#ffffff44'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      // Horizontal leg (dx)
+      ctx.beginPath(); ctx.moveTo(tx(x0), ty(y0)); ctx.lineTo(tx(x0 + dx), ty(y0)); ctx.stroke();
+      // Vertical leg (dy)
+      ctx.beginPath(); ctx.moveTo(tx(x0 + dx), ty(y0)); ctx.lineTo(tx(x0 + dx), ty(y1)); ctx.stroke();
+      ctx.setLineDash([]);
+      // Labels
+      ctx.fillStyle = '#ffffff88'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Δx=' + dx.toFixed(2), (tx(x0) + tx(x0 + dx)) / 2, ty(y0) + 14);
+      ctx.textAlign = 'left';
+      ctx.fillText('Δy=' + (y1 - y0).toFixed(2), tx(x0 + dx) + 6, (ty(y0) + ty(y1)) / 2 + 4);
+    }
+
+    // Equation display
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('y = ' + funcs[currentFunc].name + ',  f\'(x) = ' + funcs[currentFunc].fStr, pad + 5, pad + 18);
+    ctx.fillStyle = '#ff4466';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('切线斜率 f\'(' + x0.toFixed(1) + ') = ' + slope.toFixed(4), pad + 5, pad + 35);
+  }
+
+  function updateInfo() {
+    var f = funcs[currentFunc].f;
+    var df = funcs[currentFunc].df;
+    var x0 = CFG.x0;
+    var dx = animating ? animDx : CFG.dx;
+    var y0 = f(x0);
+    var y1 = f(x0 + dx);
+    var slope = df(x0);
+    var secantSlope = (y1 - y0) / dx;
+
+    document.getElementById('dataX0').textContent = x0.toFixed(2);
+    document.getElementById('dataFx0').textContent = y0.toFixed(4);
+    document.getElementById('dataSecant').textContent = secantSlope.toFixed(4);
+    document.getElementById('dataDeriv').textContent = slope.toFixed(4);
+    document.getElementById('dataDx').textContent = dx.toFixed(4);
+    document.getElementById('dataError').textContent = Math.abs(secantSlope - slope).toFixed(6);
+
+    document.getElementById('fmFx0').textContent = y0.toFixed(4);
+    document.getElementById('fmDeriv').textContent = slope.toFixed(4);
+    document.getElementById('fmSecant').textContent = secantSlope.toFixed(4);
+  }
+
+  // Function selector
+  document.querySelectorAll('.func-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.func-btn').forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentFunc = this.dataset.func;
+      draw(); updateInfo();
+    });
+  });
+
+  // Sliders
+  document.getElementById('sliderX0').addEventListener('input', function() {
+    CFG.x0 = parseFloat(this.value);
+    document.getElementById('valX0').textContent = CFG.x0.toFixed(1);
+    if (!animating) { draw(); updateInfo(); }
+  });
+  document.getElementById('sliderDx').addEventListener('input', function() {
+    CFG.dx = parseFloat(this.value);
+    document.getElementById('valDx').textContent = CFG.dx.toFixed(2);
+    if (!animating) { draw(); updateInfo(); }
+  });
+
+  // Animation: secant → tangent
+  var animId = null;
+  document.getElementById('btnAnimate').addEventListener('click', function() {
+    if (animating) {
+      animating = false;
+      if (animId) cancelAnimationFrame(animId);
+      document.getElementById('btnAnimate').textContent = '▶ 割线→切线';
+      CFG.dx = 1;
+      document.getElementById('sliderDx').value = 1;
+      document.getElementById('valDx').textContent = '1.00';
+      draw(); updateInfo();
+      return;
+    }
+    animating = true;
+    animDx = 3;
+    document.getElementById('btnAnimate').textContent = '⏸ 暂停';
+    var startTime = 0;
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      var elapsed = (ts - startTime) / 1000;
+      // Ease: dx from 3 to 0.01 over 3 seconds
+      var t = Math.min(elapsed / 3, 1);
+      animDx = 3 * Math.pow(1 - t, 3) + 0.01;
+      draw(); updateInfo();
+      if (t < 1 && animating) {
+        animId = requestAnimationFrame(animate);
+      } else {
+        animating = false;
+        document.getElementById('btnAnimate').textContent = '▶ 割线→切线';
+        CFG.dx = animDx;
+        document.getElementById('sliderDx').value = CFG.dx;
+        document.getElementById('valDx').textContent = CFG.dx.toFixed(2);
+        draw(); updateInfo();
+      }
+    }
+    animId = requestAnimationFrame(animate);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function() {
+    animating = false;
+    if (animId) cancelAnimationFrame(animId);
+    CFG.x0 = 1; CFG.dx = 1;
+    document.getElementById('sliderX0').value = 1;
+    document.getElementById('sliderDx').value = 1;
+    document.getElementById('valX0').textContent = '1.0';
+    document.getElementById('valDx').textContent = '1.00';
+    document.getElementById('btnAnimate').textContent = '▶ 割线→切线';
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

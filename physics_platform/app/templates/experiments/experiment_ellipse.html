@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}椭圆交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--purple);">⭕ 椭圆 x²/a² + y²/b² = 1</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Ellipse — 拖动椭圆上的点验证 |PF₁|+|PF₂|=2a</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">半长轴 a</span><span class="exp-slider-value" id="valA">4.0</span></div>
+          <input type="range" id="sliderA" min="1" max="8" step="0.1" value="4">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">半短轴 b</span><span class="exp-slider-value" id="valB">2.5</span></div>
+          <input type="range" id="sliderB" min="0.5" max="8" step="0.1" value="2.5">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 椭圆信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">半长轴 a</div><div class="value c-cyan" id="dataA">4.00</div></div>
+          <div class="exp-data-item"><div class="label">半短轴 b</div><div class="value c-amber" id="dataB">2.50</div></div>
+          <div class="exp-data-item"><div class="label">半焦距 c</div><div class="value c-accent" id="dataC">3.12</div></div>
+          <div class="exp-data-item"><div class="label">离心率 e</div><div class="value c-green" id="dataE">0.78</div></div>
+          <div class="exp-data-item"><div class="label">|PF₁|</div><div class="value c-purple" id="dataPF1">—</div></div>
+          <div class="exp-data-item"><div class="label">|PF₂|</div><div class="value c-purple" id="dataPF2">—</div></div>
+          <div class="exp-data-item" style="grid-column:span 2"><div class="label">|PF₁|+|PF₂| = 2a</div><div class="value c-green" id="dataSum">8.00 = 8.00 ✓</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>x²/<span class="result" id="fmA2">16.0</span> + y²/<span class="result" id="fmB2">6.25</span> = 1</div>
+          <div>c = √(a²-b²) = <span class="result" id="fmC">3.12</span></div>
+          <div>e = c/a = <span class="result" id="fmE">0.78</span></div>
+          <div>F₁(-c,0), F₂(c,0)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = {a: 4, b: 2.5};
+  var dragAngle = 0; // angle on ellipse for draggable point
+  var dragging = false;
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function getC() { return Math.sqrt(Math.max(CFG.a * CFG.a - CFG.b * CFG.b, 0)); }
+  function getE() { return getC() / CFG.a; }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var pad = 50, cw = W - 2 * pad, ch = H - 2 * pad;
+    var range = 10;
+    var xMin = -range, xMax = range, yMin = -range, yMax = range;
+
+    function tx(x) { return pad + (x - xMin) / (xMax - xMin) * cw; }
+    function ty(y) { return pad + (1 - (y - yMin) / (yMax - yMin)) * ch; }
+    function fx(sx) { return xMin + (sx - pad) / cw * (xMax - xMin); }
+    function fy(sy) { return yMin + (1 - (sy - pad) / ch) * (yMax - yMin); }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var gx = tx(i); ctx.beginPath(); ctx.moveTo(gx, pad); ctx.lineTo(gx, pad + ch); ctx.stroke();
+    }
+    for (var j = Math.ceil(yMin); j <= Math.floor(yMax); j++) {
+      var gy = ty(j); ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(pad + cw, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad, ty(0)); ctx.lineTo(pad + cw, ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0), pad); ctx.lineTo(tx(0), pad + ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    for (var k2 = Math.ceil(xMin); k2 <= Math.floor(xMax); k2++) {
+      if (k2 === 0) continue;
+      ctx.fillText(k2, tx(k2), ty(0) + 18);
+    }
+    ctx.textAlign = 'right';
+    for (var l = Math.ceil(yMin); l <= Math.floor(yMax); l++) {
+      if (l === 0) continue;
+      ctx.fillText(l, pad - 8, ty(l) + 4);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('O', tx(0) - 6, ty(0) + 16);
+
+    var c = getC();
+    var ea = CFG.a, eb = CFG.b;
+
+    // Ellipse
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (var deg = 0; deg <= 360; deg++) {
+      var rad = deg * Math.PI / 180;
+      var ex = ea * Math.cos(rad);
+      var ey = eb * Math.sin(rad);
+      if (deg === 0) ctx.moveTo(tx(ex), ty(ey));
+      else ctx.lineTo(tx(ex), ty(ey));
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Foci
+    function drawFocus(fxVal, fyVal, label, color) {
+      var ftx = tx(fxVal), fty = ty(fyVal);
+      var glow = ctx.createRadialGradient(ftx, fty, 0, ftx, fty, 10);
+      glow.addColorStop(0, color + '66');
+      glow.addColorStop(1, color + '00');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(ftx, fty, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(ftx, fty, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, ftx, fty + 18);
+    }
+
+    drawFocus(-c, 0, 'F₁', '#ff4466');
+    drawFocus(c, 0, 'F₂', '#00d4ff');
+
+    // Draggable point P on ellipse
+    var Px = ea * Math.cos(dragAngle);
+    var Py = eb * Math.sin(dragAngle);
+    var ptx2 = tx(Px), pty2 = ty(Py);
+
+    // Lines from P to F1 and F2
+    ctx.strokeStyle = '#ff446688'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ptx2, pty2); ctx.lineTo(tx(-c), ty(0)); ctx.stroke();
+    ctx.strokeStyle = '#00d4ff88'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ptx2, pty2); ctx.lineTo(tx(c), ty(0)); ctx.stroke();
+
+    // Distance labels on lines
+    var d1 = Math.sqrt((Px + c) * (Px + c) + Py * Py);
+    var d2 = Math.sqrt((Px - c) * (Px - c) + Py * Py);
+    var mid1x = (ptx2 + tx(-c)) / 2, mid1y = (pty2 + ty(0)) / 2;
+    var mid2x = (ptx2 + tx(c)) / 2, mid2y = (pty2 + ty(0)) / 2;
+    ctx.fillStyle = '#ff4466'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('|PF₁|=' + d1.toFixed(2), mid1x - 10, mid1y - 6);
+    ctx.fillStyle = '#00d4ff';
+    ctx.fillText('|PF₂|=' + d2.toFixed(2), mid2x + 10, mid2y - 6);
+
+    // Point P
+    var glowP = ctx.createRadialGradient(ptx2, pty2, 0, ptx2, pty2, 14);
+    glowP.addColorStop(0, 'rgba(0,255,136,0.5)');
+    glowP.addColorStop(1, 'rgba(0,255,136,0)');
+    ctx.fillStyle = glowP;
+    ctx.beginPath(); ctx.arc(ptx2, pty2, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00ff88';
+    ctx.beginPath(); ctx.arc(ptx2, pty2, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('P(' + Px.toFixed(1) + ', ' + Py.toFixed(1) + ')', ptx2 + 10, pty2 - 10);
+
+    // Equation display
+    ctx.fillStyle = '#a78bfa';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('x²/' + (ea * ea).toFixed(1) + ' + y²/' + (eb * eb).toFixed(1) + ' = 1', pad + 5, pad + 18);
+
+    // Verification text
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('|PF₁|+|PF₂| = ' + (d1 + d2).toFixed(2) + ' = 2a = ' + (2 * ea).toFixed(2) + ' ✓', pad + 5, pad + 35);
+
+    // Store for drag
+    canvas._ptx = ptx2; canvas._pty = pty2;
+  }
+
+  function updateInfo() {
+    var c = getC();
+    var e = getE();
+    document.getElementById('dataA').textContent = CFG.a.toFixed(2);
+    document.getElementById('dataB').textContent = CFG.b.toFixed(2);
+    document.getElementById('dataC').textContent = c.toFixed(2);
+    document.getElementById('dataE').textContent = e.toFixed(4);
+
+    var Px = CFG.a * Math.cos(dragAngle);
+    var Py = CFG.b * Math.sin(dragAngle);
+    var d1 = Math.sqrt((Px + c) * (Px + c) + Py * Py);
+    var d2 = Math.sqrt((Px - c) * (Px - c) + Py * Py);
+    document.getElementById('dataPF1').textContent = d1.toFixed(2);
+    document.getElementById('dataPF2').textContent = d2.toFixed(2);
+    document.getElementById('dataSum').textContent = (d1 + d2).toFixed(2) + ' = ' + (2 * CFG.a).toFixed(2) + ' ✓';
+
+    document.getElementById('fmA2').textContent = (CFG.a * CFG.a).toFixed(1);
+    document.getElementById('fmB2').textContent = (CFG.b * CFG.b).toFixed(1);
+    document.getElementById('fmC').textContent = c.toFixed(2);
+    document.getElementById('fmE').textContent = e.toFixed(4);
+  }
+
+  // Drag interaction on canvas
+  function getMousePos(e) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  canvas.addEventListener('mousedown', function(e) {
+    var pos = getMousePos(e);
+    var dx = pos.x - canvas._ptx;
+    var dy = pos.y - canvas._pty;
+    if (Math.sqrt(dx * dx + dy * dy) < 20) {
+      dragging = true;
+    }
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var pos = getMousePos(e);
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    var W = rect.width, H = rect.height;
+    var pad2 = 50, cw2 = W - 2 * pad2, ch2 = H - 2 * pad2;
+    var range2 = 10;
+    // Convert mouse to math coords
+    var mx = -range2 + (pos.x - pad2) / cw2 * 2 * range2;
+    var my = range2 - (pos.y - pad2) / ch2 * 2 * range2;
+    // Find closest angle on ellipse
+    dragAngle = Math.atan2(my / CFG.b, mx / CFG.a);
+    draw();
+    updateInfo();
+  });
+
+  canvas.addEventListener('mouseup', function() { dragging = false; });
+  canvas.addEventListener('mouseleave', function() { dragging = false; });
+
+  // Touch support
+  canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    var touch = e.touches[0];
+    var rect2 = canvas.getBoundingClientRect();
+    var pos = { x: touch.clientX - rect2.left, y: touch.clientY - rect2.top };
+    var dx = pos.x - canvas._ptx;
+    var dy = pos.y - canvas._pty;
+    if (Math.sqrt(dx * dx + dy * dy) < 30) dragging = true;
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', function(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    var touch = e.touches[0];
+    var rect2 = canvas.getBoundingClientRect();
+    var pos = { x: touch.clientX - rect2.left, y: touch.clientY - rect2.top };
+    var rect3 = canvas.parentElement.getBoundingClientRect();
+    var W = rect3.width, H = rect3.height;
+    var pad2 = 50, cw2 = W - 2 * pad2, ch2 = H - 2 * pad2;
+    var range2 = 10;
+    var mx = -range2 + (pos.x - pad2) / cw2 * 2 * range2;
+    var my = range2 - (pos.y - pad2) / ch2 * 2 * range2;
+    dragAngle = Math.atan2(my / CFG.b, mx / CFG.a);
+    draw();
+    updateInfo();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', function() { dragging = false; });
+
+  document.getElementById('sliderA').addEventListener('input', function() {
+    CFG.a = parseFloat(this.value);
+    if (CFG.a <= CFG.b) CFG.a = CFG.b + 0.1;
+    document.getElementById('sliderA').value = CFG.a;
+    document.getElementById('valA').textContent = CFG.a.toFixed(1);
+    draw(); updateInfo();
+  });
+  document.getElementById('sliderB').addEventListener('input', function() {
+    CFG.b = parseFloat(this.value);
+    if (CFG.b >= CFG.a) CFG.b = CFG.a - 0.1;
+    document.getElementById('sliderB').value = CFG.b;
+    document.getElementById('valB').textContent = CFG.b.toFixed(1);
+    draw(); updateInfo();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}
