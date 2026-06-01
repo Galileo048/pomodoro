@@ -9,7 +9,7 @@
             &#9786; 个人中心
         </h1>
         <p style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">
-            查看你的学习信息和进度概览
+            管理你的账号信息和学习进度
         </p>
     </div>
 
@@ -19,30 +19,77 @@
             <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, var(--cyan), var(--purple)); display:inline-flex; align-items:center; justify-content:center; font-size:2rem; font-weight:700; color:#fff;">
                 {{ current_user.username|first|upper }}
             </div>
+            <div style="font-size:1.1rem; font-weight:600; color:var(--text-bright); margin-top:0.5rem;">
+                {{ current_user.username }}
+            </div>
         </div>
 
-        <!-- 用户信息 -->
-        <div style="display:flex; flex-direction:column; gap:1rem;">
-            <div style="display:flex; justify-content:space-between; padding:0.8rem 0; border-bottom:1px solid var(--border);">
-                <span style="color:var(--text-muted);">用户名</span>
-                <span style="color:var(--text-bright); font-weight:500;">{{ current_user.username }}</span>
+        <!-- 成功/错误提示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div style="padding:0.6rem 1rem; border-radius:6px; margin-bottom:1rem; font-size:0.85rem;
+            {% if category == 'success' %}background:rgba(0,255,136,0.08); color:var(--green); border:1px solid rgba(0,255,136,0.2);
+            {% else %}background:rgba(255,80,80,0.08); color:var(--red); border:1px solid rgba(255,80,80,0.2);{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- 编辑表单 -->
+        <form method="POST" action="{{ url_for('auth.profile_update') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- 年级 -->
+            <div class="form-group-custom" style="margin-bottom:1rem;">
+                <label class="form-label-custom" for="grade">年级</label>
+                <select name="grade" id="grade" class="form-input-dark" style="width:100%;">
+                    <option value="高一" {% if current_user.grade == '高一' %}selected{% endif %}>高一</option>
+                    <option value="高二" {% if current_user.grade == '高二' %}selected{% endif %}>高二</option>
+                    <option value="高三" {% if current_user.grade == '高三' %}selected{% endif %}>高三</option>
+                </select>
             </div>
-            <div style="display:flex; justify-content:space-between; padding:0.8rem 0; border-bottom:1px solid var(--border);">
-                <span style="color:var(--text-muted);">年级</span>
-                <span style="color:var(--text-bright); font-weight:500;">{{ current_user.grade or '未设置' }}</span>
+
+            <!-- 邮箱 -->
+            <div class="form-group-custom" style="margin-bottom:1rem;">
+                <label class="form-label-custom" for="email">邮箱</label>
+                <input type="email" name="email" id="email" class="form-input-dark"
+                       value="{{ current_user.email or '' }}" placeholder="选填">
             </div>
-            <div style="display:flex; justify-content:space-between; padding:0.8rem 0; border-bottom:1px solid var(--border);">
-                <span style="color:var(--text-muted);">邮箱</span>
-                <span style="color:var(--text-bright); font-weight:500;">{{ current_user.email or '未设置' }}</span>
+
+            <!-- 修改密码（可选） -->
+            <div style="border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem; margin-bottom:1rem;">
+                <div style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.8rem;">
+                    修改密码（不修改请留空）
+                </div>
+
+                <div class="form-group-custom" style="margin-bottom:0.8rem;">
+                    <label class="form-label-custom" for="new_password">新密码</label>
+                    <input type="password" name="new_password" id="new_password" class="form-input-dark"
+                           placeholder="至少 6 个字符" minlength="6">
+                </div>
+
+                <div class="form-group-custom" style="margin-bottom:0;">
+                    <label class="form-label-custom" for="confirm_new_password">确认新密码</label>
+                    <input type="password" name="confirm_new_password" id="confirm_new_password" class="form-input-dark"
+                           placeholder="再次输入新密码">
+                </div>
             </div>
-            <div style="display:flex; justify-content:space-between; padding:0.8rem 0;">
-                <span style="color:var(--text-muted);">注册时间</span>
-                <span style="color:var(--text-bright); font-weight:500;">{{ current_user.created_at.strftime('%Y-%m-%d') if current_user.created_at else '未知' }}</span>
-            </div>
+
+            <!-- 提交按钮 -->
+            <button type="submit" class="btn btn-primary btn-glow" style="width:100%; margin-top:0.5rem;">
+                保存修改
+            </button>
+        </form>
+
+        <!-- 注册信息 -->
+        <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border); font-size:0.8rem; color:var(--text-muted); text-align:center;">
+            注册时间: {{ current_user.created_at.strftime('%Y-%m-%d %H:%M') if current_user.created_at else '未知' }}
         </div>
 
         <!-- 快捷操作 -->
-        <div style="margin-top:2rem; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <div style="margin-top:1.5rem; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
             <a href="{{ url_for('videos.video_list') }}" class="btn btn-primary btn-glow">
                 &#9654; 继续学习
             </a>

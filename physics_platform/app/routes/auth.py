@@ -206,3 +206,34 @@ def profile():
         3. 提供修改个人信息的入口（二期功能）
     """
     return render_template('profile.html')
+
+
+@auth_bp.route('/profile/update', methods=['POST'])
+@login_required
+def profile_update():
+    """处理个人中心的修改保存"""
+    grade = request.form.get('grade', '').strip()
+    email = request.form.get('email', '').strip()
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_new_password', '')
+
+    # 更新年级
+    if grade in ('高一', '高二', '高三'):
+        current_user.grade = grade
+
+    # 更新邮箱
+    current_user.email = email
+
+    # 修改密码（仅在用户填写了新密码时）
+    if new_password:
+        if len(new_password) < 6:
+            flash('密码长度至少 6 个字符', 'error')
+            return redirect(url_for('auth.profile'))
+        if new_password != confirm_password:
+            flash('两次输入的新密码不一致', 'error')
+            return redirect(url_for('auth.profile'))
+        current_user.set_password(new_password)
+
+    db.session.commit()
+    flash('个人信息已更新', 'success')
+    return redirect(url_for('auth.profile'))
