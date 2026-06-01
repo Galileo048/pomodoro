@@ -26,6 +26,7 @@
 日期：2026-06-01
 """
 
+import os
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, jsonify, abort, request
 from flask_login import login_required, current_user
@@ -282,8 +283,8 @@ def delete_all_wrong_records(topic_id):
 # ============================================================
 # AI 诊断 API（调用 DeepSeek）
 # ============================================================
-# DeepSeek API 配置
-DEEPSEEK_API_KEY = 'REMOVED_FOR_SECURITY'
+# DeepSeek API 配置（从环境变量读取）
+DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', '')
 DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 
