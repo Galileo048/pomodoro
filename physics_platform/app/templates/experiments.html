@@ -14,23 +14,30 @@
     </div>
 
     <!-- 分类筛选标签 -->
-    <div style="display:flex; gap:0.4rem; justify-content:center; margin-bottom:1.5rem; flex-wrap:wrap;">
-        <a href="#all" class="btn btn-outline btn-sm" style="font-size:0.8rem;">全部 ({{ experiments|length }})</a>
-        <a href="#middle" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:var(--green); border-color:rgba(0,255,136,0.3);">初中 ({{ experiments|selectattr('level','equalto','初中')|list|length }})</a>
-        <a href="#high" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:var(--cyan); border-color:rgba(0,212,255,0.3);">高中 ({{ experiments|selectattr('level','equalto','高中')|list|length }})</a>
-        <a href="#uni" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:var(--purple); border-color:rgba(139,92,246,0.3);">大学 ({{ experiments|selectattr('level','equalto','大学')|list|length }})</a>
+    <div style="display:flex; gap:0.4rem; justify-content:center; margin-bottom:1.5rem; flex-wrap:wrap;" id="filterBtns">
+        <button class="exp-filter-btn active" data-level="all" onclick="filterExps('all', this)">
+            全部 ({{ experiments|length }})
+        </button>
+        <button class="exp-filter-btn" data-level="初中" onclick="filterExps('初中', this)">
+            📚 初中 ({{ experiments|selectattr('level','equalto','初中')|list|length }})
+        </button>
+        <button class="exp-filter-btn" data-level="高中" onclick="filterExps('高中', this)">
+            📐 高中 ({{ experiments|selectattr('level','equalto','高中')|list|length }})
+        </button>
+        <button class="exp-filter-btn" data-level="大学" onclick="filterExps('大学', this)">
+            🎓 大学 ({{ experiments|selectattr('level','equalto','大学')|list|length }})
+        </button>
     </div>
 
     <!-- 按级别分组渲染 -->
-    {% set levels = [('初中', 'var(--green)'), ('高中', 'var(--cyan)'), ('大学', 'var(--purple)')] %}
-    {% for level_name, level_color in levels %}
+    {% set levels = [('初中', 'var(--green)', '📚'), ('高中', 'var(--cyan)', '📐'), ('大学', 'var(--purple)', '🎓')] %}
+    {% for level_name, level_color, level_icon in levels %}
     {% set level_exps = experiments | selectattr('level', 'equalto', level_name) | list %}
     {% if level_exps %}
 
-    <div style="margin-bottom:1.5rem;">
-        <h2 style="font-size:1.1rem; font-weight:600; color:{{ level_color }}; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.5rem;">
-            {% if level_name == '初中' %}📚{% elif level_name == '高中' %}📐{% else %}🎓{% endif %}
-            {{ level_name }} ({{ level_exps|length }})
+    <div class="level-section" data-level="{{ level_name }}" style="margin-bottom:1.5rem;">
+        <h2 style="font-size:1.1rem; font-weight:600; color:{{ level_color }}; margin-bottom:0.6rem;">
+            {{ level_icon }} {{ level_name }} ({{ level_exps|length }})
         </h2>
 
         <!-- 按物理/数学分列 -->
@@ -43,7 +50,7 @@
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0.6rem;">
                 {% for exp in phys %}
                 <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
-                   class="card-dark" style="text-decoration:none; padding:0.8rem; cursor:pointer; border:1px solid rgba(255,255,255,0.06); transition:transform 0.15s, border-color 0.15s; border-left:3px solid {{ level_color }};"
+                   class="card-dark exp-card" style="text-decoration:none; padding:0.8rem; cursor:pointer; border:1px solid rgba(255,255,255,0.06); transition:transform 0.15s, border-color 0.15s; border-left:3px solid {{ level_color }};"
                    onmouseover="this.style.transform='translateY(-1px)'; this.style.borderColor='{{ level_color }}'"
                    onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,255,255,0.06)'">
                     <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.15rem;">{{ exp.title }}</div>
@@ -60,7 +67,7 @@
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0.6rem;">
                 {% for exp in math_list %}
                 <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
-                   class="card-dark" style="text-decoration:none; padding:0.8rem; cursor:pointer; border:1px solid rgba(255,255,255,0.06); transition:transform 0.15s, border-color 0.15s; border-left:3px solid {{ level_color }};"
+                   class="card-dark exp-card" style="text-decoration:none; padding:0.8rem; cursor:pointer; border:1px solid rgba(255,255,255,0.06); transition:transform 0.15s, border-color 0.15s; border-left:3px solid {{ level_color }};"
                    onmouseover="this.style.transform='translateY(-1px)'; this.style.borderColor='{{ level_color }}'"
                    onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,255,255,0.06)'">
                     <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.15rem;">{{ exp.title }}</div>
@@ -75,4 +82,44 @@
     {% endif %}
     {% endfor %}
 </div>
+
+<style>
+.exp-filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.exp-filter-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+}
+.exp-filter-btn.active {
+    background: rgba(0,212,255,0.1);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    font-weight: 600;
+}
+</style>
+
+<script>
+function filterExps(level, btn) {
+    // 更新按钮状态
+    document.querySelectorAll('.exp-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+
+    // 显示/隐藏分组
+    document.querySelectorAll('.level-section').forEach(function(section) {
+        if (level === 'all' || section.dataset.level === level) {
+            section.style.display = '';
+        } else {
+            section.style.display = 'none';
+        }
+    });
+}
+</script>
 {% endblock %}
