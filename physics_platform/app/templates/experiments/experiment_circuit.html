@@ -1,0 +1,651 @@
+{% extends "base.html" %}
+{% block title %}简单电路 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-voltage{color:var(--amber)}.c-current{color:var(--cyan)}.c-power{color:#e94560}.c-resist{color:#83c167}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-circuit-btns{display:flex;gap:4px;margin-bottom:8px}
+  .exp-circuit-btn{flex:1;padding:6px 0;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .exp-circuit-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">⚡ 简单电路</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Simple Circuit — I = V/R, P = VI</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">I-V (欧姆定律)</span><canvas id="chartIV"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">P-V (功率)</span><canvas id="chartPV"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">I-R (反比)</span><canvas id="chartIR"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电压 V</span><span class="exp-slider-value" id="valV">12.0 V</span></div>
+          <input type="range" id="sliderV" min="1" max="24" step="0.5" value="12">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电阻 R</span><span class="exp-slider-value" id="valR">10.0 Ω</span></div>
+          <input type="range" id="sliderR" min="1" max="100" step="1" value="10">
+        </div>
+        <div class="exp-circuit-btns">
+          <button class="exp-circuit-btn active" data-type="series">串联</button>
+          <button class="exp-circuit-btn" data-type="parallel">并联</button>
+        </div>
+        <div class="exp-slider-group" id="r2Group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电阻 R₂</span><span class="exp-slider-value" id="valR2">10.0 Ω</span></div>
+          <input type="range" id="sliderR2" min="1" max="100" step="1" value="10">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">电压 V</div><div class="value c-voltage" id="dataV">12.0 <span class="unit">V</span></div></div>
+          <div class="exp-data-item"><div class="label">电流 I</div><div class="value c-current" id="dataI">1.20 <span class="unit">A</span></div></div>
+          <div class="exp-data-item"><div class="label">总电阻</div><div class="value c-resist" id="dataR">10.0 <span class="unit">Ω</span></div></div>
+          <div class="exp-data-item"><div class="label">功率 P</div><div class="value c-power" id="dataP">14.4 <span class="unit">W</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 欧姆定律</h3>
+        <div class="exp-formula-box">
+          <div>I = V / R</div>
+          <div>I = <span class="result" id="fmI">1.20</span> A</div>
+          <div style="margin-top:4px;">P = V × I</div>
+          <div>P = <span class="result" id="fmP">14.4</span> W</div>
+          <div style="margin-top:4px;" id="formulaExtra">总电阻 R = R₁ = <span class="result">10.0</span> Ω</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { V:12, R:10, R2:10, type:'series', timeScale:1 };
+  var S = { t:0, playing:false, dots:[] };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  /* ====== 计算 ====== */
+  function getR() {
+    if (CFG.type === 'series') return CFG.R + CFG.R2;
+    return (CFG.R * CFG.R2) / (CFG.R + CFG.R2);
+  }
+  function getI() { return CFG.V / getR(); }
+  function getP() { return CFG.V * getI(); }
+
+  /* ====== 电流流动点 ====== */
+  function initDots(W, H) {
+    S.dots = [];
+    // 矩形电路路径点（顺时针）
+    var path = getWirePath(W, H);
+    var numDots = 15;
+    for (var i = 0; i < numDots; i++) {
+      S.dots.push({ pos: i / numDots });
+    }
+  }
+
+  function getWirePath(W, H) {
+    var margin = 50;
+    var left = margin + 30, right = W - margin - 30;
+    var top = margin + 20, bottom = H - margin - 20;
+    // 返回矩形路径上的等距点
+    var totalPerimeter = 2 * (right - left) + 2 * (bottom - top);
+    return { left:left, right:right, top:top, bottom:bottom, perimeter:totalPerimeter };
+  }
+
+  function getPointOnPath(path, t) {
+    var {left,right,top,bottom,perimeter} = path;
+    var d = ((t % 1) + 1) % 1 * perimeter;
+    var w = right - left, h = bottom - top;
+    if (d < w) return { x: left + d, y: top };
+    d -= w;
+    if (d < h) return { x: right, y: top + d };
+    d -= h;
+    if (d < w) return { x: right - d, y: bottom };
+    d -= w;
+    return { x: left, y: bottom - d };
+  }
+
+  /* ====== Canvas 尺寸自适应 ====== */
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    initDots(canvas.width / dpr, canvas.height / dpr);
+    draw();
+  }
+
+  /* ====== 绘制主场景 ====== */
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var path = getWirePath(W, H);
+    var {left,right,top,bottom} = path;
+
+    // ====== 导线 ======
+    ctx.strokeStyle = '#556688';
+    ctx.lineWidth = 2.5;
+    // 上边
+    ctx.beginPath();
+    ctx.moveTo(left + 60, top);
+    ctx.lineTo(right - 60, top);
+    ctx.stroke();
+    // 右边
+    ctx.beginPath();
+    ctx.moveTo(right, top + 40);
+    ctx.lineTo(right, bottom - 40);
+    ctx.stroke();
+    // 下边
+    ctx.beginPath();
+    ctx.moveTo(right - 60, bottom);
+    ctx.lineTo(left + 60, bottom);
+    ctx.stroke();
+    // 左边
+    ctx.beginPath();
+    ctx.moveTo(left, bottom - 40);
+    ctx.lineTo(left, top + 40);
+    ctx.stroke();
+
+    // 角落连接
+    ctx.beginPath();
+    ctx.arc(left + 60, top, 2, 0, Math.PI*2);
+    ctx.arc(right - 60, top, 2, 0, Math.PI*2);
+    ctx.arc(right, top + 40, 2, 0, Math.PI*2);
+    ctx.arc(right, bottom - 40, 2, 0, Math.PI*2);
+    ctx.arc(right - 60, bottom, 2, 0, Math.PI*2);
+    ctx.arc(left + 60, bottom, 2, 0, Math.PI*2);
+    ctx.arc(left, bottom - 40, 2, 0, Math.PI*2);
+    ctx.arc(left, top + 40, 2, 0, Math.PI*2);
+    ctx.fillStyle = '#556688';
+    ctx.fill();
+
+    // ====== 电池（左侧）=====
+    var batX = left, batY = (top + bottom) / 2;
+    // 长线（正极）
+    ctx.strokeStyle = '#ffd93d';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(batX - 12, batY - 16);
+    ctx.lineTo(batX + 12, batY - 16);
+    ctx.stroke();
+    // 短线（负极）
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(batX - 7, batY + 16);
+    ctx.lineTo(batX + 7, batY + 16);
+    ctx.stroke();
+    // + - 标记
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', batX, batY - 26);
+    ctx.fillStyle = '#888';
+    ctx.fillText('−', batX, batY + 30);
+    // 电压标注
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText(CFG.V.toFixed(1) + 'V', batX, batY);
+
+    // ====== 电阻 R₁（上边）=====
+    var r1X = (left + right) / 2, r1Y = top;
+    drawResistor(r1X, r1Y, 'R₁=' + CFG.R + 'Ω', '#83c167');
+
+    if (CFG.type === 'parallel') {
+      // 并联：R₂ 在下边
+      var r2X = (left + right) / 2, r2Y = bottom;
+      drawResistor(r2X, r2Y, 'R₂=' + CFG.R2 + 'Ω', '#ce93d8');
+    } else {
+      // 串联：R₂ 在右边
+      var r2X2 = right, r2Y2 = (top + bottom) / 2;
+      drawResistorVertical(r2X2, r2Y2, 'R₂=' + CFG.R2 + 'Ω', '#ce93d8');
+    }
+
+    // ====== 电流表（右上角附近）=====
+    var ampX = right - 20, ampY = top + 20;
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(ampX, ampY, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('A', ampX, ampY + 4);
+    ctx.font = '9px sans-serif';
+    ctx.fillText(getI().toFixed(2) + 'A', ampX, ampY + 26);
+
+    // ====== 电流流动点 ======
+    var I = getI();
+    var speed = Math.min(I / 5, 1) * CFG.timeScale;
+    var dotColor = I > 3 ? '#ff4466' : (I > 1 ? '#ffd93d' : '#00d4ff');
+
+    ctx.fillStyle = dotColor;
+    for (var i = 0; i < S.dots.length; i++) {
+      var dot = S.dots[i];
+      var p = getPointOnPath(path, dot.pos);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 更新点位置
+    for (var i = 0; i < S.dots.length; i++) {
+      S.dots[i].pos = (S.dots[i].pos + speed * 0.003) % 1;
+    }
+
+    // 电流方向箭头
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('I →', (left + right) / 2, top - 10);
+  }
+
+  /* ====== 绘制电阻（水平） ====== */
+  function drawResistor(x, y, label, color) {
+    var w = 40, h = 12;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - w/2, y - h/2, w, h);
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(x - w/2, y - h/2, w, h);
+    // 锯齿线
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, y);
+    for (var i = 0; i <= 6; i++) {
+      var px = x - w/2 + (w / 6) * i;
+      var py = y + (i % 2 === 0 ? -4 : 4);
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x, y - 18);
+  }
+
+  /* ====== 绘制电阻（竖直）===== */
+  function drawResistorVertical(x, y, label, color) {
+    var w = 12, h = 40;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - w/2, y - h/2, w, h);
+    ctx.fillStyle = color + '22';
+    ctx.fillRect(x - w/2, y - h/2, w, h);
+    ctx.beginPath();
+    ctx.moveTo(x, y - h/2);
+    for (var i = 0; i <= 6; i++) {
+      var py = y - h/2 + (h / 6) * i;
+      var px = x + (i % 2 === 0 ? -4 : 4);
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + 25, y + 4);
+  }
+
+  /* ====== 更新数据面板 ====== */
+  function updateData() {
+    var I = getI();
+    var P = getP();
+    var Rtot = getR();
+    document.getElementById('dataV').innerHTML = CFG.V.toFixed(1) + ' <span class="unit">V</span>';
+    document.getElementById('dataI').innerHTML = I.toFixed(3) + ' <span class="unit">A</span>';
+    document.getElementById('dataR').innerHTML = Rtot.toFixed(1) + ' <span class="unit">Ω</span>';
+    document.getElementById('dataP').innerHTML = P.toFixed(2) + ' <span class="unit">W</span>';
+    document.getElementById('fmI').textContent = I.toFixed(3);
+    document.getElementById('fmP').textContent = P.toFixed(2);
+    var extraEl = document.getElementById('formulaExtra');
+    if (CFG.type === 'series') {
+      extraEl.innerHTML = '总电阻 R = R₁+R₂ = <span class="result">' + Rtot.toFixed(1) + '</span> Ω';
+    } else {
+      extraEl.innerHTML = '总电阻 R = R₁·R₂/(R₁+R₂) = <span class="result">' + Rtot.toFixed(1) + '</span> Ω';
+    }
+  }
+
+  /* ====== 图表: I-V ====== */
+  function drawChartIV() {
+    var c = document.getElementById('chartIV');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var Rtot = getR();
+    var Imax = 24 / Rtot * 1.2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // I = V/R 直线
+    cx.strokeStyle = '#00d4ff';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var V = (i / 100) * 24;
+      var I = V / Rtot;
+      var px = pad.l + (V / 24) * pw;
+      var py = pad.t + ph - (I / Imax) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前点
+    var curX = pad.l + (CFG.V / 24) * pw;
+    var curI = getI();
+    var curY = pad.t + ph - (curI / Imax) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('V (V)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 图表: P-V ====== */
+  function drawChartPV() {
+    var c = document.getElementById('chartPV');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var Rtot = getR();
+    var Pmax = (24 * 24) / Rtot * 1.2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // P = V²/R 抛物线
+    cx.strokeStyle = '#e94560';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var V = (i / 100) * 24;
+      var P = V * V / Rtot;
+      var px = pad.l + (V / 24) * pw;
+      var py = pad.t + ph - (P / Pmax) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前点
+    var curX = pad.l + (CFG.V / 24) * pw;
+    var curP = getP();
+    var curY = pad.t + ph - (curP / Pmax) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('V (V)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 图表: I-R ====== */
+  function drawChartIR() {
+    var c = document.getElementById('chartIR');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var Rmax = 100;
+    var Imax = CFG.V / 1 * 1.2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // I = V/R 双曲线
+    cx.strokeStyle = '#ce93d8';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 1; i <= 100; i++) {
+      var R = (i / 100) * Rmax;
+      var I = CFG.V / R;
+      if (I > Imax) continue;
+      var px = pad.l + (R / Rmax) * pw;
+      var py = pad.t + ph - (I / Imax) * ph;
+      if (i === 1) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前点
+    var Rtot = getR();
+    var curX = pad.l + (Rtot / Rmax) * pw;
+    var curI = getI();
+    var curY = pad.t + ph - (curI / Imax) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('R (Ω)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 动画循环 ====== */
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+
+    S.t += dt * CFG.timeScale;
+
+    draw();
+    updateData();
+    drawChartIV();
+    drawChartPV();
+    drawChartIR();
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  /* ====== 重置 ====== */
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartIV();
+    drawChartPV();
+    drawChartIR();
+  }
+
+  /* ====== 事件绑定 ====== */
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.querySelectorAll('.exp-circuit-btn').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-circuit-btn').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.type = b.dataset.type;
+      document.getElementById('r2Group').style.display = CFG.type === 'series' ? 'block' : 'block';
+      updateData();
+      draw();
+      drawChartIV();
+      drawChartPV();
+      drawChartIR();
+    });
+  });
+
+  document.getElementById('sliderV').addEventListener('input', function() {
+    CFG.V = parseFloat(this.value);
+    document.getElementById('valV').textContent = CFG.V.toFixed(1) + ' V';
+    updateData();
+    draw();
+    drawChartIV();
+    drawChartPV();
+    drawChartIR();
+  });
+
+  document.getElementById('sliderR').addEventListener('input', function() {
+    CFG.R = parseFloat(this.value);
+    document.getElementById('valR').textContent = CFG.R.toFixed(1) + ' Ω';
+    updateData();
+    draw();
+    drawChartIV();
+    drawChartPV();
+    drawChartIR();
+  });
+
+  document.getElementById('sliderR2').addEventListener('input', function() {
+    CFG.R2 = parseFloat(this.value);
+    document.getElementById('valR2').textContent = CFG.R2.toFixed(1) + ' Ω';
+    updateData();
+    draw();
+    drawChartIV();
+    drawChartPV();
+    drawChartIR();
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartIV();
+    drawChartPV();
+    drawChartIR();
+  });
+
+  resize();
+  updateData();
+  drawChartIV();
+  drawChartPV();
+  drawChartIR();
+})();
+</script>
+{% endblock %}

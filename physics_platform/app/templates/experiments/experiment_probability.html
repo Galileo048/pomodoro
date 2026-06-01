@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+{% block title %}常见概率分布交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:250px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:55px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .func-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .func-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .func-btn:hover:not(.active){border-color:var(--cyan)}
+  .exp-btn-play{padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent,#e94560);color:#fff;flex:1}
+  .exp-btn-reset{padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--border);color:var(--text-primary);flex:1}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:40vh;min-height:200px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">📊 常见概率分布 — PMF/PDF 与蒙特卡洛模拟</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Probability Distributions — 理论分布 vs 抽样直方图收敛</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <!-- 分布选择 -->
+      <div class="exp-panel-section">
+        <h3>📈 分布类型</h3>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="func-btn active" data-dist="uniform">均匀分布</button>
+          <button class="func-btn" data-dist="bernoulli">伯努利</button>
+          <button class="func-btn" data-dist="binomial">二项分布</button>
+          <button class="func-btn" data-dist="poisson">泊松分布</button>
+        </div>
+      </div>
+      <!-- 参数 -->
+      <div class="exp-panel-section" id="paramsSection">
+        <h3>🎛️ 分布参数</h3>
+        <div id="paramControls"></div>
+      </div>
+      <!-- 蒙特卡洛 -->
+      <div class="exp-panel-section">
+        <h3>🎲 蒙特卡洛模拟</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">抽样数</span><span class="exp-slider-value" id="valSamples">0</span></div>
+          <input type="range" id="sliderSamples" min="0" max="5000" step="10" value="0">
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="exp-btn-play" id="btnSample">▶ 生成样本</button>
+          <button class="exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">增加样本数，观察直方图趋近理论分布</div>
+      </div>
+      <!-- 数据 -->
+      <div class="exp-panel-section">
+        <h3>📊 统计量</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">理论均值 E[X]</div><div class="value c-cyan" id="dataMean">—</div></div>
+          <div class="exp-data-item"><div class="label">理论方差 Var</div><div class="value c-amber" id="dataVar">—</div></div>
+          <div class="exp-data-item"><div class="label">样本均值</div><div class="value c-green" id="dataSampleMean">—</div></div>
+          <div class="exp-data-item"><div class="label">样本方差</div><div class="value c-purple" id="dataSampleVar">—</div></div>
+          <div class="exp-data-item"><div class="label">样本数</div><div class="value c-cyan" id="dataCount">0</div></div>
+          <div class="exp-data-item"><div class="label">KL散度</div><div class="value c-accent" id="dataKL">—</div></div>
+        </div>
+      </div>
+      <!-- 公式 -->
+      <div class="exp-panel-section">
+        <h3>📐 分布公式</h3>
+        <div class="exp-formula-box" id="formulaBox">
+          <span class="result" id="fmFormula">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  var distType = 'uniform';
+  var params = {a: 0, b: 5, n: 10, p: 0.5, lambda: 4};
+  var samples = [];
+  var sampleCount = 0;
+  var animating = false;
+  var animId = null;
+
+  function resize(){
+    var dpr = window.devicePixelRatio||1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width*dpr);
+    canvas.height = Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  // PMF/PDF functions
+  function pmf(k, type){
+    switch(type){
+      case 'uniform':
+        return (k >= params.a && k <= params.b) ? 1/(params.b-params.a) : 0;
+      case 'bernoulli':
+        return k===0 ? 1-params.p : (k===1 ? params.p : 0);
+      case 'binomial':
+        if(k<0||k>params.n) return 0;
+        return binomCoeff(params.n,k) * Math.pow(params.p,k) * Math.pow(1-params.p,params.n-k);
+      case 'poisson':
+        if(k<0||k>30) return 0;
+        return Math.exp(-params.lambda) * Math.pow(params.lambda,k) / factorial(k);
+      default: return 0;
+    }
+  }
+
+  function factorial(n){var r=1;for(var i=2;i<=n;i++)r*=i;return r;}
+  function binomCoeff(n,k){
+    if(k>n) return 0;
+    if(k===0||k===n) return 1;
+    var r=1;
+    for(var i=0;i<k;i++) r = r*(n-i)/(i+1);
+    return r;
+  }
+
+  // CDF
+  function cdf(x, type){
+    switch(type){
+      case 'uniform':
+        if(x<params.a) return 0;
+        if(x>params.b) return 1;
+        return (x-params.a)/(params.b-params.a);
+      case 'bernoulli':
+        return x<0?0:(x<1?1-params.p:1);
+      case 'binomial':
+        var s=0;
+        for(var k=0;k<=Math.floor(x);k++) s+=pmf(k,'binomial');
+        return s;
+      case 'poisson':
+        var s2=0;
+        for(var k=0;k<=Math.floor(x);k++) s2+=pmf(k,'poisson');
+        return s2;
+      default: return 0;
+    }
+  }
+
+  // Theory mean/var
+  function theoryMean(type){
+    switch(type){
+      case 'uniform': return (params.a+params.b)/2;
+      case 'bernoulli': return params.p;
+      case 'binomial': return params.n*params.p;
+      case 'poisson': return params.lambda;
+    }
+  }
+  function theoryVar(type){
+    switch(type){
+      case 'uniform': return (params.b-params.a)*(params.b-params.a)/12;
+      case 'bernoulli': return params.p*(1-params.p);
+      case 'binomial': return params.n*params.p*(1-params.p);
+      case 'poisson': return params.lambda;
+    }
+  }
+
+  function sample1(){
+    switch(distType){
+      case 'uniform': return params.a + Math.random()*(params.b-params.a);
+      case 'bernoulli': return Math.random()<params.p?1:0;
+      case 'binomial': {
+        var s=0;
+        for(var i=0;i<params.n;i++) if(Math.random()<params.p) s++;
+        return s;
+      }
+      case 'poisson': {
+        var L=Math.exp(-params.lambda), k=0, p=1;
+        do{ k++; p*=Math.random(); }while(p>L);
+        return k-1;
+      }
+    }
+  }
+
+  function draw(){
+    var W = canvas.width / (window.devicePixelRatio||1);
+    var H = canvas.height / (window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0,0,W,H);
+
+    var pad = 50;
+    var cw = W - 2*pad;
+    var topH = H*0.55; // PMF/PDF area
+    var botH = H*0.35; // CDF area
+    var botY = pad + topH + 20;
+
+    // Determine x range
+    var xMin, xMax;
+    switch(distType){
+      case 'uniform': xMin=params.a-1; xMax=params.b+1; break;
+      case 'bernoulli': xMin=-0.5; xMax=1.5; break;
+      case 'binomial': xMin=-0.5; xMax=params.n+0.5; break;
+      case 'poisson': xMin=-0.5; xMax=Math.max(15,params.lambda*2.5); break;
+    }
+
+    function tx(v){return pad + (v-xMin)/(xMax-xMin)*cw;}
+    function tyTop(v,maxV){return pad + (1-v/maxV)*topH;}
+    function tyBot(v){return botY + (1-v)*botH;}
+
+    // Find max PMF for scaling
+    var maxPmf = 0;
+    for(var kk=xMin;kk<=xMax;kk+=0.1){
+      var pp = pmf(kk, distType);
+      if(pp>maxPmf) maxPmf = pp;
+    }
+    maxPmf *= 1.2;
+    if(maxPmf<0.01) maxPmf = 1;
+
+    // Grid lines (top)
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for(var gx=Math.ceil(xMin);gx<=Math.floor(xMax);gx++){
+      var sx = tx(gx);
+      ctx.beginPath(); ctx.moveTo(sx,pad); ctx.lineTo(sx,pad+topH); ctx.stroke();
+    }
+    // Axes (top)
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad,pad+topH); ctx.lineTo(pad+cw,pad+topH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,pad+topH); ctx.stroke();
+
+    // Histogram from samples
+    if(sampleCount > 0){
+      var bins = {};
+      samples.slice(0,sampleCount).forEach(function(s){
+        var bk = distType==='uniform'? Math.round(s*10)/10 : Math.round(s);
+        bins[bk] = (bins[bk]||0) + 1;
+      });
+      var total = sampleCount;
+      var barColor = 'rgba(0,212,255,0.3)';
+      var barStroke = '#00d4ff';
+
+      Object.keys(bins).forEach(function(k){
+        var kNum = parseFloat(k);
+        var freq = bins[k]/total;
+        var barW = distType==='uniform' ? cw/(xMax-xMin)*0.3 : Math.max(8, cw/(xMax-xMin)*0.6);
+        var bx = tx(kNum) - barW/2;
+        var bh = (freq/maxPmf)*topH;
+        ctx.fillStyle = barColor;
+        ctx.strokeStyle = barStroke;
+        ctx.lineWidth = 1;
+        ctx.fillRect(bx, pad+topH-bh, barW, bh);
+        ctx.strokeRect(bx, pad+topH-bh, barW, bh);
+      });
+    }
+
+    // Theoretical PMF/PDF
+    if(distType==='uniform'){
+      // Draw as rectangle
+      ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2;
+      var pdfVal = 1/(params.b-params.a);
+      var pdfY = tyTop(pdfVal, maxPmf);
+      ctx.beginPath();
+      ctx.moveTo(tx(params.a), pad+topH);
+      ctx.lineTo(tx(params.a), pdfY);
+      ctx.lineTo(tx(params.b), pdfY);
+      ctx.lineTo(tx(params.b), pad+topH);
+      ctx.stroke();
+    } else {
+      // Draw as connected bars/curve
+      ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2.5;
+      ctx.fillStyle = 'rgba(255,136,68,0.2)';
+      ctx.beginPath();
+      var first = true;
+      for(var kx=xMin;kx<=xMax;kx+=0.05){
+        var pv = pmf(kx, distType);
+        if(pv<0.0001) continue;
+        var sx2 = tx(kx);
+        var sy2 = tyTop(pv, maxPmf);
+        if(first){ctx.moveTo(sx2,sy2);first=false;}else ctx.lineTo(sx2,sy2);
+      }
+      ctx.stroke();
+      // Fill under curve
+      ctx.lineTo(tx(xMax), pad+topH);
+      ctx.lineTo(tx(xMin), pad+topH);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // CDF (bottom)
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad,botY+botH); ctx.lineTo(pad+cw,botY+botH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad,botY); ctx.lineTo(pad,botY+botH); ctx.stroke();
+    // CDF labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('0', pad-4, botY+botH+4);
+    ctx.fillText('1', pad-4, botY+4);
+    ctx.fillStyle = '#666688'; ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('CDF', pad+cw/2, botY-4);
+
+    // CDF curve
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    var cdfStarted = false;
+    for(var cx=0;cx<=cw;cx++){
+      var xv = xMin + (cx/cw)*(xMax-xMin);
+      var cv = cdf(xv, distType);
+      var csx = pad+cx;
+      var csy = tyBot(cv);
+      if(!cdfStarted){ctx.moveTo(csx,csy);cdfStarted=true;}else ctx.lineTo(csx,csy);
+    }
+    ctx.stroke();
+
+    // Title labels
+    ctx.fillStyle = '#ffffff88'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('PMF/PDF', pad+5, pad+14);
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for(var ax=Math.ceil(xMin);ax<=Math.floor(xMax);ax++){
+      if(distType==='binomial'&&ax>params.n) break;
+      ctx.fillText(ax, tx(ax), pad+topH+14);
+    }
+
+    updateInfo();
+  }
+
+  function updateInfo(){
+    var mean = theoryMean(distType);
+    var variance = theoryVar(distType);
+    document.getElementById('dataMean').textContent = mean.toFixed(3);
+    document.getElementById('dataVar').textContent = variance.toFixed(3);
+    document.getElementById('dataCount').textContent = sampleCount;
+    document.getElementById('valSamples').textContent = sampleCount;
+
+    if(sampleCount > 0){
+      var sMean = samples.reduce(function(a,b){return a+b;},0)/sampleCount;
+      var sVar = samples.reduce(function(a,b){return a+(b-sMean)*(b-sMean);},0)/sampleCount;
+      document.getElementById('dataSampleMean').textContent = sMean.toFixed(3);
+      document.getElementById('dataSampleVar').textContent = sVar.toFixed(3);
+    } else {
+      document.getElementById('dataSampleMean').textContent = '—';
+      document.getElementById('dataSampleVar').textContent = '—';
+    }
+
+    // Formulas
+    var formulas = {
+      uniform: 'P(x) = 1/(b-a), a≤x≤b\nE[X] = (a+b)/2\nVar = (b-a)²/12',
+      bernoulli: 'P(X=1)=p, P(X=0)=1-p\nE[X] = p\nVar = p(1-p)',
+      binomial: 'P(X=k) = C(n,k)p^k(1-p)^(n-k)\nE[X] = np\nVar = np(1-p)',
+      poisson: 'P(X=k) = λ^k·e^(-λ)/k!\nE[X] = λ\nVar = λ'
+    };
+    document.getElementById('fmFormula').textContent = formulas[distType];
+  }
+
+  function updateParamsUI(){
+    var html = '';
+    switch(distType){
+      case 'uniform':
+        html = '<div class="exp-slider-group"><div class="exp-slider-header"><span class="exp-slider-label">下界 a</span><span class="exp-slider-value" id="valA">'+params.a+'</span></div><input type="range" id="sliderPA" min="-5" max="5" step="0.5" value="'+params.a+'"></div>'
+             + '<div class="exp-slider-group"><div class="exp-slider-header"><span class="exp-slider-label">上界 b</span><span class="exp-slider-value" id="valB">'+params.b+'</span></div><input type="range" id="sliderPB" min="0" max="10" step="0.5" value="'+params.b+'"></div>';
+        break;
+      case 'bernoulli':
+        html = '<div class="exp-slider-group"><div class="exp-slider-header"><span class="exp-slider-label">成功概率 p</span><span class="exp-slider-value" id="valP">'+params.p+'</span></div><input type="range" id="sliderPP" min="0.05" max="0.95" step="0.05" value="'+params.p+'"></div>';
+        break;
+      case 'binomial':
+        html = '<div class="exp-slider-group"><div class="exp-slider-header"><span class="exp-slider-label">试验次数 n</span><span class="exp-slider-value" id="valBN">'+params.n+'</span></div><input type="range" id="sliderBN" min="1" max="30" step="1" value="'+params.n+'"></div>'
+             + '<div class="exp-slider-group"><div class="exp-slider-header"><span class="exp-slider-label">成功概率 p</span><span class="exp-slider-value" id="valBP">'+params.p+'</span></div><input type="range" id="sliderBP" min="0.05" max="0.95" step="0.05" value="'+params.p+'"></div>';
+        break;
+      case 'poisson':
+        html = '<div class="exp-slider-group"><div class="exp-slider-header"><span class="exp-slider-label">参数 λ</span><span class="exp-slider-value" id="valL">'+params.lambda+'</span></div><input type="range" id="sliderPL" min="0.5" max="15" step="0.5" value="'+params.lambda+'"></div>';
+        break;
+    }
+    document.getElementById('paramControls').innerHTML = html;
+
+    // Attach events
+    setTimeout(function(){
+      if(distType==='uniform'){
+        var sa=document.getElementById('sliderPA'), sb=document.getElementById('sliderPB');
+        if(sa) sa.addEventListener('input',function(){params.a=parseFloat(this.value);document.getElementById('valA').textContent=params.a;draw();});
+        if(sb) sb.addEventListener('input',function(){params.b=parseFloat(this.value);document.getElementById('valB').textContent=params.b;draw();});
+      } else if(distType==='bernoulli'){
+        var sp=document.getElementById('sliderPP');
+        if(sp) sp.addEventListener('input',function(){params.p=parseFloat(this.value);document.getElementById('valP').textContent=params.p;draw();});
+      } else if(distType==='binomial'){
+        var sn=document.getElementById('sliderBN'), sp2=document.getElementById('sliderBP');
+        if(sn) sn.addEventListener('input',function(){params.n=parseInt(this.value);document.getElementById('valBN').textContent=params.n;draw();});
+        if(sp2) sp2.addEventListener('input',function(){params.p=parseFloat(this.value);document.getElementById('valBP').textContent=params.p;draw();});
+      } else if(distType==='poisson'){
+        var sl=document.getElementById('sliderPL');
+        if(sl) sl.addEventListener('input',function(){params.lambda=parseFloat(this.value);document.getElementById('valL').textContent=params.lambda;draw();});
+      }
+    }, 0);
+  }
+
+  // Distribution selector
+  document.querySelectorAll('.func-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.func-btn').forEach(function(b){b.classList.remove('active');});
+      this.classList.add('active');
+      distType = this.dataset.dist;
+      samples = []; sampleCount = 0;
+      document.getElementById('sliderSamples').value = 0;
+      updateParamsUI();
+      draw();
+    });
+  });
+
+  // Sample slider
+  document.getElementById('sliderSamples').addEventListener('input', function(){
+    var target = parseInt(this.value);
+    while(samples.length < target){
+      samples.push(sample1());
+    }
+    sampleCount = target;
+    draw();
+  });
+
+  // Generate button (animate samples)
+  document.getElementById('btnSample').addEventListener('click', function(){
+    if(animating){
+      animating = false;
+      if(animId) cancelAnimationFrame(animId);
+      document.getElementById('btnSample').textContent = '▶ 生成样本';
+      return;
+    }
+    animating = true;
+    document.getElementById('btnSample').textContent = '⏸ 暂停';
+    var startTime = 0;
+    var startCount = sampleCount;
+    function animate(ts){
+      if(!startTime) startTime = ts;
+      var elapsed = (ts - startTime)/1000;
+      var target = Math.min(5000, startCount + Math.floor(elapsed * 300));
+      while(samples.length < target) samples.push(sample1());
+      sampleCount = target;
+      document.getElementById('sliderSamples').value = sampleCount;
+      draw();
+      if(target < 5000 && animating){
+        animId = requestAnimationFrame(animate);
+      } else {
+        animating = false;
+        document.getElementById('btnSample').textContent = '▶ 生成样本';
+      }
+    }
+    animId = requestAnimationFrame(animate);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    animating = false;
+    if(animId) cancelAnimationFrame(animId);
+    samples = []; sampleCount = 0;
+    document.getElementById('sliderSamples').value = 0;
+    document.getElementById('btnSample').textContent = '▶ 生成样本';
+    draw();
+  });
+
+  window.addEventListener('resize', resize);
+  updateParamsUI();
+  resize();
+})();
+</script>
+{% endblock %}

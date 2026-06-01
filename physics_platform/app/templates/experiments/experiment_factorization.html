@@ -1,0 +1,601 @@
+{% extends "base.html" %}
+{% block title %}因式分解可视化 — 数学AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-expr{color:var(--cyan)}.c-delta{color:#ffd93d}.c-roots{color:#83c167}.c-fact{color:#e94560}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-result-box{border-radius:6px;padding:10px;margin-top:8px;text-align:center;font-size:13px;font-weight:700;line-height:1.6}
+  .exp-preset-btns{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+  .exp-preset-btn{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-preset-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .exp-legend{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+  .exp-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted)}
+  .exp-legend-color{width:12px;height:12px;border-radius:2px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+  @media(max-width:600px){.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🧩 因式分解可视化</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Factorization — ax²+bx+c = a(x-x₁)(x-x₂)</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 多项式系数</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">a (二次项系数)</span><span class="exp-slider-value" id="valA">1.0</span></div>
+          <input type="range" id="sliderA" min="-5" max="5" step="0.5" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">b (一次项系数)</span><span class="exp-slider-value" id="valB">-5.0</span></div>
+          <input type="range" id="sliderB" min="-10" max="10" step="0.5" value="-5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">c (常数项)</span><span class="exp-slider-value" id="valC">6.0</span></div>
+          <input type="range" id="sliderC" min="-10" max="10" step="0.5" value="6">
+        </div>
+        <div style="margin-top:6px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">预设示例：</div>
+          <div class="exp-preset-btns">
+            <button class="exp-preset-btn" data-a="1" data-b="-5" data-c="6">x²-5x+6</button>
+            <button class="exp-preset-btn" data-a="1" data-b="-3" data-c="2">x²-3x+2</button>
+            <button class="exp-preset-btn" data-a="2" data-b="-7" data-c="3">2x²-7x+3</button>
+            <button class="exp-preset-btn" data-a="1" data-b="0" data-c="-4">x²-4</button>
+            <button class="exp-preset-btn" data-a="1" data-b="2" data-c="5">x²+2x+5</button>
+            <button class="exp-preset-btn" data-a="-1" data-b="4" data-c="-3">-x²+4x-3</button>
+          </div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">判别式 Δ</div><div class="value c-delta" id="dataDelta">1.0</div></div>
+          <div class="exp-data-item"><div class="label">Δ 符号</div><div class="value c-roots" id="dataDeltaSign">> 0</div></div>
+          <div class="exp-data-item"><div class="label">根 x₁</div><div class="value c-roots" id="dataX1">2.0</div></div>
+          <div class="exp-data-item"><div class="label">根 x₂</div><div class="value c-roots" id="dataX2">3.0</div></div>
+        </div>
+        <div class="exp-result-box" id="resultBox" style="background:rgba(131,193,103,0.15);color:#83c167;">
+          x²-5x+6 = (x-2)(x-3)
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 因式分解过程</h3>
+        <div class="exp-formula-box" id="formulaBox">
+          <div>ax² + bx + c</div>
+          <div>Δ = b² - 4ac = <span class="result" id="fmDelta">1</span></div>
+          <div style="margin-top:4px;">x = (-b ± √Δ) / (2a)</div>
+          <div>x₁ = <span class="result" id="fmX1">2</span>, x₂ = <span class="result" id="fmX2">3</span></div>
+          <div style="margin-top:4px;">因式分解：</div>
+          <div style="color:#e94560;font-weight:700;" id="fmFactored">(x-2)(x-3)</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>🎨 图例</h3>
+        <div class="exp-legend">
+          <div class="exp-legend-item"><div class="exp-legend-color" style="background:#e94560;"></div>ax² 项</div>
+          <div class="exp-legend-item"><div class="exp-legend-color" style="background:#00d4ff;"></div>bx 项</div>
+          <div class="exp-legend-item"><div class="exp-legend-color" style="background:#83c167;"></div>c 常数</div>
+          <div class="exp-legend-item"><div class="exp-legend-color" style="background:#ffd93d;"></div>根 x₁, x₂</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { a:1, b:-5, c:6, timeScale:1 };
+  var S = { t:0, playing:false, animProgress:1 };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  /* ====== 求解 ====== */
+  function solve(a, b, c) {
+    if (Math.abs(a) < 0.001) {
+      // 一次方程 bx + c = 0
+      if (Math.abs(b) < 0.001) return { delta:0, x1: null, x2: null, real: false, linear: true };
+      return { delta:0, x1: -c/b, x2: -c/b, real: true, linear: true };
+    }
+    var delta = b*b - 4*a*c;
+    if (delta >= 0) {
+      var sq = Math.sqrt(delta);
+      var x1 = (-b + sq) / (2*a);
+      var x2 = (-b - sq) / (2*a);
+      return { delta:delta, x1:Math.min(x1,x2), x2:Math.max(x1,x2), real:true, linear:false };
+    }
+    return { delta:delta, x1:null, x2:null, real:false, linear:false };
+  }
+
+  function formatNum(n) {
+    if (n === null || n === undefined) return '--';
+    return Number(n.toFixed(3)).toString();
+  }
+
+  function formatTerm(coeff, varName, isFirst) {
+    if (Math.abs(coeff) < 0.001) return '';
+    var sign = coeff > 0 ? (isFirst ? '' : ' + ') : (isFirst ? '-' : ' - ');
+    var absC = Math.abs(coeff);
+    var cStr = absC === 1 ? '' : formatNum(absC);
+    return sign + cStr + varName;
+  }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var { a, b, c } = CFG;
+    var sol = solve(a, b, c);
+
+    // ====== 上半部分：矩形面积模型（代数拼块）=====
+    var tileAreaTop = 30;
+    var tileAreaH = H * 0.42;
+    var tileAreaW = W * 0.85;
+    var tileLeft = (W - tileAreaW) / 2;
+
+    // 标题
+    ctx.fillStyle = '#888';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('代数拼块面积模型', W / 2, tileAreaTop + 5);
+
+    // 绘制面积模型
+    drawAlgebraTiles(ctx, tileLeft, tileAreaTop + 18, tileAreaW, tileAreaH - 20, a, b, c, S.animProgress);
+
+    // ====== 下半部分：抛物线图 ======
+    var graphTop = H * 0.52;
+    var graphH = H * 0.44;
+    var graphW = W * 0.85;
+    var graphLeft = (W - graphW) / 2;
+
+    drawGraph(ctx, graphLeft, graphTop, graphW, graphH, a, b, c, sol);
+  }
+
+  /* ====== 代数拼块 ====== */
+  function drawAlgebraTiles(ctx, x, y, w, h, a, b, c, progress) {
+    // 颜色
+    var colorA = '#e94560';  // ax²
+    var colorB = '#00d4ff';  // bx
+    var colorC = '#83c167';  // c
+
+    var absA = Math.abs(a);
+    var absB = Math.abs(b);
+    var absC = Math.abs(c);
+
+    // 计算总面积和各部分比例
+    var totalArea = absA * 4 + absB * 2 + absC * 1; // 加权面积
+    if (totalArea < 0.1) totalArea = 1;
+
+    var aArea = (absA * 4 / totalArea) * w * h * 0.85;
+    var bArea = (absB * 2 / totalArea) * w * h * 0.85;
+    var cArea = (absC * 1 / totalArea) * w * h * 0.85;
+
+    // 动画进度
+    var curAArea = aArea * Math.min(1, progress * 3);
+    var curBArea = bArea * Math.min(1, Math.max(0, (progress - 0.3) * 3));
+    var curCArea = cArea * Math.min(1, Math.max(0, (progress - 0.6) * 3));
+
+    var curX = x;
+    var gap = 4;
+
+    // a*x² 块
+    if (curAArea > 1 && a !== 0) {
+      var aW = Math.sqrt(curAArea * (a > 0 ? 1 : 1));
+      var aH = curAArea / Math.max(aW, 1);
+      aW = Math.min(aW, w * 0.6);
+      aH = Math.min(aH, h * 0.9);
+      ctx.fillStyle = a > 0 ? colorA : colorA + '66';
+      ctx.globalAlpha = 0.8;
+      roundRect(ctx, curX, y + (h - aH)/2, aW - gap, aH, 4);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = a > 0 ? colorA : colorA + '88';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, curX, y + (h - aH)/2, aW - gap, aH, 4);
+      ctx.stroke();
+      // 标签
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(formatNum(a) + 'x²', curX + (aW-gap)/2, y + h/2 + 4);
+      curX += aW;
+    }
+
+    // b*x 块
+    if (curBArea > 1 && b !== 0) {
+      var bW = Math.min(curBArea / (h * 0.5), w * 0.4);
+      var bH = h * 0.5;
+      ctx.fillStyle = b > 0 ? colorB : colorB + '66';
+      ctx.globalAlpha = 0.8;
+      roundRect(ctx, curX, y + (h - bH)/2, bW - gap, bH, 4);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = b > 0 ? colorB : colorB + '88';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, curX, y + (h - bH)/2, bW - gap, bH, 4);
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(formatNum(b) + 'x', curX + (bW-gap)/2, y + h/2 + 4);
+      curX += bW;
+    }
+
+    // c 常数块
+    if (curCArea > 1 && c !== 0) {
+      var cW = Math.min(curCArea / (h * 0.3), w * 0.3);
+      var cH = h * 0.3;
+      ctx.fillStyle = c > 0 ? colorC : colorC + '66';
+      ctx.globalAlpha = 0.8;
+      roundRect(ctx, curX, y + (h - cH)/2, cW - gap, cH, 4);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = c > 0 ? colorC : colorC + '88';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, curX, y + (h - cH)/2, cW - gap, cH, 4);
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(formatNum(c), curX + (cW-gap)/2, y + h/2 + 4);
+    }
+
+    // 整体面积框
+    ctx.strokeStyle = '#ffffff33';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+
+    // 面积标注
+    ctx.fillStyle = '#666';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('面积 = ax² + bx + c = ' + formatNum(a) + 'x² + ' + formatNum(b) + 'x + ' + formatNum(c), W/2, y + h + 14);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  /* ====== 抛物线图 ====== */
+  function drawGraph(ctx, x, y, w, h, a, b, c, sol) {
+    var pad = { l:40, r:20, t:15, b:28 };
+    var gw = w - pad.l - pad.r;
+    var gh = h - pad.t - pad.b;
+    var gx = x + pad.l;
+    var gy = y + pad.t;
+
+    if (Math.abs(a) < 0.001) {
+      // 一次函数
+      ctx.fillStyle = '#666';
+      ctx.font = '12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('a=0, 退化为一次函数', x + w/2, y + h/2);
+      return;
+    }
+
+    // 确定显示范围
+    var xMin = -6, xMax = 6;
+    if (sol.real && !sol.linear) {
+      xMin = Math.min(sol.x1, sol.x2) - 2;
+      xMax = Math.max(sol.x1, sol.x2) + 2;
+    }
+
+    // 计算y范围
+    var yMin = Infinity, yMax = -Infinity;
+    for (var i = 0; i <= 100; i++) {
+      var xv = xMin + (i / 100) * (xMax - xMin);
+      var yv = a * xv * xv + b * xv + c;
+      yMin = Math.min(yMin, yv);
+      yMax = Math.max(yMax, yv);
+    }
+    var yPad = (yMax - yMin) * 0.15 || 2;
+    yMin -= yPad;
+    yMax += yPad;
+
+    function toPx(xv, yv) {
+      return {
+        x: gx + ((xv - xMin) / (xMax - xMin)) * gw,
+        y: gy + gh - ((yv - yMin) / (yMax - yMin)) * gh
+      };
+    }
+
+    // 坐标轴
+    ctx.strokeStyle = '#333355';
+    ctx.lineWidth = 1;
+    // x轴
+    var xAxisY = toPx(0, 0).y;
+    if (xAxisY >= gy && xAxisY <= gy + gh) {
+      ctx.beginPath();
+      ctx.moveTo(gx, xAxisY);
+      ctx.lineTo(gx + gw, xAxisY);
+      ctx.stroke();
+    }
+    // y轴
+    var yAxisX = toPx(0, 0).x;
+    if (yAxisX >= gx && yAxisX <= gx + gw) {
+      ctx.beginPath();
+      ctx.moveTo(yAxisX, gy);
+      ctx.lineTo(yAxisX, gy + gh);
+      ctx.stroke();
+    }
+
+    // 网格线
+    ctx.strokeStyle = '#1a1a30';
+    ctx.lineWidth = 0.5;
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      var px = toPx(i, 0).x;
+      ctx.beginPath();
+      ctx.moveTo(px, gy);
+      ctx.lineTo(px, gy + gh);
+      ctx.stroke();
+    }
+
+    // 抛物线
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for (var i = 0; i <= 200; i++) {
+      var xv = xMin + (i / 200) * (xMax - xMin);
+      var yv = a * xv * xv + b * xv + c;
+      var p = toPx(xv, yv);
+      if (p.y < gy - 20 || p.y > gy + gh + 20) { started = false; continue; }
+      if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    // 根的标记（x截距）
+    if (sol.real && !sol.linear) {
+      [sol.x1, sol.x2].forEach(function(root, idx) {
+        var p = toPx(root, 0);
+        // 垂直虚线
+        ctx.strokeStyle = '#ffd93d44';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(p.x, gy);
+        ctx.lineTo(p.x, gy + gh);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // 根的点
+        ctx.fillStyle = '#ffd93d';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // 标签
+        ctx.fillStyle = '#ffd93d';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('x' + (idx+1) + '=' + formatNum(root), p.x, p.y - 12);
+      });
+    }
+
+    // 顶点
+    var vx = -b / (2 * a);
+    var vy = a * vx * vx + b * vx + c;
+    if (vx >= xMin && vx <= xMax) {
+      var vp = toPx(vx, vy);
+      ctx.fillStyle = '#a78bfa';
+      ctx.beginPath();
+      ctx.arc(vp.x, vp.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#a78bfa';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('顶点(' + formatNum(vx) + ',' + formatNum(vy) + ')', vp.x, vp.y + (a > 0 ? 16 : -10));
+    }
+
+    // x轴标签
+    ctx.fillStyle = '#666';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    for (var i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+      if (i === 0) continue;
+      var px = toPx(i, 0).x;
+      if (px > gx + 10 && px < gx + gw - 10) {
+        ctx.fillText(i, px, gy + gh + 16);
+      }
+    }
+    ctx.fillText('x', gx + gw + 12, xAxisY + 4);
+  }
+
+  function updateData() {
+    var { a, b, c } = CFG;
+    var sol = solve(a, b, c);
+
+    document.getElementById('dataDelta').textContent = formatNum(sol.delta);
+    var signText = sol.delta > 0 ? '> 0 (两个不等实根)' : (sol.delta === 0 ? '= 0 (两个相等实根)' : '< 0 (无实根)');
+    document.getElementById('dataDeltaSign').textContent = sol.delta > 0 ? '> 0' : (sol.delta === 0 ? '= 0' : '< 0');
+    document.getElementById('dataX1').textContent = sol.real ? formatNum(sol.x1) : '无实根';
+    document.getElementById('dataX2').textContent = sol.real ? formatNum(sol.x2) : (sol.x1 !== null ? formatNum(sol.x2) : '无实根');
+
+    document.getElementById('fmDelta').textContent = formatNum(sol.delta);
+    document.getElementById('fmX1').textContent = sol.real ? formatNum(sol.x1) : '--';
+    document.getElementById('fmX2').textContent = sol.real ? formatNum(sol.x2) : '--';
+
+    // 结果显示
+    var resultBox = document.getElementById('resultBox');
+    var exprStr = (a === 1 ? '' : (a === -1 ? '-' : formatNum(a))) + 'x²' + (b >= 0 ? '+' : '') + formatNum(b) + 'x' + (c >= 0 ? '+' : '') + formatNum(c);
+
+    if (Math.abs(a) < 0.001) {
+      resultBox.textContent = 'a=0, 退化为一次方程: ' + formatNum(b) + 'x + ' + formatNum(c) + ' = 0';
+      resultBox.style.background = 'rgba(255,217,61,0.15)';
+      resultBox.style.color = '#ffd93d';
+      document.getElementById('fmFactored').textContent = '一次方程';
+      return;
+    }
+
+    if (sol.delta > 0 && sol.real) {
+      // 可因式分解
+      var f1 = formatNum(a) + '(x' + (sol.x1 >= 0 ? '-' : '+') + formatNum(Math.abs(sol.x1)) + ')';
+      var f2 = '(x' + (sol.x2 >= 0 ? '-' : '+') + formatNum(Math.abs(sol.x2)) + ')';
+      var factored = Math.abs(a) === 1 ? f2 : f1 + f2;
+      if (Math.abs(a) !== 1) factored = formatNum(a) + f2;
+      // 简化显示
+      factored = 'a(x-x₁)(x-x₂) 其中 x₁=' + formatNum(sol.x1) + ', x₂=' + formatNum(sol.x2);
+
+      resultBox.textContent = exprStr + ' = ' + factored;
+      resultBox.style.background = 'rgba(131,193,103,0.15)';
+      resultBox.style.color = '#83c167';
+      document.getElementById('fmFactored').textContent = factored;
+    } else if (sol.delta === 0) {
+      var root = -b / (2*a);
+      resultBox.textContent = exprStr + ' = ' + formatNum(a) + '(x-' + formatNum(root) + ')²';
+      resultBox.style.background = 'rgba(255,217,61,0.15)';
+      resultBox.style.color = '#ffd93d';
+      document.getElementById('fmFactored').textContent = formatNum(a) + '(x-' + formatNum(root) + ')²';
+    } else {
+      resultBox.textContent = exprStr + ' — 不可因式分解（实数范围）';
+      resultBox.style.background = 'rgba(233,69,96,0.15)';
+      resultBox.style.color = '#e94560';
+      document.getElementById('fmFactored').textContent = 'Δ<0, 实数范围内不可分解';
+    }
+  }
+
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    S.t += dt * CFG.timeScale;
+    S.animProgress = Math.min(1, S.animProgress + dt * 0.8);
+
+    draw();
+
+    if (S.playing && S.animProgress >= 1) {
+      // 动画完成，停止
+      S.playing = false;
+      document.getElementById('btnPlay').textContent = '▶ 播放';
+    }
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    S.animProgress = 1;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.animProgress = 0;
+    S.playing = true;
+    this.textContent = '⏸ 暂停';
+    lastTime = 0;
+    animId = requestAnimationFrame(animate);
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.getElementById('sliderA').addEventListener('input', function() {
+    CFG.a = parseFloat(this.value);
+    document.getElementById('valA').textContent = CFG.a.toFixed(1);
+    draw(); updateData();
+  });
+  document.getElementById('sliderB').addEventListener('input', function() {
+    CFG.b = parseFloat(this.value);
+    document.getElementById('valB').textContent = CFG.b.toFixed(1);
+    draw(); updateData();
+  });
+  document.getElementById('sliderC').addEventListener('input', function() {
+    CFG.c = parseFloat(this.value);
+    document.getElementById('valC').textContent = CFG.c.toFixed(1);
+    draw(); updateData();
+  });
+
+  // 预设按钮
+  document.querySelectorAll('.exp-preset-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      CFG.a = parseFloat(this.dataset.a);
+      CFG.b = parseFloat(this.dataset.b);
+      CFG.c = parseFloat(this.dataset.c);
+      document.getElementById('sliderA').value = CFG.a;
+      document.getElementById('sliderB').value = CFG.b;
+      document.getElementById('sliderC').value = CFG.c;
+      document.getElementById('valA').textContent = CFG.a.toFixed(1);
+      document.getElementById('valB').textContent = CFG.b.toFixed(1);
+      document.getElementById('valC').textContent = CFG.c.toFixed(1);
+      draw(); updateData();
+    });
+  });
+
+  window.addEventListener('resize', resize);
+
+  resize();
+  updateData();
+})();
+</script>
+{% endblock %}

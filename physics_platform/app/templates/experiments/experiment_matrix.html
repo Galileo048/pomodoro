@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}矩阵变换 2D 交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:55px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .preset-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .preset-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .matrix-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .matrix-input{width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:4px;color:var(--cyan);font-size:13px;padding:4px 6px;text-align:center;font-family:'JetBrains Mono',monospace}
+  .matrix-input:focus{outline:none;border-color:var(--accent,#e94560)}
+  .toggle-group{display:flex;gap:6px;flex-wrap:wrap}
+  .toggle-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .toggle-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">🔢 矩阵变换 2D — 线性变换可视化</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Matrix 2D Transform — 观察基向量、面积缩放与变换类型</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <!-- 矩阵输入 -->
+      <div class="exp-panel-section">
+        <h3>🔢 矩阵参数 (2x2)</h3>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="color:var(--text-muted);font-size:20px;">[</span>
+          <div class="matrix-grid" style="flex:1;">
+            <input class="matrix-input" id="m00" type="number" step="0.1" value="1" placeholder="a">
+            <input class="matrix-input" id="m01" type="number" step="0.1" value="0" placeholder="b">
+            <input class="matrix-input" id="m10" type="number" step="0.1" value="0" placeholder="c">
+            <input class="matrix-input" id="m11" type="number" step="0.1" value="1" placeholder="d">
+          </div>
+          <span style="color:var(--text-muted);font-size:20px;">]</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);line-height:1.6;">
+          | a &nbsp;b | &nbsp;&nbsp; (a,b) = 第一行 → i' 变换<br>
+          | c &nbsp;d | &nbsp;&nbsp; (c,d) = 第二行 → j' 变换
+        </div>
+      </div>
+
+      <!-- 预设矩阵 -->
+      <div class="exp-panel-section">
+        <h3>⚡ 预设矩阵</h3>
+        <div class="toggle-group">
+          <button class="preset-btn" data-m="1,0,0,1">单位阵</button>
+          <button class="preset-btn" data-m="0.707,-0.707,0.707,0.707">旋转45°</button>
+          <button class="preset-btn" data-m="2,0,0,2">缩放2x</button>
+          <button class="preset-btn" data-m="1,0.5,0,1">错切</button>
+          <button class="preset-btn" data-m="-1,0,0,1">x反射</button>
+          <button class="preset-btn" data-m="1,0,0,-1">y反射</button>
+          <button class="preset-btn" data-m="0,-1,1,0">旋转90°</button>
+          <button class="preset-btn" data-m="0.5,0.87,-0.87,0.5">旋转120°</button>
+        </div>
+      </div>
+
+      <!-- 显示选项 -->
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="togOriginal">原始正方形</button>
+          <button class="toggle-btn active" id="togTransformed">变换后</button>
+          <button class="toggle-btn active" id="togBasis">基向量</button>
+          <button class="toggle-btn" id="togGrid">网格线</button>
+        </div>
+      </div>
+
+      <!-- 数据显示 -->
+      <div class="exp-panel-section">
+        <h3>📊 变换信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">行列式 det</div><div class="value c-cyan" id="dataDet">1.00</div></div>
+          <div class="exp-data-item"><div class="label">面积缩放</div><div class="value c-green" id="dataArea">1.00</div></div>
+          <div class="exp-data-item"><div class="label">旋转角度</div><div class="value c-amber" id="dataAngle">0°</div></div>
+          <div class="exp-data-item"><div class="label">变换类型</div><div class="value c-purple" id="dataType">恒等</div></div>
+          <div class="exp-data-item"><div class="label">i' 向量</div><div class="value c-cyan" id="dataI">(1, 0)</div></div>
+          <div class="exp-data-item"><div class="label">j' 向量</div><div class="value c-accent" id="dataJ">(0, 1)</div></div>
+        </div>
+      </div>
+
+      <!-- 公式 -->
+      <div class="exp-panel-section">
+        <h3>📐 变换公式</h3>
+        <div class="exp-formula-box">
+          <div>x' = <span class="result" id="fmX">a·x + b·y</span></div>
+          <div>y' = <span class="result" id="fmY">c·x + d·y</span></div>
+          <div>det = <span class="result" id="fmDet">ad - bc = 1</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+  var M = [1, 0, 0, 1]; // [a, b, c, d]
+  var showOriginal = true, showTransformed = true, showBasis = true, showGrid = false;
+
+  function resize(){
+    var dpr = window.devicePixelRatio||1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width*dpr);
+    canvas.height = Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  function tx(x, W, H){
+    var scale = Math.min(W, H) / 8;
+    return W/2 + x * scale;
+  }
+  function ty(y, W, H){
+    var scale = Math.min(W, H) / 8;
+    return H/2 - y * scale;
+  }
+
+  function draw(){
+    var W = canvas.width / (window.devicePixelRatio||1);
+    var H = canvas.height / (window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0,0,W,H);
+
+    var scale = Math.min(W, H) / 8;
+
+    // Grid
+    if(showGrid){
+      ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+      for(var i=-10;i<=10;i++){
+        ctx.beginPath(); ctx.moveTo(tx(i,W,H), 0); ctx.lineTo(tx(i,W,H), H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, ty(i,W,H)); ctx.lineTo(W, ty(i,W,H)); ctx.stroke();
+      }
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0,ty(0,W,H)); ctx.lineTo(W,ty(0,W,H)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0,W,H),0); ctx.lineTo(tx(0,W,H),H); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for(var k=-4;k<=4;k++){
+      if(k===0) continue;
+      ctx.fillText(k, tx(k,W,H), ty(0,W,H)+14);
+    }
+    ctx.textAlign = 'right';
+    for(var l=-4;l<=4;l++){
+      if(l===0) continue;
+      ctx.fillText(l, tx(0,W,H)-6, ty(l,W,H)+4);
+    }
+
+    // Original unit square
+    if(showOriginal){
+      var square = [[0,0],[1,0],[1,1],[0,1]];
+      ctx.fillStyle = 'rgba(0,170,255,0.15)';
+      ctx.strokeStyle = '#00aaff'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      square.forEach(function(p,i){
+        var sx = tx(p[0],W,H), sy = ty(p[1],W,H);
+        if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      });
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    // Transformed square
+    if(showTransformed){
+      var sq = [[0,0],[1,0],[1,1],[0,1]];
+      var tsq = sq.map(function(p){
+        return [M[0]*p[0]+M[1]*p[1], M[2]*p[0]+M[3]*p[1]];
+      });
+      ctx.fillStyle = 'rgba(255,68,102,0.15)';
+      ctx.strokeStyle = '#ff4466'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      tsq.forEach(function(p,i){
+        var sx = tx(p[0],W,H), sy = ty(p[1],W,H);
+        if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      });
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    // Basis vectors
+    if(showBasis){
+      // Original i,j (dashed)
+      ctx.setLineDash([4,4]); ctx.lineWidth = 1.5;
+      // i = (1,0)
+      ctx.strokeStyle = '#58C4DD88';
+      ctx.beginPath(); ctx.moveTo(tx(0,W,H),ty(0,W,H)); ctx.lineTo(tx(1,W,H),ty(0,W,H)); ctx.stroke();
+      // j = (0,1)
+      ctx.strokeStyle = '#83C16788';
+      ctx.beginPath(); ctx.moveTo(tx(0,W,H),ty(0,W,H)); ctx.lineTo(tx(0,W,H),ty(1,W,H)); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Transformed i' = (a,c)
+      drawArrow(ctx, tx(0,W,H), ty(0,W,H), tx(M[0],W,H), ty(M[2],W,H), '#58C4DD', 3);
+      // Transformed j' = (b,d)
+      drawArrow(ctx, tx(0,W,H), ty(0,W,H), tx(M[1],W,H), ty(M[3],W,H), '#83C167', 3);
+
+      // Labels
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillStyle = '#58C4DD';
+      ctx.textAlign = 'left';
+      ctx.fillText("i'=("+M[0].toFixed(1)+","+M[2].toFixed(1)+")", tx(M[0],W,H)+8, ty(M[2],W,H)-8);
+      ctx.fillStyle = '#83C167';
+      ctx.fillText("j'=("+M[1].toFixed(1)+","+M[3].toFixed(1)+")", tx(M[1],W,H)+8, ty(M[3],W,H)-8);
+    }
+
+    // Origin marker
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(tx(0,W,H), ty(0,W,H), 3, 0, Math.PI*2); ctx.fill();
+  }
+
+  function drawArrow(c, x1, y1, x2, y2, color, w){
+    var dx = x2-x1, dy = y2-y1;
+    var len = Math.sqrt(dx*dx+dy*dy);
+    if(len<1) return;
+    var ux = dx/len, uy = dy/len;
+    var headLen = Math.min(10, len*0.3);
+    c.strokeStyle = color; c.fillStyle = color; c.lineWidth = w; c.setLineDash([]);
+    c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+    c.beginPath();
+    c.moveTo(x2, y2);
+    c.lineTo(x2 - headLen*ux + headLen*0.4*uy, y2 - headLen*uy - headLen*0.4*ux);
+    c.lineTo(x2 - headLen*ux - headLen*0.4*uy, y2 - headLen*uy + headLen*0.4*ux);
+    c.closePath(); c.fill();
+  }
+
+  function updateInfo(){
+    var a=M[0], b=M[1], c=M[2], d=M[3];
+    var det = a*d - b*c;
+    document.getElementById('m00').value = a.toFixed(1);
+    document.getElementById('m01').value = b.toFixed(1);
+    document.getElementById('m10').value = c.toFixed(1);
+    document.getElementById('m11').value = d.toFixed(1);
+
+    document.getElementById('dataDet').textContent = det.toFixed(2);
+    document.getElementById('dataArea').textContent = Math.abs(det).toFixed(2);
+    document.getElementById('dataI').textContent = '('+a.toFixed(1)+', '+c.toFixed(1)+')';
+    document.getElementById('dataJ').textContent = '('+b.toFixed(1)+', '+d.toFixed(1)+')';
+
+    // Rotation angle (from i' vector)
+    var angle = Math.atan2(c, a) * 180 / Math.PI;
+    document.getElementById('dataAngle').textContent = angle.toFixed(1) + '°';
+
+    // Type detection
+    var type = '一般线性';
+    var eps = 0.05;
+    if(Math.abs(a-1)<eps && Math.abs(b)<eps && Math.abs(c)<eps && Math.abs(d-1)<eps) type = '恒等变换';
+    else if(Math.abs(a+1)<eps && Math.abs(b)<eps && Math.abs(c)<eps && Math.abs(d-1)<eps) type = 'x轴反射';
+    else if(Math.abs(a-1)<eps && Math.abs(b)<eps && Math.abs(c)<eps && Math.abs(d+1)<eps) type = 'y轴反射';
+    else if(Math.abs(a-d)<eps && Math.abs(b+c)<eps && Math.abs(a*a+b*b-1)<0.1) type = '旋转';
+    else if(Math.abs(a*d-b*c)<eps) type = '退化(奇异)';
+    else if(Math.abs(b)<eps && Math.abs(c)<eps) type = '对角缩放';
+    else if(Math.abs(c)<eps && Math.abs(b)>eps) type = '水平错切';
+    else if(Math.abs(b)<eps && Math.abs(c)>eps) type = '垂直错切';
+    document.getElementById('dataType').textContent = type;
+
+    // Formulas
+    document.getElementById('fmX').textContent = a.toFixed(1)+'x + '+b.toFixed(1)+'y';
+    document.getElementById('fmY').textContent = c.toFixed(1)+'x + '+d.toFixed(1)+'y';
+    document.getElementById('fmDet').textContent = 'ad-bc = '+a.toFixed(1)+'·'+d.toFixed(1)+' - '+b.toFixed(1)+'·'+c.toFixed(1)+' = '+det.toFixed(2);
+  }
+
+  // Matrix inputs
+  ['m00','m01','m10','m11'].forEach(function(id, idx){
+    document.getElementById(id).addEventListener('input', function(){
+      M[idx] = parseFloat(this.value)||0;
+      draw(); updateInfo();
+    });
+  });
+
+  // Preset buttons
+  document.querySelectorAll('.preset-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var vals = this.dataset.m.split(',').map(Number);
+      M = vals;
+      draw(); updateInfo();
+    });
+  });
+
+  // Toggle buttons
+  function setupToggle(id, getter, setter){
+    var el = document.getElementById(id);
+    el.addEventListener('click', function(){
+      var newVal = !getter();
+      setter(newVal);
+      this.classList.toggle('active', newVal);
+      draw();
+    });
+  }
+  setupToggle('togOriginal', function(){return showOriginal;}, function(v){showOriginal=v;});
+  setupToggle('togTransformed', function(){return showTransformed;}, function(v){showTransformed=v;});
+  setupToggle('togBasis', function(){return showBasis;}, function(v){showBasis=v;});
+  setupToggle('togGrid', function(){return showGrid;}, function(v){showGrid=v;});
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

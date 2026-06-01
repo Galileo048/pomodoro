@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+{% block title %}电磁感应 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:85px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-toggle-row{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-toggle-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-toggle-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.1)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-flux{color:var(--cyan)}.c-emf{color:var(--accent,#e94560)}.c-current{color:#ffd93d}.c-speed{color:#66bb6a}.c-accent{color:var(--accent,#e94560)}.c-n{color:#ce93d8}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ce93d8;">⚡ 电磁感应</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Faraday's Law — ε = −NdΦ/dt, Φ = BS, 楞次定律</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">Φ-t 磁通量</span><canvas id="chartPhi"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">ε-t 感应电动势</span><canvas id="chartEMF"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">电流方向</span><canvas id="chartCurrent"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">Φ vs t</span><canvas id="chartPhiEMF"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">磁场 B</span><span class="exp-slider-value" id="valB">1.0 T</span></div>
+          <input type="range" id="sliderB" min="0.1" max="2" step="0.05" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">线圈面积 S</span><span class="exp-slider-value" id="valS">0.25 m²</span></div>
+          <input type="range" id="sliderS" min="0.01" max="1" step="0.01" value="0.25">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">匝数 N</span><span class="exp-slider-value" id="valN">10</span></div>
+          <input type="range" id="sliderN" min="1" max="100" step="1" value="10">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">运动速度 v</span><span class="exp-slider-value" id="valV">2.0 m/s</span></div>
+          <input type="range" id="sliderV" min="0.1" max="5" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-toggle="fluxLines">磁感线</button>
+          <button class="exp-toggle-btn active" data-toggle="galvo">电流计</button>
+          <button class="exp-toggle-btn active" data-toggle="lenzArrow">楞次方向</button>
+          <button class="exp-toggle-btn active" data-toggle="grid">网格</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">磁通量 Φ</div><div class="value c-flux" id="dataPhi">0.25 <span class="unit">Wb</span></div></div>
+          <div class="exp-data-item"><div class="label">感应电动势 ε</div><div class="value c-emf" id="dataEMF">5.00 <span class="unit">V</span></div></div>
+          <div class="exp-data-item"><div class="label">电流方向</div><div class="value c-current" id="dataDir">← 逆时针</div></div>
+          <div class="exp-data-item"><div class="label">匝数 N</div><div class="value c-n" id="dataN2">10</div></div>
+          <div class="exp-data-item"><div class="label">dΦ/dt</div><div class="value c-speed" id="dataDPhi">0.50 <span class="unit">Wb/s</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>Φ = BS = <span class="formula" id="fmPhi">0.25</span> Wb</div>
+          <div>ε = −N·dΦ/dt</div>
+          <div>dΦ/dt = B·S·v·cos(ωt)</div>
+          <div>感应电动势 ε = <span class="formula" id="fmEMF">5.00</span> V</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG={B:1,S:0.25,N:10,v:2,timeScale:1};
+  var SHOW={fluxLines:true,galvo:true,lenzArrow:true,grid:true};
+  var S={t:0,playing:false,history:[]};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+
+  function dPhiDt(t){
+    return CFG.B*CFG.S*CFG.v*Math.cos(CFG.v*t);
+  }
+  function emf(t){
+    return-CFG.N*dPhiDt(t);
+  }
+  function phi(t){
+    return CFG.B*CFG.S*Math.sin(CFG.v*t);
+  }
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    if(SHOW.grid){
+      ctx.strokeStyle='#1a1a30';ctx.lineWidth=1;
+      for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+      for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+    }
+
+    var fieldX1=W*0.15,fieldX2=W*0.55,fieldY1=H*0.15,fieldY2=H*0.85;
+
+    if(SHOW.fluxLines){
+      ctx.strokeStyle='#58C4DD44';ctx.lineWidth=1;
+      for(var fy=fieldY1+15;fy<fieldY2;fy+=20){
+        ctx.beginPath();ctx.moveTo(fieldX1,fy);ctx.lineTo(fieldX2,fy);ctx.stroke();
+        ctx.fillStyle='#58C4DD44';
+        ctx.beginPath();ctx.moveTo(fieldX2,fy);ctx.lineTo(fieldX2-6,fy-3);ctx.lineTo(fieldX2-6,fy+3);ctx.closePath();ctx.fill();
+      }
+    }
+
+    ctx.fillStyle='#58C4DD';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('B = '+CFG.B.toFixed(2)+' T ⊗',W*0.35,H*0.08);
+
+    var coilW=CFG.S*100;
+    var coilH=CFG.S*60;
+    var coilX=W*0.4;
+    var coilY=H*0.5;
+
+    var coilPhase=CFG.v*S.t;
+    var coilVisible=Math.sin(coilPhase);
+    var coilWidth=coilW*Math.abs(coilVisible);
+
+    ctx.strokeStyle='#ffd93d';ctx.lineWidth=3;
+    ctx.strokeRect(coilX-coilWidth/2,coilY-coilH/2,coilWidth,coilH);
+
+    for(var ci=0;ci<CFG.N;ci++){
+      var ciY=coilY-coilH/2+ci*(coilH/CFG.N);
+      ctx.strokeStyle='#ffd93d44';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(coilX-coilWidth/2,ciY);ctx.lineTo(coilX+coilWidth/2,ciY);ctx.stroke();
+    }
+
+    ctx.fillStyle='#ffd93d';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('N = '+CFG.N+'匝',coilX,coilY+coilH/2+16);
+
+    var currEMF=emf(S.t);
+    if(Math.abs(currEMF)>0.1){
+      if(SHOW.lenzArrow){
+        var arrowDir=currEMF>0?1:-1;
+        ctx.strokeStyle=currEMF>0?'#66bb6a':'#e94560';
+        ctx.lineWidth=2.5;
+        var arrowR=Math.min(coilWidth/2+15,50);
+        ctx.beginPath();
+        ctx.arc(coilX,coilY,arrowR,-0.5,0.5);
+        ctx.stroke();
+        var endAngle=0.5*arrowDir;
+        var ax=coilX+arrowR*Math.cos(endAngle);
+        var ay=coilY+arrowR*Math.sin(endAngle);
+        ctx.fillStyle=currEMF>0?'#66bb6a':'#e94560';
+        ctx.beginPath();
+        ctx.moveTo(ax,ay);
+        ctx.lineTo(ax-8*Math.cos(endAngle-0.4),ay-8*Math.sin(endAngle-0.4));
+        ctx.lineTo(ax-8*Math.cos(endAngle+0.4),ay-8*Math.sin(endAngle+0.4));
+        ctx.closePath();ctx.fill();
+
+        ctx.fillStyle=currEMF>0?'#66bb6a':'#e94560';
+        ctx.font='11px sans-serif';ctx.textAlign='center';
+        ctx.fillText(currEMF>0?'逆时针':'顺时针',coilX,coilY+coilH/2+32);
+      }
+    }
+
+    var conductorX=W*0.3;
+    var conductorY=H*0.3;
+    var conductorLen=80;
+    var concY=conductorY+CFG.v*S.t*30;
+    if(concY>H*0.75)concY=H*0.3;
+
+    ctx.strokeStyle='#ff8a65';ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(conductorX,concY);ctx.lineTo(conductorX,concY+conductorLen);ctx.stroke();
+    ctx.fillStyle='#ff8a65';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('导体棒',conductorX,concY-8);
+
+    if(SHOW.lenzArrow&&Math.abs(currEMF)>0.1){
+      var fDir=currEMF>0?1:-1;
+      ctx.strokeStyle='#e94560';ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(conductorX,concY+conductorLen/2);
+      ctx.lineTo(conductorX+fDir*25,concY+conductorLen/2);
+      ctx.stroke();
+      ctx.fillStyle='#e94560';
+      ctx.beginPath();
+      ctx.moveTo(conductorX+fDir*25,concY+conductorLen/2);
+      ctx.lineTo(conductorX+fDir*18,concY+conductorLen/2-4);
+      ctx.lineTo(conductorX+fDir*18,concY+conductorLen/2+4);
+      ctx.closePath();ctx.fill();
+    }
+
+    if(SHOW.galvo){
+      var galX=W*0.78,galY=H*0.5,galR=45;
+      ctx.strokeStyle='#333355';ctx.lineWidth=2;ctx.beginPath();ctx.arc(galX,galY,galR,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='#1a1a30';ctx.beginPath();ctx.arc(galX,galY,galR-2,0,Math.PI*2);ctx.fill();
+
+      var needleAngle=-Math.PI/2+Math.min(Math.max(currEMF/CFG.N,−1),1)*Math.PI*0.4;
+      ctx.strokeStyle='#e94560';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(galX,galY);
+      ctx.lineTo(galX+galR*0.8*Math.cos(needleAngle),galY+galR*0.8*Math.sin(needleAngle));ctx.stroke();
+      ctx.fillStyle='#e94560';ctx.beginPath();ctx.arc(galX,galY,3,0,Math.PI*2);ctx.fill();
+
+      ctx.fillStyle='#8888a0';ctx.font='10px sans-serif';ctx.textAlign='center';
+      ctx.fillText('G',galX,galY+galR+14);
+      ctx.fillText('电流计',galX,galY+galR+26);
+
+      ctx.strokeStyle='#ffd93d44';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(galX-galR,galY);ctx.lineTo(W*0.55,galY);ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    ctx.fillStyle='#8888a0';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.textBaseline='top';
+    ctx.fillText('v = '+CFG.v.toFixed(1)+' m/s',10,20);
+    ctx.fillText('B = '+CFG.B.toFixed(2)+' T',10,38);
+    ctx.fillText('S = '+CFG.S.toFixed(2)+' m²',10,56);
+    ctx.fillText('t = '+S.t.toFixed(2)+' s',10,74);
+
+    var phiCur=phi(S.t);
+    var emfCur=emf(S.t);
+    ctx.fillStyle='#00d4ff';ctx.fillText('Φ = '+phiCur.toFixed(3)+' Wb',W*0.55,20);
+    ctx.fillStyle='#e94560';ctx.fillText('ε = '+emfCur.toFixed(2)+' V',W*0.55,38);
+  }
+
+  function drawChart(canvasId,data,opts){
+    var c=document.getElementById(canvasId);
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:15,bottom:22,left:45},cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var series=Array.isArray(data[0])?data:[data];
+    var xMin=Infinity,xMax=-Infinity,yMin=Infinity,yMax=-Infinity;
+    series.forEach(function(s){s.forEach(function(d){if(d.x<xMin)xMin=d.x;if(d.x>xMax)xMax=d.x;if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});});
+    if(xMax<=xMin)xMax=xMin+1;if(yMax<=yMin)yMax=yMin+1;
+    var xR=xMax-xMin,yR=yMax-yMin;
+    xMin-=xR*0.05;xMax+=xR*0.05;yMin-=yR*0.1;yMax+=yR*0.1;
+    function toC(px,py){return{x:pad.left+(px-xMin)/(xMax-xMin)*cw,y:pad.top+(1-(py-yMin)/(yMax-yMin))*ch};}
+    c2.strokeStyle='#1e1e35';c2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;c2.beginPath();c2.moveTo(pad.left,gy);c2.lineTo(pad.left+cw,gy);c2.stroke();}
+    c2.strokeStyle='#444466';c2.lineWidth=1.5;
+    var zeroY=toC(0,0).y;if(zeroY>=pad.top&&zeroY<=pad.top+ch){c2.beginPath();c2.moveTo(pad.left,zeroY);c2.lineTo(pad.left+cw,zeroY);c2.stroke();}
+    c2.fillStyle='#555570';c2.font='10px sans-serif';c2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);c2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    c2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);c2.fillText(val2.toFixed(2),pad.left-5,pad.top+(1-l/4)*ch+3);}
+    var colors=opts.colors||['#00d4ff'];
+    series.forEach(function(s,si){if(s.length<2)return;c2.strokeStyle=colors[si%colors.length];c2.lineWidth=2;c2.beginPath();
+      s.forEach(function(d,i){var p=toC(d.x,d.y);if(i===0)c2.moveTo(p.x,p.y);else c2.lineTo(p.x,p.y);});c2.stroke();});
+  }
+
+  function updateCharts(){
+    if(S.history.length<2)return;
+    drawChart('chartPhi',S.history.map(function(h){return{x:h.t,y:h.phi};}),{colors:['#00d4ff']});
+    drawChart('chartEMF',S.history.map(function(h){return{x:h.t,y:h.emf};}),{colors:['#e94560']});
+
+    var c3=document.getElementById('chartCurrent');
+    var c2d=c3.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c3.width/dpr,H=c3.height/dpr;
+    c2d.setTransform(dpr,0,0,dpr,0,0);c2d.clearRect(0,0,W,H);
+    c2d.fillStyle='#161625';c2d.fillRect(0,0,W,H);
+    c2d.fillStyle='#8888a0';c2d.font='10px sans-serif';c2d.textAlign='center';
+    c2d.fillText('电流方向指示',W/2,15);
+    if(S.history.length>0){
+      var lastH=S.history[S.history.length-1];
+      var dir=lastH.emf>0?'← 逆时针 (CCW)':'→ 顺时针 (CW)';
+      var dirColor=lastH.emf>0?'#66bb6a':'#e94560';
+      c2d.fillStyle=dirColor;c2d.font='bold 16px sans-serif';
+      c2d.fillText(dir,W/2,H/2);
+      c2d.fillStyle='#8888a0';c2d.font='11px sans-serif';
+      c2d.fillText('ε = '+lastH.emf.toFixed(2)+' V',W/2,H/2+22);
+      c2d.fillText('dΦ/dt = '+lastH.dphi.toFixed(3)+' Wb/s',W/2,H/2+38);
+    }
+
+    drawChart('chartPhiEMF',[
+      S.history.map(function(h){return{x:h.t,y:h.phi};}),
+      S.history.map(function(h){return{x:h.t,y:h.emf};})
+    ],{colors:['#00d4ff','#e94560']});
+  }
+
+  function updateData(){
+    var phiVal=phi(S.t),emfVal=emf(S.t),dphiVal=dPhiDt(S.t);
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataPhi').innerHTML=phiVal.toFixed(3)+' <span class="unit">Wb</span>';
+    document.getElementById('dataEMF').innerHTML=emfVal.toFixed(2)+' <span class="unit">V</span>';
+    document.getElementById('dataDir').textContent=emfVal>0?'← 逆时针':'→ 顺时针';
+    document.getElementById('dataDir').style.color=emfVal>0?'#66bb6a':'#e94560';
+    document.getElementById('dataN2').textContent=CFG.N;
+    document.getElementById('dataDPhi').innerHTML=dphiVal.toFixed(3)+' <span class="unit">Wb/s</span>';
+    document.getElementById('fmPhi').textContent=phiVal.toFixed(3);
+    document.getElementById('fmEMF').textContent=Math.abs(emfVal).toFixed(2);
+  }
+
+  var lastTime=0,animId=null,HISTORY_INT=0.02,lastHistT=0;
+
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var wallDt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    var simDt=wallDt*CFG.timeScale;
+    S.t+=simDt;
+
+    if(S.t-lastHistT>=HISTORY_INT){
+      S.history.push({t:S.t,phi:phi(S.t),emf:emf(S.t),dphi:dPhiDt(S.t)});
+      lastHistT=S.t;
+      if(S.history.length>500)S.history.shift();
+    }
+    drawSim();updateData();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.history=[];lastHistT=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();
+    document.querySelectorAll('.exp-chart-box canvas').forEach(function(c){c.getContext('2d').clearRect(0,0,c.width,c.height);});
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.querySelectorAll('.exp-toggle-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){var key=btn.dataset.toggle;SHOW[key]=!SHOW[key];btn.classList.toggle('active');drawSim();});
+  });
+
+  document.getElementById('sliderB').addEventListener('input',function(){
+    CFG.B=parseFloat(this.value);document.getElementById('valB').textContent=CFG.B.toFixed(2)+' T';reset();
+  });
+  document.getElementById('sliderS').addEventListener('input',function(){
+    CFG.S=parseFloat(this.value);document.getElementById('valS').textContent=CFG.S.toFixed(2)+' m²';reset();
+  });
+  document.getElementById('sliderN').addEventListener('input',function(){
+    CFG.N=parseInt(this.value);document.getElementById('valN').textContent=CFG.N;reset();
+  });
+  document.getElementById('sliderV').addEventListener('input',function(){
+    CFG.v=parseFloat(this.value);document.getElementById('valV').textContent=CFG.v.toFixed(1)+' m/s';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

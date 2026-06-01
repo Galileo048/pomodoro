@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="quiz-container">
-    <div style="text-align:center; margin-bottom:2rem;">
+    <div style="text-align:center; margin-bottom:1.5rem;">
         <h1 style="font-size:1.6rem; font-weight:700; color:var(--text-bright);">
             🧪 交互动画实验室
         </h1>
@@ -13,52 +13,66 @@
         </p>
     </div>
 
-    <!-- 物理实验 -->
-    {% set physics = experiments | selectattr('category', 'equalto', '物理') | list %}
-    {% if physics %}
-    <div style="margin-bottom:1.5rem;">
-        <h2 style="font-size:1.1rem; font-weight:600; color:var(--cyan); margin-bottom:0.8rem;">
-            📐 物理实验 ({{ physics|length }})
-        </h2>
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0.8rem;">
-            {% for exp in physics %}
-            <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
-               class="card-dark" style="text-decoration:none; padding:1rem; cursor:pointer; border:1px solid rgba(0,212,255,0.12); transition:transform 0.2s, border-color 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(0,212,255,0.35)'"
-               onmouseout="this.style.transform=''; this.style.borderColor='rgba(0,212,255,0.12)'">
-                <div style="font-size:0.95rem; font-weight:600; color:var(--text-bright); margin-bottom:0.2rem;">{{ exp.title }}</div>
-                <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.4;">{{ exp.description }}</div>
-                {% if exp.params %}
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.3rem; opacity:0.7;">{{ exp.params }}</div>
-                {% endif %}
-            </a>
-            {% endfor %}
-        </div>
+    <!-- 分类筛选标签 -->
+    <div style="display:flex; gap:0.4rem; justify-content:center; margin-bottom:1.5rem; flex-wrap:wrap;">
+        <a href="#all" class="btn btn-outline btn-sm" style="font-size:0.8rem;">全部 ({{ experiments|length }})</a>
+        <a href="#middle" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:var(--green); border-color:rgba(0,255,136,0.3);">初中 ({{ experiments|selectattr('level','equalto','初中')|list|length }})</a>
+        <a href="#high" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:var(--cyan); border-color:rgba(0,212,255,0.3);">高中 ({{ experiments|selectattr('level','equalto','高中')|list|length }})</a>
+        <a href="#uni" class="btn btn-outline btn-sm" style="font-size:0.8rem; color:var(--purple); border-color:rgba(139,92,246,0.3);">大学 ({{ experiments|selectattr('level','equalto','大学')|list|length }})</a>
     </div>
-    {% endif %}
 
-    <!-- 数学实验 -->
-    {% set math = experiments | selectattr('category', 'equalto', '数学') | list %}
-    {% if math %}
-    <div>
-        <h2 style="font-size:1.1rem; font-weight:600; color:var(--amber); margin-bottom:0.8rem;">
-            📊 数学实验 ({{ math|length }})
+    <!-- 按级别分组渲染 -->
+    {% set levels = [('初中', 'var(--green)'), ('高中', 'var(--cyan)'), ('大学', 'var(--purple)')] %}
+    {% for level_name, level_color in levels %}
+    {% set level_exps = experiments | selectattr('level', 'equalto', level_name) | list %}
+    {% if level_exps %}
+
+    <div style="margin-bottom:1.5rem;">
+        <h2 style="font-size:1.1rem; font-weight:600; color:{{ level_color }}; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.5rem;">
+            {% if level_name == '初中' %}📚{% elif level_name == '高中' %}📐{% else %}🎓{% endif %}
+            {{ level_name }} ({{ level_exps|length }})
         </h2>
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0.8rem;">
-            {% for exp in math %}
-            <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
-               class="card-dark" style="text-decoration:none; padding:1rem; cursor:pointer; border:1px solid rgba(255,184,0,0.12); transition:transform 0.2s, border-color 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='rgba(255,184,0,0.35)'"
-               onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,184,0,0.12)'">
-                <div style="font-size:0.95rem; font-weight:600; color:var(--text-bright); margin-bottom:0.2rem;">{{ exp.title }}</div>
-                <div style="font-size:0.78rem; color:var(--text-muted); line-height:1.4;">{{ exp.description }}</div>
-                {% if exp.params %}
-                <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.3rem; opacity:0.7;">{{ exp.params }}</div>
-                {% endif %}
-            </a>
-            {% endfor %}
+
+        <!-- 按物理/数学分列 -->
+        {% set phys = level_exps | selectattr('category', 'equalto', '物理') | list %}
+        {% set math_list = level_exps | selectattr('category', 'equalto', '数学') | list %}
+
+        {% if phys %}
+        <div style="margin-bottom:0.8rem;">
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem; font-weight:500;">物理</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0.6rem;">
+                {% for exp in phys %}
+                <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
+                   class="card-dark" style="text-decoration:none; padding:0.8rem; cursor:pointer; border:1px solid rgba(255,255,255,0.06); transition:transform 0.15s, border-color 0.15s; border-left:3px solid {{ level_color }};"
+                   onmouseover="this.style.transform='translateY(-1px)'; this.style.borderColor='{{ level_color }}'"
+                   onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,255,255,0.06)'">
+                    <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.15rem;">{{ exp.title }}</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); line-height:1.3;">{{ exp.description }}</div>
+                </a>
+                {% endfor %}
+            </div>
         </div>
+        {% endif %}
+
+        {% if math_list %}
+        <div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.4rem; font-weight:500;">数学</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0.6rem;">
+                {% for exp in math_list %}
+                <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
+                   class="card-dark" style="text-decoration:none; padding:0.8rem; cursor:pointer; border:1px solid rgba(255,255,255,0.06); transition:transform 0.15s, border-color 0.15s; border-left:3px solid {{ level_color }};"
+                   onmouseover="this.style.transform='translateY(-1px)'; this.style.borderColor='{{ level_color }}'"
+                   onmouseout="this.style.transform=''; this.style.borderColor='rgba(255,255,255,0.06)'">
+                    <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.15rem;">{{ exp.title }}</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); line-height:1.3;">{{ exp.description }}</div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
     </div>
     {% endif %}
+    {% endfor %}
 </div>
 {% endblock %}

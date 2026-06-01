@@ -1,0 +1,498 @@
+{% extends "base.html" %}
+{% block title %}平面直角坐标系 — 数学AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-x{color:var(--cyan)}.c-y{color:#e94560}.c-dist{color:var(--amber)}.c-quad{color:#83c167}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-quad-box{border-radius:6px;padding:8px 10px;margin-top:6px;text-align:center;font-size:14px;font-weight:700}
+  .exp-reflect-btns{display:flex;gap:4px;margin-bottom:6px}
+  .exp-reflect-btn{flex:1;padding:6px 0;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-reflect-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+  @media(max-width:600px){.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">📐 平面直角坐标系</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Cartesian Coordinate System — 拖动点P探索四个象限</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 点P坐标</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">x 坐标</span><span class="exp-slider-value" id="valX">3.0</span></div>
+          <input type="range" id="sliderX" min="-8" max="8" step="0.1" value="3">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">y 坐标</span><span class="exp-slider-value" id="valY">2.0</span></div>
+          <input type="range" id="sliderY" min="-8" max="8" step="0.1" value="2">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">提示：也可以直接在画布上拖动点P</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>🪞 对称变换</h3>
+        <div class="exp-reflect-btns">
+          <button class="exp-reflect-btn active" data-reflect="none">原始点</button>
+          <button class="exp-reflect-btn" data-reflect="x">关于x轴</button>
+          <button class="exp-reflect-btn" data-reflect="y">关于y轴</button>
+          <button class="exp-reflect-btn" data-reflect="origin">关于原点</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">x 坐标</div><div class="value c-x" id="dataX">3.0</div></div>
+          <div class="exp-data-item"><div class="label">y 坐标</div><div class="value c-y" id="dataY">2.0</div></div>
+          <div class="exp-data-item"><div class="label">|OP|</div><div class="value c-dist" id="dataOP">3.61</div></div>
+          <div class="exp-data-item"><div class="label">象限</div><div class="value c-quad" id="dataQuad">第一象限</div></div>
+          <div class="exp-data-item"><div class="label">到x轴距离</div><div class="value c-y" id="dataDx">2.0</div></div>
+          <div class="exp-data-item"><div class="label">到y轴距离</div><div class="value c-x" id="dataDy">3.0</div></div>
+        </div>
+        <div class="exp-quad-box" id="quadBox" style="background:rgba(131,193,103,0.15);color:#83c167;">第一象限 (x>0, y>0)</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 坐标公式</h3>
+        <div class="exp-formula-box">
+          <div>P = (<span class="formula" id="fmX">3.0</span>, <span class="formula" id="fmY">2.0</span>)</div>
+          <div>|OP| = √(x²+y²) = <span class="result" id="fmOP">3.61</span></div>
+          <div>到x轴距离 = |y| = <span class="result" id="fmDx">2.0</span></div>
+          <div>到y轴距离 = |x| = <span class="result" id="fmDy">3.0</span></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text-muted);">象限符号规则：</div>
+          <div style="font-size:11px;">一(+,+) 二(-,+) 三(-,-) 四(+,-)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { x:3, y:2, reflectType:'none', timeScale:1 };
+  var S = { t:0, playing:false, dragging:false };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function getReflectedPoint(x, y, type) {
+    if (type === 'x') return { x:x, y:-y };
+    if (type === 'y') return { x:-x, y:y };
+    if (type === 'origin') return { x:-x, y:-y };
+    return { x:x, y:y };
+  }
+
+  function getQuadrant(x, y) {
+    if (x > 0 && y > 0) return { name:'第一象限', color:'#83c167', bg:'rgba(131,193,103,0.15)', desc:'x>0, y>0' };
+    if (x < 0 && y > 0) return { name:'第二象限', color:'#00d4ff', bg:'rgba(0,212,255,0.15)', desc:'x<0, y>0' };
+    if (x < 0 && y < 0) return { name:'第三象限', color:'#ffd93d', bg:'rgba(255,217,61,0.15)', desc:'x<0, y<0' };
+    if (x > 0 && y < 0) return { name:'第四象限', color:'#e94560', bg:'rgba(233,69,96,0.15)', desc:'x>0, y<0' };
+    if (Math.abs(x) < 0.01 && Math.abs(y) < 0.01) return { name:'原点', color:'#fff', bg:'rgba(255,255,255,0.15)', desc:'x=0, y=0' };
+    if (Math.abs(x) < 0.01) return { name:'y轴上', color:'#ce93d8', bg:'rgba(206,147,216,0.15)', desc:'x=0' };
+    return { name:'x轴上', color:'#ce93d8', bg:'rgba(206,147,216,0.15)', desc:'y=0' };
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var cx = W / 2, cy = H / 2;
+    var scale = Math.min(W, H) * 0.05; // 1单位对应多少像素
+
+    // ====== 象限背景色 ======
+    var quadColors = [
+      'rgba(131,193,103,0.03)', // 第一
+      'rgba(0,212,255,0.03)',   // 第二
+      'rgba(255,217,61,0.03)',  // 第三
+      'rgba(233,69,96,0.03)'    // 第四
+    ];
+    // 第一象限
+    ctx.fillStyle = quadColors[0];
+    ctx.fillRect(cx, cy - H/2, W/2, H/2);
+    // 第二象限
+    ctx.fillStyle = quadColors[1];
+    ctx.fillRect(0, cy - H/2, W/2, H/2);
+    // 第三象限
+    ctx.fillStyle = quadColors[2];
+    ctx.fillRect(0, cy, W/2, H/2);
+    // 第四象限
+    ctx.fillStyle = quadColors[3];
+    ctx.fillRect(cx, cy, W/2, H/2);
+
+    // 象限标签
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#83c167';
+    ctx.fillText('I', cx + W*0.2, cy - H*0.15);
+    ctx.fillStyle = '#00d4ff';
+    ctx.fillText('II', cx - W*0.2, cy - H*0.15);
+    ctx.fillStyle = '#ffd93d';
+    ctx.fillText('III', cx - W*0.2, cy + H*0.2);
+    ctx.fillStyle = '#e94560';
+    ctx.fillText('IV', cx + W*0.2, cy + H*0.2);
+    ctx.globalAlpha = 1;
+
+    // ====== 网格线 ======
+    ctx.strokeStyle = '#1a1a30';
+    ctx.lineWidth = 0.5;
+    for (var i = -10; i <= 10; i++) {
+      if (i === 0) continue;
+      ctx.beginPath();
+      ctx.moveTo(cx + i * scale, 0);
+      ctx.lineTo(cx + i * scale, H);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, cy + i * scale);
+      ctx.lineTo(W, cy + i * scale);
+      ctx.stroke();
+    }
+
+    // ====== 坐标轴 ======
+    ctx.strokeStyle = '#556688';
+    ctx.lineWidth = 2;
+    // x轴
+    ctx.beginPath();
+    ctx.moveTo(0, cy);
+    ctx.lineTo(W, cy);
+    ctx.stroke();
+    // y轴
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, H);
+    ctx.stroke();
+
+    // 箭头
+    ctx.fillStyle = '#556688';
+    ctx.beginPath();
+    ctx.moveTo(W - 8, cy - 5);
+    ctx.lineTo(W, cy);
+    ctx.lineTo(W - 8, cy + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, 8);
+    ctx.lineTo(cx, 0);
+    ctx.lineTo(cx + 5, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    // 刻度
+    ctx.fillStyle = '#666688';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    for (var i = -8; i <= 8; i++) {
+      if (i === 0) continue;
+      var px = cx + i * scale;
+      if (px > 10 && px < W - 10) {
+        ctx.fillText(i, px, cy + 16);
+        ctx.strokeStyle = '#333355';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, cy - 3);
+        ctx.lineTo(px, cy + 3);
+        ctx.stroke();
+      }
+      var py = cy - i * scale;
+      if (py > 10 && py < H - 10) {
+        ctx.fillText(i, cx - 16, py + 4);
+        ctx.beginPath();
+        ctx.moveTo(cx - 3, py);
+        ctx.lineTo(cx + 3, py);
+        ctx.stroke();
+      }
+    }
+    // 原点
+    ctx.fillText('O', cx - 12, cy + 16);
+
+    // 轴标签
+    ctx.fillStyle = '#888';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('x', W - 18, cy - 10);
+    ctx.fillText('y', cx + 12, 18);
+
+    // ====== 点P ======
+    var pPx = cx + CFG.x * scale;
+    var pPy = cy - CFG.y * scale;
+
+    // 到轴的虚线
+    ctx.strokeStyle = '#00d4ff44';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(pPx, pPy);
+    ctx.lineTo(pPx, cy);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(pPx, pPy);
+    ctx.lineTo(cx, pPy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 到原点的线
+    ctx.strokeStyle = '#ffd93d44';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(pPx, pPy);
+    ctx.stroke();
+
+    // 原始点P（绿色）
+    ctx.fillStyle = '#83c167';
+    ctx.beginPath();
+    ctx.arc(pPx, pPy, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 点标签
+    ctx.fillStyle = '#83c167';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('P(' + CFG.x.toFixed(1) + ', ' + CFG.y.toFixed(1) + ')', pPx + 12, pPy - 8);
+
+    // |OP| 标注
+    var dist = Math.sqrt(CFG.x * CFG.x + CFG.y * CFG.y);
+    var midOX = (cx + pPx) / 2;
+    var midOY = (cy + pPy) / 2;
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('|OP|=' + dist.toFixed(2), midOX + 15, midOY - 8);
+
+    // ====== 对称点 ======
+    if (CFG.reflectType !== 'none') {
+      var rp = getReflectedPoint(CFG.x, CFG.y, CFG.reflectType);
+      var rpPx = cx + rp.x * scale;
+      var rpPy = cy - rp.y * scale;
+
+      // 对称虚线
+      ctx.strokeStyle = '#e9456044';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      if (CFG.reflectType === 'x') {
+        ctx.beginPath();
+        ctx.moveTo(pPx, pPy);
+        ctx.lineTo(rpPx, rpPy);
+        ctx.stroke();
+      } else if (CFG.reflectType === 'y') {
+        ctx.beginPath();
+        ctx.moveTo(pPx, pPy);
+        ctx.lineTo(rpPx, rpPy);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(pPx, pPy);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(rpPx, rpPy);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // 对称点（红色虚线圈）
+      ctx.strokeStyle = '#e94560';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(rpPx, rpPy, 7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#e94560';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'left';
+      var label = CFG.reflectType === 'x' ? "P'" : (CFG.reflectType === 'y' ? "P''" : "P*");
+      ctx.fillText(label + '(' + rp.x.toFixed(1) + ', ' + rp.y.toFixed(1) + ')', rpPx + 12, rpPy - 8);
+    }
+
+    // 脉冲动画
+    if (S.playing) {
+      var pulse = 0.3 + 0.3 * Math.sin(S.t * 3);
+      ctx.strokeStyle = 'rgba(131,193,103,' + pulse + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(pPx, pPy, 7 + 5 * Math.abs(Math.sin(S.t * 2)), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function updateData() {
+    var dist = Math.sqrt(CFG.x * CFG.x + CFG.y * CFG.y);
+    var quad = getQuadrant(CFG.x, CFG.y);
+    document.getElementById('dataX').textContent = CFG.x.toFixed(1);
+    document.getElementById('dataY').textContent = CFG.y.toFixed(1);
+    document.getElementById('dataOP').textContent = dist.toFixed(2);
+    document.getElementById('dataQuad').textContent = quad.name;
+    document.getElementById('dataDx').textContent = Math.abs(CFG.y).toFixed(1);
+    document.getElementById('dataDy').textContent = Math.abs(CFG.x).toFixed(1);
+
+    var box = document.getElementById('quadBox');
+    box.textContent = quad.name + ' (' + quad.desc + ')';
+    box.style.background = quad.bg;
+    box.style.color = quad.color;
+
+    document.getElementById('fmX').textContent = CFG.x.toFixed(1);
+    document.getElementById('fmY').textContent = CFG.y.toFixed(1);
+    document.getElementById('fmOP').textContent = dist.toFixed(2);
+    document.getElementById('fmDx').textContent = Math.abs(CFG.y).toFixed(1);
+    document.getElementById('fmDy').textContent = Math.abs(CFG.x).toFixed(1);
+  }
+
+  // ====== 拖动交互 ======
+  canvas.addEventListener('mousedown', function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    var cx = W / 2, cy = H / 2;
+    var scale = Math.min(W, H) * 0.05;
+    var pPx = cx + CFG.x * scale;
+    var pPy = cy - CFG.y * scale;
+    var dist = Math.sqrt((mx - pPx) * (mx - pPx) + (my - pPy) * (my - pPy));
+    if (dist < 20) {
+      S.dragging = true;
+    }
+  });
+
+  canvas.addEventListener('mousemove', function(e) {
+    if (!S.dragging) return;
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    var cx = W / 2, cy = H / 2;
+    var scale = Math.min(W, H) * 0.05;
+    CFG.x = Math.round(((mx - cx) / scale) * 10) / 10;
+    CFG.y = Math.round(((cy - my) / scale) * 10) / 10;
+    CFG.x = Math.max(-8, Math.min(8, CFG.x));
+    CFG.y = Math.max(-8, Math.min(8, CFG.y));
+    document.getElementById('sliderX').value = CFG.x;
+    document.getElementById('sliderY').value = CFG.y;
+    document.getElementById('valX').textContent = CFG.x.toFixed(1);
+    document.getElementById('valY').textContent = CFG.y.toFixed(1);
+    draw();
+    updateData();
+  });
+
+  canvas.addEventListener('mouseup', function() { S.dragging = false; });
+  canvas.addEventListener('mouseleave', function() { S.dragging = false; });
+
+  // ====== 动画循环 ======
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    S.t += dt * CFG.timeScale;
+    draw();
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    CFG.x = 3;
+    CFG.y = 2;
+    CFG.reflectType = 'none';
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    document.getElementById('sliderX').value = 3;
+    document.getElementById('sliderY').value = 2;
+    document.getElementById('valX').textContent = '3.0';
+    document.getElementById('valY').textContent = '2.0';
+    document.querySelectorAll('.exp-reflect-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelector('.exp-reflect-btn[data-reflect="none"]').classList.add('active');
+    draw();
+    updateData();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.getElementById('sliderX').addEventListener('input', function() {
+    CFG.x = parseFloat(this.value);
+    document.getElementById('valX').textContent = CFG.x.toFixed(1);
+    draw(); updateData();
+  });
+  document.getElementById('sliderY').addEventListener('input', function() {
+    CFG.y = parseFloat(this.value);
+    document.getElementById('valY').textContent = CFG.y.toFixed(1);
+    draw(); updateData();
+  });
+
+  document.querySelectorAll('.exp-reflect-btn').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-reflect-btn').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.reflectType = b.dataset.reflect;
+      draw(); updateData();
+    });
+  });
+
+  window.addEventListener('resize', resize);
+
+  resize();
+  updateData();
+})();
+</script>
+{% endblock %}

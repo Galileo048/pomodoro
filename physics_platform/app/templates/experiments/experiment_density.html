@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}密度 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-density{color:var(--cyan)}.c-mass{color:var(--amber)}.c-vol{color:#83c167}.c-match{color:#ce93d8}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-match-box{border-radius:6px;padding:8px 10px;margin-top:6px;text-align:center;font-size:13px;font-weight:700}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">📏 密度</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Density — ρ = m / V</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">密度对比（柱状图）</span><canvas id="chartBar"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">ρ = m/V 曲线</span><canvas id="chartCurve"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">质量 m</span><span class="exp-slider-value" id="valMass">50.0 g</span></div>
+          <input type="range" id="sliderMass" min="1" max="100" step="0.5" value="50">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">体积 V</span><span class="exp-slider-value" id="valVol">25.0 cm³</span></div>
+          <input type="range" id="sliderVol" min="1" max="100" step="0.5" value="25">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">质量 m</div><div class="value c-mass" id="dataM">50.0 <span class="unit">g</span></div></div>
+          <div class="exp-data-item"><div class="label">体积 V</div><div class="value c-vol" id="dataV">25.0 <span class="unit">cm³</span></div></div>
+          <div class="exp-data-item"><div class="label">密度 ρ</div><div class="value c-density" id="dataRho">2.00 <span class="unit">g/cm³</span></div></div>
+          <div class="exp-data-item"><div class="label">最接近</div><div class="value c-match" id="dataMatch" style="font-size:12px;">铝</div></div>
+        </div>
+        <div class="exp-match-box" id="matchBox" style="background:rgba(167,139,250,0.15);color:#a78bfa;">最接近：铝 (ρ=2.7 g/cm³)</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 密度公式</h3>
+        <div class="exp-formula-box">
+          <div>ρ = m / V</div>
+          <div>ρ = <span class="formula" id="fmM">50.0</span> / <span class="formula" id="fmV">25.0</span></div>
+          <div>ρ = <span class="result" id="fmRho">2.00</span> g/cm³</div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text-muted);">常见材料密度：</div>
+          <div style="font-size:11px;">木材 ≈ 0.6 | 水 = 1.0 | 铝 = 2.7</div>
+          <div style="font-size:11px;">铁 = 7.8 | 铜 = 8.9 | 金 = 19.3</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { mass:50, vol:25, timeScale:1 };
+  var S = { t:0, playing:false };
+
+  var materials = [
+    { name:'木材', rho:0.6, color:'#8B6914' },
+    { name:'水',   rho:1.0, color:'#4488cc' },
+    { name:'铝',   rho:2.7, color:'#b0b0b0' },
+    { name:'铁',   rho:7.8, color:'#888' },
+    { name:'铜',   rho:8.9, color:'#cc6633' },
+    { name:'金',   rho:19.3, color:'#ffd700' }
+  ];
+
+  function getDensity() { return CFG.mass / CFG.vol; }
+
+  function getClosestMaterial() {
+    var rho = getDensity();
+    var minDiff = Infinity, closest = materials[0];
+    materials.forEach(function(m) {
+      var diff = Math.abs(m.rho - rho);
+      if (diff < minDiff) { minDiff = diff; closest = m; }
+    });
+    return closest;
+  }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var rho = getDensity();
+    var closest = getClosestMaterial();
+
+    // ====== 左侧：量筒/体积可视化 ======
+    var cylX = W * 0.22, cylW = 50, cylTop = H * 0.15, cylBot = H * 0.8;
+    var cylH = cylBot - cylTop;
+
+    // 量筒外框
+    ctx.strokeStyle = '#556688';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cylX - cylW/2, cylTop);
+    ctx.lineTo(cylX - cylW/2, cylBot);
+    ctx.lineTo(cylX + cylW/2, cylBot);
+    ctx.lineTo(cylX + cylW/2, cylTop);
+    ctx.stroke();
+
+    // 刻度线
+    for (var i = 0; i <= 10; i++) {
+      var y = cylTop + (i / 10) * cylH;
+      var lw = i % 5 === 0 ? 12 : 6;
+      ctx.strokeStyle = '#556688';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cylX - cylW/2, y);
+      ctx.lineTo(cylX - cylW/2 + lw, y);
+      ctx.stroke();
+      if (i % 5 === 0) {
+        ctx.fillStyle = '#888';
+        ctx.font = '9px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText((100 - i * 10) + '', cylX - cylW/2 - 4, y + 3);
+      }
+    }
+
+    // 液体（蓝色填充到对应体积）
+    var fillH = (CFG.vol / 100) * cylH;
+    var fillY = cylBot - fillH;
+    ctx.fillStyle = 'rgba(30,100,200,0.3)';
+    ctx.fillRect(cylX - cylW/2 + 2, fillY, cylW - 4, fillH - 2);
+
+    // 物体（放在液体中）
+    var objSize = Math.min(35, Math.sqrt(CFG.vol) * 3);
+    var objColor = closest.color;
+    ctx.fillStyle = objColor;
+    ctx.globalAlpha = 0.8;
+    ctx.fillRect(cylX - objSize/2, fillY + 10, objSize, objSize);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cylX - objSize/2, fillY + 10, objSize, objSize);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(CFG.mass.toFixed(0) + 'g', cylX, fillY + 10 + objSize/2 + 3);
+
+    // 体积标注
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('V = ' + CFG.vol.toFixed(1) + ' cm³', cylX, cylBot + 20);
+
+    // ====== 中间：物体 + 密度标注 ======
+    var objCX = W * 0.5, objCY = H * 0.45;
+    var bigObj = Math.min(80, Math.sqrt(CFG.vol) * 5);
+
+    ctx.fillStyle = objColor;
+    ctx.globalAlpha = 0.7;
+    // 3D效果
+    ctx.fillRect(objCX - bigObj/2, objCY - bigObj/2, bigObj, bigObj);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(objCX - bigObj/2, objCY - bigObj/2, bigObj, bigObj);
+
+    // 密度大字
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ρ = ' + rho.toFixed(2), objCX, objCY + bigObj/2 + 35);
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#888';
+    ctx.fillText('g/cm³', objCX, objCY + bigObj/2 + 55);
+
+    // 材质名称
+    ctx.fillStyle = closest.color;
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('≈ ' + closest.name, objCX, objCY - bigObj/2 - 15);
+
+    // ====== 右侧：天平 ======
+    var balX = W * 0.78, balY = H * 0.4;
+    // 天平横梁
+    ctx.strokeStyle = '#aabbcc';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(balX - 60, balY);
+    ctx.lineTo(balX + 60, balY);
+    ctx.stroke();
+    // 支点
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(balX, balY);
+    ctx.lineTo(balX - 8, balY + 15);
+    ctx.lineTo(balX + 8, balY + 15);
+    ctx.closePath();
+    ctx.fill();
+    // 左盘（质量）
+    ctx.strokeStyle = '#ffd93d';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(balX - 55, balY + 5, 20, 0, Math.PI);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(CFG.mass.toFixed(0) + 'g', balX - 55, balY + 35);
+    ctx.font = '10px sans-serif';
+    ctx.fillText('质量', balX - 55, balY - 25);
+
+    // 右盘（体积）
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(balX + 55, balY + 5, 20, 0, Math.PI);
+    ctx.stroke();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText(CFG.vol.toFixed(0) + 'cm³', balX + 55, balY + 35);
+    ctx.font = '10px sans-serif';
+    ctx.fillText('体积', balX + 55, balY - 25);
+
+    // 除号
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('÷', balX, balY - 15);
+
+    // 结果箭头
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(balX, balY + 40);
+    ctx.lineTo(balX, balY + 65);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(balX - 5, balY + 60);
+    ctx.lineTo(balX, balY + 68);
+    ctx.lineTo(balX + 5, balY + 60);
+    ctx.fill();
+
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText(rho.toFixed(2) + ' g/cm³', balX, balY + 85);
+  }
+
+  function updateData() {
+    var rho = getDensity();
+    var closest = getClosestMaterial();
+    document.getElementById('dataM').innerHTML = CFG.mass.toFixed(1) + ' <span class="unit">g</span>';
+    document.getElementById('dataV').innerHTML = CFG.vol.toFixed(1) + ' <span class="unit">cm³</span>';
+    document.getElementById('dataRho').innerHTML = rho.toFixed(2) + ' <span class="unit">g/cm³</span>';
+    document.getElementById('dataMatch').textContent = closest.name;
+
+    var box = document.getElementById('matchBox');
+    box.textContent = '最接近：' + closest.name + ' (ρ=' + closest.rho + ' g/cm³)';
+    box.style.background = closest.color + '22';
+    box.style.color = closest.color;
+
+    document.getElementById('fmM').textContent = CFG.mass.toFixed(1);
+    document.getElementById('fmV').textContent = CFG.vol.toFixed(1);
+    document.getElementById('fmRho').textContent = rho.toFixed(2);
+  }
+
+  /* ====== 图表: 密度对比柱状图 ====== */
+  function drawChartBar() {
+    var c = document.getElementById('chartBar');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:10, r:10, t:24, b:36 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var allItems = materials.concat([{ name:'我的', rho:getDensity(), color:'#00ff88' }]);
+    var maxRho = Math.max.apply(null, allItems.map(function(m) { return m.rho; })) * 1.15;
+    var barW = pw / allItems.length * 0.7;
+    var gap = pw / allItems.length;
+
+    allItems.forEach(function(m, i) {
+      var x = pad.l + gap * i + (gap - barW) / 2;
+      var barH = (m.rho / maxRho) * ph;
+      cx.fillStyle = m.color;
+      cx.globalAlpha = m.name === '我的' ? 1 : 0.7;
+      cx.fillRect(x, pad.t + ph - barH, barW, barH);
+      cx.globalAlpha = 1;
+      cx.strokeStyle = m.color;
+      cx.lineWidth = 1;
+      cx.strokeRect(x, pad.t + ph - barH, barW, barH);
+
+      cx.fillStyle = m.color;
+      cx.font = 'bold 9px sans-serif';
+      cx.textAlign = 'center';
+      cx.fillText(m.rho.toFixed(1), x + barW/2, pad.t + ph - barH - 5);
+      cx.font = '8px sans-serif';
+      cx.save();
+      cx.translate(x + barW/2, pad.t + ph + 12);
+      cx.fillText(m.name, 0, 0);
+      cx.restore();
+    });
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+  }
+
+  /* ====== 图表: ρ=m/V 曲线 ====== */
+  function drawChartCurve() {
+    var c = document.getElementById('chartCurve');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var Mmax = 100, Vmax = 100, Rhomax = 10;
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 不同质量的曲线族
+    var masses = [10, 30, 50, 70, 100];
+    var colors = ['#445566', '#556677', '#00d4ff', '#778899', '#99aabb'];
+    masses.forEach(function(m, idx) {
+      cx.strokeStyle = colors[idx];
+      cx.lineWidth = 1;
+      cx.beginPath();
+      for (var i = 1; i <= 100; i++) {
+        var V = (i / 100) * Vmax;
+        var rho = m / V;
+        if (rho > Rhomax) continue;
+        var px = pad.l + (V / Vmax) * pw;
+        var py = pad.t + ph - (rho / Rhomax) * ph;
+        if (i === 1) cx.moveTo(px, py); else cx.lineTo(px, py);
+      }
+      cx.stroke();
+    });
+
+    // 当前点
+    var curRho = getDensity();
+    if (curRho <= Rhomax) {
+      var curX = pad.l + (CFG.vol / Vmax) * pw;
+      var curY = pad.t + ph - (curRho / Rhomax) * ph;
+      cx.fillStyle = '#ff6b6b';
+      cx.beginPath();
+      cx.arc(curX, curY, 4, 0, Math.PI * 2);
+      cx.fill();
+    }
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('V (cm³)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    S.t += dt * CFG.timeScale;
+
+    draw();
+    updateData();
+    drawChartBar();
+    drawChartCurve();
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartBar();
+    drawChartCurve();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderMass').addEventListener('input', function() {
+    CFG.mass = parseFloat(this.value);
+    document.getElementById('valMass').textContent = CFG.mass.toFixed(1) + ' g';
+    updateData(); draw(); drawChartBar(); drawChartCurve();
+  });
+  document.getElementById('sliderVol').addEventListener('input', function() {
+    CFG.vol = parseFloat(this.value);
+    document.getElementById('valVol').textContent = CFG.vol.toFixed(1) + ' cm³';
+    updateData(); draw(); drawChartBar(); drawChartCurve();
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartBar();
+    drawChartCurve();
+  });
+
+  resize();
+  updateData();
+  drawChartBar();
+  drawChartCurve();
+})();
+</script>
+{% endblock %}

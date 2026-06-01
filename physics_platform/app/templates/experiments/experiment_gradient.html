@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+{% block title %}梯度与等高线交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:250px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:55px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .func-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .func-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .func-btn:hover:not(.active){border-color:var(--cyan)}
+  .toggle-group{display:flex;gap:6px;flex-wrap:wrap}
+  .toggle-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .toggle-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .canvas-split{display:flex;flex:1;min-height:0}
+  .canvas-split .exp-canvas-wrap{flex:1}
+  .canvas-split .exp-canvas-wrap+.exp-canvas-wrap{border-left:1px solid var(--border)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.canvas-split{flex-direction:column}.exp-canvas-wrap{height:35vh;min-height:200px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">🗺️ 梯度与等高线 — 多元函数的微分几何</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Gradient & Contours — 梯度指向最陡上升方向，垂直于等高线</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="canvas-split">
+        <div class="exp-canvas-wrap"><canvas id="contourCanvas"></canvas></div>
+        <div class="exp-canvas-wrap"><canvas id="surfaceCanvas"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <!-- 函数选择 -->
+      <div class="exp-panel-section">
+        <h3>📐 目标函数 f(x,y)</h3>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="func-btn active" data-func="bowl">x²+y²</button>
+          <button class="func-btn" data-func="saddle">x²-y²</button>
+          <button class="func-btn" data-func="wave">sin(x)cos(y)</button>
+          <button class="func-btn" data-func="gauss">x·e^(-x²-y²)</button>
+        </div>
+      </div>
+      <!-- 显示选项 -->
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="togGradient">梯度向量</button>
+          <button class="toggle-btn active" id="togContours">等高线</button>
+          <button class="toggle-btn active" id="togPoint">动点 P</button>
+          <button class="toggle-btn" id="togFill">颜色填充</button>
+        </div>
+      </div>
+      <!-- 动点控制 -->
+      <div class="exp-panel-section">
+        <h3>📍 动点 P 位置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">x 坐标</span><span class="exp-slider-value" id="valPx">1.00</span></div>
+          <input type="range" id="sliderPx" min="-3" max="3" step="0.05" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">y 坐标</span><span class="exp-slider-value" id="valPy">1.00</span></div>
+          <input type="range" id="sliderPy" min="-3" max="3" step="0.05" value="1">
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);">也可在等高线图上直接拖动点P</div>
+      </div>
+      <!-- 数据 -->
+      <div class="exp-panel-section">
+        <h3>📊 梯度信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">f(P)</div><div class="value c-cyan" id="dataF">—</div></div>
+          <div class="exp-data-item"><div class="label">|∇f|</div><div class="value c-accent" id="dataMag">—</div></div>
+          <div class="exp-data-item"><div class="label">∂f/∂x</div><div class="value c-green" id="dataDx">—</div></div>
+          <div class="exp-data-item"><div class="label">∂f/∂y</div><div class="value c-amber" id="dataDy">—</div></div>
+          <div class="exp-data-item"><div class="label">方向角</div><div class="value c-purple" id="dataAngle">—</div></div>
+          <div class="exp-data-item"><div class="label">∇f 方向</div><div class="value c-cyan" id="dataDir">最陡上升</div></div>
+        </div>
+      </div>
+      <!-- 方向导数 -->
+      <div class="exp-panel-section">
+        <h3>📐 方向导数</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">方向角 θ</span><span class="exp-slider-value" id="valTheta">0°</span></div>
+          <input type="range" id="sliderTheta" min="0" max="360" step="5" value="0">
+        </div>
+        <div class="exp-formula-box">
+          <div>∇f = (∂f/∂x, ∂f/∂y) = <span class="result" id="fmGrad">(1, 1)</span></div>
+          <div>D_θ f = ∇f · û = <span class="result" id="fmDirDeriv">—</span></div>
+          <div style="color:var(--text-muted);font-size:11px;margin-top:2px;">θ=0°: 沿x方向, θ=90°: 沿y方向</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var contourCanvas = document.getElementById('contourCanvas');
+  var surfaceCanvas = document.getElementById('surfaceCanvas');
+  var cCtx = contourCanvas.getContext('2d');
+  var sCtx = surfaceCanvas.getContext('2d');
+
+  var funcs = {
+    bowl: {
+      f: function(x,y){return x*x+y*y;},
+      gx: function(x,y){return 2*x;},
+      gy: function(x,y){return 2*y;},
+      name: 'x²+y²'
+    },
+    saddle: {
+      f: function(x,y){return x*x-y*y;},
+      gx: function(x,y){return 2*x;},
+      gy: function(x,y){return -2*y;},
+      name: 'x²-y²'
+    },
+    wave: {
+      f: function(x,y){return Math.sin(x)*Math.cos(y);},
+      gx: function(x,y){return Math.cos(x)*Math.cos(y);},
+      gy: function(x,y){return -Math.sin(x)*Math.sin(y);},
+      name: 'sin(x)cos(y)'
+    },
+    gauss: {
+      f: function(x,y){
+        var r2=x*x+y*y;
+        return x*Math.exp(-r2);
+      },
+      gx: function(x,y){
+        var r2=x*x+y*y;
+        return (1-2*x*x)*Math.exp(-r2);
+      },
+      gy: function(x,y){
+        var r2=x*x+y*y;
+        return -2*x*y*Math.exp(-r2);
+      },
+      name: 'x·e^(-x²-y²)'
+    }
+  };
+
+  var currentFunc = 'bowl';
+  var showGradient = true, showContours = true, showPoint = true, showFill = false;
+  var px = 1, py = 1;
+  var dragging = false;
+
+  function resize(){
+    var dpr = window.devicePixelRatio||1;
+    [contourCanvas, surfaceCanvas].forEach(function(c){
+      var rect = c.parentElement.getBoundingClientRect();
+      c.width = Math.round(rect.width*dpr);
+      c.height = Math.round(rect.height*dpr);
+      c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+    });
+    draw();
+  }
+
+  // Color mapping
+  function valueToColor(v, minV, maxV){
+    var t = (v - minV)/(maxV - minV);
+    t = Math.max(0, Math.min(1, t));
+    // Cool-warm colormap
+    var r, g, b;
+    if(t < 0.5){
+      var s = t*2;
+      r = Math.floor(30 + s*50);
+      g = Math.floor(50 + s*130);
+      b = Math.floor(180 - s*40);
+    } else {
+      var s2 = (t-0.5)*2;
+      r = Math.floor(80 + s2*175);
+      g = Math.floor(180 - s2*140);
+      b = Math.floor(140 - s2*100);
+    }
+    return 'rgb('+r+','+g+','+b+')';
+  }
+
+  function drawContour(){
+    var W = contourCanvas.width / (window.devicePixelRatio||1);
+    var H = contourCanvas.height / (window.devicePixelRatio||1);
+    cCtx.clearRect(0,0,W,H);
+    cCtx.fillStyle = '#0f0f1a';
+    cCtx.fillRect(0,0,W,H);
+
+    var pad = 40;
+    var cw = W-2*pad, ch = H-2*pad;
+    var xMin=-3, xMax=3, yMin=-3, yMax=3;
+    var f = funcs[currentFunc].f;
+
+    function tx(x){return pad+(x-xMin)/(xMax-xMin)*cw;}
+    function ty(y){return pad+(1-(y-yMin)/(yMax-yMin))*ch;}
+
+    // Compute value range
+    var minV=Infinity, maxV=-Infinity;
+    for(var iy=0;iy<ch;iy+=2){
+      for(var ix=0;ix<cw;ix+=2){
+        var xv = xMin+(ix/cw)*(xMax-xMin);
+        var yv = yMin+(iy/ch)*(yMax-yMin);
+        var fv = f(xv,yv);
+        if(fv<minV) minV=fv;
+        if(fv>maxV) maxV=fv;
+      }
+    }
+
+    // Color fill
+    if(showFill){
+      var imgData = cCtx.createImageData(Math.ceil(cw), Math.ceil(ch));
+      for(var iy2=0;iy2<ch;iy2++){
+        for(var ix2=0;ix2<cw;ix2++){
+          var xv2 = xMin+(ix2/cw)*(xMax-xMin);
+          var yv2 = yMin+(iy2/ch)*(yMax-yMin);
+          var fv2 = f(xv2,yv2);
+          var t = (fv2-minV)/(maxV-minV);
+          t = Math.max(0,Math.min(1,t));
+          var r,g,b;
+          if(t<0.5){var s=t*2;r=Math.floor(30+s*50);g=Math.floor(50+s*130);b=Math.floor(180-s*40);}
+          else{var s2=(t-0.5)*2;r=Math.floor(80+s2*175);g=Math.floor(180-s2*140);b=Math.floor(140-s2*100);}
+          var idx = (iy2*Math.ceil(cw)+ix2)*4;
+          imgData.data[idx]=r; imgData.data[idx+1]=g; imgData.data[idx+2]=b; imgData.data[idx+3]=180;
+        }
+      }
+      cCtx.putImageData(imgData, pad, pad);
+    }
+
+    // Contour lines (marching squares simplified)
+    if(showContours){
+      var levels = [];
+      var nLevels = 12;
+      for(var l=0;l<nLevels;l++){
+        levels.push(minV + (l+1)/(nLevels+1)*(maxV-minV));
+      }
+      cCtx.lineWidth = 1.2;
+      levels.forEach(function(level, li){
+        var hue = (li/nLevels)*360;
+        cCtx.strokeStyle = 'hsla('+hue+',60%,60%,0.6)';
+        cCtx.beginPath();
+        var step = 3;
+        for(var iy3=0;iy3<ch-step;iy3+=step){
+          for(var ix3=0;ix3<cw-step;ix3+=step){
+            var corners = [
+              f(xMin+(ix3/cw)*(xMax-xMin), yMin+(iy3/ch)*(yMax-yMin)),
+              f(xMin+((ix3+step)/cw)*(xMax-xMin), yMin+(iy3/ch)*(yMax-yMin)),
+              f(xMin+((ix3+step)/cw)*(xMax-xMin), yMin+((iy3+step)/ch)*(yMax-yMin)),
+              f(xMin+(ix3/cw)*(xMax-xMin), yMin+((iy3+step)/ch)*(yMax-yMin))
+            ];
+            var signs = corners.map(function(v){return v>=level?1:0;});
+            var code = signs[0]*8+signs[1]*4+signs[2]*2+signs[3];
+            if(code===0||code===15) continue;
+            // Simplified: draw line through midpoint of edges that cross the level
+            var pts = [];
+            var x0=pad+ix3, y0=pad+iy3, s=step;
+            // Top edge
+            if(signs[0]!==signs[1]){
+              var t2=(level-corners[0])/(corners[1]-corners[0]);
+              pts.push({x:x0+t2*s, y:y0});
+            }
+            // Right edge
+            if(signs[1]!==signs[2]){
+              var t3=(level-corners[1])/(corners[2]-corners[1]);
+              pts.push({x:x0+s, y:y0+t3*s});
+            }
+            // Bottom edge
+            if(signs[3]!==signs[2]){
+              var t4=(level-corners[3])/(corners[2]-corners[3]);
+              pts.push({x:x0+t4*s, y:y0+s});
+            }
+            // Left edge
+            if(signs[0]!==signs[3]){
+              var t5=(level-corners[0])/(corners[3]-corners[0]);
+              pts.push({x:x0, y:y0+t5*s});
+            }
+            if(pts.length>=2){
+              cCtx.moveTo(pts[0].x, pts[0].y);
+              cCtx.lineTo(pts[1].x, pts[1].y);
+            }
+          }
+        }
+        cCtx.stroke();
+      });
+    }
+
+    // Axes
+    cCtx.strokeStyle = '#444466'; cCtx.lineWidth = 1;
+    cCtx.beginPath(); cCtx.moveTo(pad,pad+ch); cCtx.lineTo(pad+cw,pad+ch); cCtx.stroke();
+    cCtx.beginPath(); cCtx.moveTo(pad,pad); cCtx.lineTo(pad,pad+ch); cCtx.stroke();
+    cCtx.fillStyle = '#8888a0'; cCtx.font = '10px sans-serif'; cCtx.textAlign = 'center';
+    for(var ax=-2;ax<=2;ax++){
+      if(ax===0) continue;
+      cCtx.fillText(ax, tx(ax), pad+ch+14);
+    }
+
+    // Gradient vectors at grid points
+    if(showGradient){
+      var gx = funcs[currentFunc].gx;
+      var gy = funcs[currentFunc].gy;
+      for(var giy=-2;giy<=2;giy+=1){
+        for(var gix=-2;gix<=2;gix+=1){
+          var gv = f(gix, giy);
+          var gdx = gx(gix, giy);
+          var gdy = gy(gix, giy);
+          var gmag = Math.sqrt(gdx*gdx+gdy*gdy);
+          if(gmag < 0.001) continue;
+          var scale = Math.min(20, gmag*8);
+          var ux = gdx/gmag, uy = gdy/gmag;
+          var sx = tx(gix), sy = ty(giy);
+          var ex = sx + ux*scale, ey = sy - uy*scale; // y inverted
+          cCtx.strokeStyle = '#ff446688'; cCtx.fillStyle = '#ff446688';
+          cCtx.lineWidth = 1.5;
+          cCtx.beginPath(); cCtx.moveTo(sx,sy); cCtx.lineTo(ex,ey); cCtx.stroke();
+          // Arrowhead
+          var hl = 5;
+          cCtx.beginPath();
+          cCtx.moveTo(ex,ey);
+          cCtx.lineTo(ex-hl*ux+hl*0.4*uy, ey+hl*uy+hl*0.4*ux);
+          cCtx.lineTo(ex-hl*ux-hl*0.4*uy, ey+hl*uy-hl*0.4*ux);
+          cCtx.closePath(); cCtx.fill();
+        }
+      }
+    }
+
+    // Point P
+    if(showPoint){
+      var gx2 = funcs[currentFunc].gx;
+      var gy2 = funcs[currentFunc].gy;
+      var fv = f(px,py);
+      var gdx2 = gx2(px,py), gdy2 = gy2(px,py);
+      var gmag2 = Math.sqrt(gdx2*gdx2+gdy2*gdy2);
+
+      // Glow
+      var glow = cCtx.createRadialGradient(tx(px),ty(py),0,tx(px),ty(py),16);
+      glow.addColorStop(0,'rgba(255,255,0,0.5)');
+      glow.addColorStop(1,'rgba(255,255,0,0)');
+      cCtx.fillStyle = glow;
+      cCtx.beginPath(); cCtx.arc(tx(px),ty(py),16,0,Math.PI*2); cCtx.fill();
+
+      cCtx.fillStyle = '#ffff00';
+      cCtx.beginPath(); cCtx.arc(tx(px),ty(py),5,0,Math.PI*2); cCtx.fill();
+
+      // Gradient arrow at P
+      if(showGradient && gmag2 > 0.01){
+        var gscale = Math.min(50, gmag2*15);
+        var gux = gdx2/gmag2, guy = gdy2/gmag2;
+        cCtx.strokeStyle = '#ff4466'; cCtx.fillStyle = '#ff4466';
+        cCtx.lineWidth = 3;
+        cCtx.beginPath();
+        cCtx.moveTo(tx(px), ty(py));
+        cCtx.lineTo(tx(px)+gux*gscale, ty(py)-guy*gscale);
+        cCtx.stroke();
+        var hl2 = 8;
+        var ex2 = tx(px)+gux*gscale, ey2 = ty(py)-guy*gscale;
+        cCtx.beginPath();
+        cCtx.moveTo(ex2,ey2);
+        cCtx.lineTo(ex2-hl2*gux+hl2*0.4*guy, ey2+hl2*guy+hl2*0.4*gux);
+        cCtx.lineTo(ex2-hl2*gux-hl2*0.4*guy, ey2+hl2*guy-hl2*0.4*gux);
+        cCtx.closePath(); cCtx.fill();
+
+        cCtx.fillStyle = '#ff4466'; cCtx.font = 'bold 11px sans-serif'; cCtx.textAlign = 'left';
+        cCtx.fillText('∇f', ex2+8, ey2-8);
+      }
+
+      // Direction arrow
+      var theta = parseFloat(document.getElementById('sliderTheta').value)*Math.PI/180;
+      var dx = Math.cos(theta), dy = Math.sin(theta);
+      var dLen = 35;
+      cCtx.strokeStyle = '#a78bfa'; cCtx.lineWidth = 2;
+      cCtx.setLineDash([4,3]);
+      cCtx.beginPath();
+      cCtx.moveTo(tx(px), ty(py));
+      cCtx.lineTo(tx(px)+dx*dLen, ty(py)-dy*dLen);
+      cCtx.stroke();
+      cCtx.setLineDash([]);
+      cCtx.fillStyle = '#a78bfa'; cCtx.font = '10px sans-serif';
+      cCtx.fillText('θ', tx(px)+dx*dLen+6, ty(py)-dy*dLen-4);
+    }
+
+    // Label
+    cCtx.fillStyle = '#ffffff66'; cCtx.font = '11px sans-serif'; cCtx.textAlign = 'left';
+    cCtx.fillText('等高线图 — '+funcs[currentFunc].name, pad+5, pad+14);
+  }
+
+  function drawSurface(){
+    var W = surfaceCanvas.width / (window.devicePixelRatio||1);
+    var H = surfaceCanvas.height / (window.devicePixelRatio||1);
+    sCtx.clearRect(0,0,W,H);
+    sCtx.fillStyle = '#0f0f1a';
+    sCtx.fillRect(0,0,W,H);
+
+    var f = funcs[currentFunc].f;
+    var xMin=-3, xMax=3, yMin=-3, yMax=3;
+    var pad = 30;
+    var cw = W-2*pad, ch = H-2*pad;
+
+    // Compute value range
+    var minV=Infinity, maxV=-Infinity;
+    for(var iy=0;iy<40;iy++){
+      for(var ix=0;ix<40;ix++){
+        var xv = xMin+(ix/39)*(xMax-xMin);
+        var yv = yMin+(iy/39)*(yMax-yMin);
+        var fv = f(xv,yv);
+        if(fv<minV) minV=fv;
+        if(fv>maxV) maxV=fv;
+      }
+    }
+
+    // 3D surface as wireframe
+    var perspective = 120;
+    var eyeX = 0, eyeY = -6, eyeZ = 5;
+
+    function project3D(x, y, z){
+      // Simple isometric-like projection
+      var scale3d = 0.8;
+      var sx = pad + cw/2 + (x*0.8 - y*0.4)*scale3d * cw/12;
+      var sy = pad + ch/2 + (-z*0.7 + y*0.5)*scale3d * ch/10;
+      return {x: sx, y: sy};
+    }
+
+    // Draw surface grid
+    var gridSize = 30;
+    sCtx.lineWidth = 0.8;
+
+    // Back-to-front for proper rendering
+    for(var gy=0;gy<gridSize;gy++){
+      sCtx.beginPath();
+      var first = true;
+      for(var gx2=0;gx2<gridSize;gx2++){
+        var x3 = xMin+(gx2/(gridSize-1))*(xMax-xMin);
+        var y3 = yMin+(gy/(gridSize-1))*(yMax-yMin);
+        var z3 = f(x3,y3);
+        var p = project3D(x3, y3, z3);
+        if(first){sCtx.moveTo(p.x,p.y);first=false;}else sCtx.lineTo(p.x,p.y);
+      }
+      var hue = (gy/gridSize)*360;
+      sCtx.strokeStyle = 'hsla('+hue+',50%,55%,0.4)';
+      sCtx.stroke();
+    }
+    for(var gx3=0;gx3<gridSize;gx3++){
+      sCtx.beginPath();
+      var first2 = true;
+      for(var gy2=0;gy2<gridSize;gy2++){
+        var x4 = xMin+(gx3/(gridSize-1))*(xMax-xMin);
+        var y4 = yMin+(gy2/(gridSize-1))*(yMax-yMin);
+        var z4 = f(x4,y4);
+        var p2 = project3D(x4, y4, z4);
+        if(first2){sCtx.moveTo(p2.x,p2.y);first2=false;}else sCtx.lineTo(p2.x,p2.y);
+      }
+      sCtx.strokeStyle = 'hsla('+((gx3/gridSize)*360+180)+',50%,55%,0.3)';
+      sCtx.stroke();
+    }
+
+    // Point P on surface
+    if(showPoint){
+      var fv2 = f(px,py);
+      var pp = project3D(px, py, fv2);
+      sCtx.fillStyle = '#ffff00';
+      sCtx.beginPath(); sCtx.arc(pp.x, pp.y, 5, 0, Math.PI*2); sCtx.fill();
+      sCtx.fillStyle = '#ffff00'; sCtx.font = '10px sans-serif'; sCtx.textAlign = 'left';
+      sCtx.fillText('P', pp.x+8, pp.y-6);
+    }
+
+    sCtx.fillStyle = '#ffffff66'; sCtx.font = '11px sans-serif'; sCtx.textAlign = 'left';
+    sCtx.fillText('3D 视角 — '+funcs[currentFunc].name, pad+5, pad+14);
+  }
+
+  function updateInfo(){
+    var f = funcs[currentFunc].f;
+    var gx = funcs[currentFunc].gx;
+    var gy = funcs[currentFunc].gy;
+    var fv = f(px,py);
+    var gdx = gx(px,py), gdy = gy(px,py);
+    var gmag = Math.sqrt(gdx*gdx+gdy*gdy);
+    var gAngle = Math.atan2(gdy,gdx)*180/Math.PI;
+
+    document.getElementById('valPx').textContent = px.toFixed(2);
+    document.getElementById('valPy').textContent = py.toFixed(2);
+    document.getElementById('dataF').textContent = fv.toFixed(4);
+    document.getElementById('dataMag').textContent = gmag.toFixed(4);
+    document.getElementById('dataDx').textContent = gdx.toFixed(4);
+    document.getElementById('dataDy').textContent = gdy.toFixed(4);
+    document.getElementById('dataAngle').textContent = gAngle.toFixed(1)+'°';
+
+    document.getElementById('fmGrad').textContent = '('+gdx.toFixed(3)+', '+gdy.toFixed(3)+')';
+
+    // Directional derivative
+    var theta = parseFloat(document.getElementById('sliderTheta').value)*Math.PI/180;
+    var ddx = Math.cos(theta), ddy = Math.sin(theta);
+    var dirDeriv = gdx*ddx + gdy*ddy;
+    document.getElementById('valTheta').textContent = Math.round(theta*180/Math.PI)+'°';
+    document.getElementById('fmDirDeriv').textContent = dirDeriv.toFixed(4);
+  }
+
+  function draw(){ drawContour(); drawSurface(); updateInfo(); }
+
+  // Function selector
+  document.querySelectorAll('.func-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.func-btn').forEach(function(b){b.classList.remove('active');});
+      this.classList.add('active');
+      currentFunc = this.dataset.func;
+      draw();
+    });
+  });
+
+  // Toggles
+  function setupToggle(id, getter, setter){
+    document.getElementById(id).addEventListener('click', function(){
+      var v = !getter(); setter(v);
+      this.classList.toggle('active', v);
+      draw();
+    });
+  }
+  setupToggle('togGradient', function(){return showGradient;}, function(v){showGradient=v;});
+  setupToggle('togContours', function(){return showContours;}, function(v){showContours=v;});
+  setupToggle('togPoint', function(){return showPoint;}, function(v){showPoint=v;});
+  setupToggle('togFill', function(){return showFill;}, function(v){showFill=v;});
+
+  // Sliders
+  document.getElementById('sliderPx').addEventListener('input', function(){
+    px = parseFloat(this.value); draw();
+  });
+  document.getElementById('sliderPy').addEventListener('input', function(){
+    py = parseFloat(this.value); draw();
+  });
+  document.getElementById('sliderTheta').addEventListener('input', function(){
+    draw();
+  });
+
+  // Drag on contour canvas
+  contourCanvas.addEventListener('mousedown', function(e){
+    dragging = true;
+  });
+  contourCanvas.addEventListener('mousemove', function(e){
+    if(!dragging) return;
+    var rect = contourCanvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var pad2 = 40, cw2 = rect.width-2*pad2, ch2 = rect.height-2*pad2;
+    px = Math.max(-3, Math.min(3, -3+(mx-pad2)/cw2*6));
+    py = Math.max(-3, Math.min(3, -3+(1-(my-pad2)/ch2)*6));
+    document.getElementById('sliderPx').value = px;
+    document.getElementById('sliderPy').value = py;
+    draw();
+  });
+  contourCanvas.addEventListener('mouseup', function(){dragging=false;});
+  contourCanvas.addEventListener('mouseleave', function(){dragging=false;});
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
+{% endblock %}

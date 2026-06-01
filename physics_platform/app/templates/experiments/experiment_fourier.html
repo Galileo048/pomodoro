@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}傅里叶级数交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:250px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:55px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .func-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .func-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .func-btn:hover:not(.active){border-color:var(--cyan)}
+  .exp-btn-play{padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent,#e94560);color:#fff;flex:1}
+  .exp-btn-reset{padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--border);color:var(--text-primary);flex:1}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:40vh;min-height:200px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">📊 傅里叶级数 — 用正弦波叠加任意波形</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Fourier Series — 任何周期函数都可以分解为正弦和余弦的叠加</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+    </div>
+    <div class="exp-side-panel">
+      <!-- 波形选择 -->
+      <div class="exp-panel-section">
+        <h3>〰️ 目标波形</h3>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="func-btn active" data-wave="square">方波</button>
+          <button class="func-btn" data-wave="triangle">三角波</button>
+          <button class="func-btn" data-wave="sawtooth">锯齿波</button>
+        </div>
+      </div>
+      <!-- 参数 -->
+      <div class="exp-panel-section">
+        <h3>🎛️ 参数调节</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">谐波项数 N</span><span class="exp-slider-value" id="valN">5</span></div>
+          <input type="range" id="sliderN" min="1" max="20" step="1" value="5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">显示谐波数</span><span class="exp-slider-value" id="valShow">3</span></div>
+          <input type="range" id="sliderShow" min="0" max="8" step="1" value="3">
+        </div>
+      </div>
+      <!-- 动画控制 -->
+      <div class="exp-panel-section">
+        <h3>▶️ 动画控制</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="exp-btn-play" id="btnAnimate">▶ 逐项叠加</button>
+          <button class="exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+      </div>
+      <!-- 频谱图 -->
+      <div class="exp-panel-section">
+        <h3>📈 频谱系数</h3>
+        <canvas id="specCanvas" width="270" height="100" style="width:100%;height:100px;background:#0f0f1a;border-radius:6px;"></canvas>
+      </div>
+      <!-- 误差 -->
+      <div class="exp-panel-section">
+        <h3>📊 收敛信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">项数 N</div><div class="value c-cyan" id="dataN">5</div></div>
+          <div class="exp-data-item"><div class="label">均方误差</div><div class="value c-accent" id="dataMSE">—</div></div>
+          <div class="exp-data-item"><div class="label">最大误差</div><div class="value c-green" id="dataMaxErr">—</div></div>
+          <div class="exp-data-item"><div class="label">波形</div><div class="value c-amber" id="dataWave">方波</div></div>
+        </div>
+      </div>
+      <!-- 公式 -->
+      <div class="exp-panel-section">
+        <h3>📐 傅里叶公式</h3>
+        <div class="exp-formula-box" id="formulaBox">
+          <div>f(t) ≈ Σ <span class="result" id="fmFormula">4/(πn) sin(nωt), n=1,3,5...</span></div>
+          <div style="color:var(--text-muted);font-size:11px;margin-top:3px;">Gibbs现象: N→∞ 时跳变处仍有 9% 超调</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+  var specCanvas = document.getElementById('specCanvas');
+  var specCtx = specCanvas.getContext('2d');
+
+  var waveType = 'square';
+  var N = 5;
+  var showHarmonics = 3;
+  var animating = false, animN = 1;
+  var animId = null;
+
+  function resize(){
+    var dpr = window.devicePixelRatio||1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width*dpr);
+    canvas.height = Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  // Target waveforms
+  function targetWave(t, type){
+    // Normalize t to [0, 2π)
+    t = ((t % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+    switch(type){
+      case 'square':
+        return t < Math.PI ? 1 : -1;
+      case 'triangle':
+        if(t < Math.PI) return -1 + 2*t/Math.PI;
+        return 3 - 2*t/Math.PI;
+      case 'sawtooth':
+        return -1 + 2*t/(2*Math.PI);
+      default: return 0;
+    }
+  }
+
+  // Fourier coefficients
+  function fourierCoeff(n, type){
+    switch(type){
+      case 'square':
+        if(n%2===0) return 0;
+        return 4/(n*Math.PI);
+      case 'triangle':
+        if(n%2===0) return 0;
+        return 8*Math.pow(-1,(n-1)/2)/(n*n*Math.PI*Math.PI);
+      case 'sawtooth':
+        return 2*Math.pow(-1,n+1)/(n*Math.PI);
+      default: return 0;
+    }
+  }
+
+  // Fourier sum
+  function fourierSum(t, N, type){
+    var s = 0;
+    for(var n=1; n<=N; n++){
+      s += fourierCoeff(n, type) * Math.sin(n*t);
+    }
+    return s;
+  }
+
+  function draw(){
+    var W = canvas.width / (window.devicePixelRatio||1);
+    var H = canvas.height / (window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0,0,W,H);
+
+    var pad = 40;
+    var pw = W - 2*pad;
+    var ph = H - 2*pad;
+    var midY = pad + ph/2;
+    var tMax = 2*Math.PI;
+    var useN = animating ? animN : N;
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for(var i=0;i<=6;i++){
+      var gx = pad + pw*i/6;
+      ctx.beginPath(); ctx.moveTo(gx,pad); ctx.lineTo(gx,pad+ph); ctx.stroke();
+    }
+    for(var j=0;j<=4;j++){
+      var gy = pad + ph*j/4;
+      ctx.beginPath(); ctx.moveTo(pad,gy); ctx.lineTo(pad+pw,gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, midY); ctx.lineTo(pad+pw, midY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, pad+ph); ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('0', pad, pad+ph+14);
+    ctx.fillText('π', pad+pw/2, pad+ph+14);
+    ctx.fillText('2π', pad+pw, pad+ph+14);
+    ctx.textAlign = 'right';
+    ctx.fillText('+1', pad-6, midY - ph/2 + 4);
+    ctx.fillText('-1', pad-6, midY + ph/2 + 4);
+
+    // Target waveform (dashed)
+    ctx.strokeStyle = '#ffffff44'; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]);
+    ctx.beginPath();
+    for(var px=0; px<=pw; px++){
+      var t = (px/pw)*tMax;
+      var y = targetWave(t, waveType);
+      var sx = pad + px, sy = midY - y*(ph/2.5);
+      if(px===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // Individual harmonics (faint)
+    var colors = ['#ff666688','#66aaff88','#aaff6688','#ff66ff88','#ffff6688','#66ffff88','#ffaa6688','#aa66ff88'];
+    if(showHarmonics > 0){
+      for(var h=1; h<=Math.min(showHarmonics, useN); h++){
+        var coeff = fourierCoeff(h, waveType);
+        if(Math.abs(coeff) < 0.001) continue;
+        ctx.strokeStyle = colors[(h-1)%colors.length];
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for(var px2=0; px2<=pw; px2++){
+          var t2 = (px2/pw)*tMax;
+          var y2 = coeff * Math.sin(h*t2);
+          var sy2 = midY - y2*(ph/2.5);
+          if(px2===0) ctx.moveTo(pad+px2, sy2); else ctx.lineTo(pad+px2, sy2);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Fourier sum (bold, cyan)
+    ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for(var px3=0; px3<=pw; px3++){
+      var t3 = (px3/pw)*tMax;
+      var y3 = fourierSum(t3, useN, waveType);
+      var sy3 = midY - y3*(ph/2.5);
+      if(px3===0) ctx.moveTo(pad+px3, sy3); else ctx.lineTo(pad+px3, sy3);
+    }
+    ctx.stroke();
+
+    // Legend
+    ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#00d4ff'; ctx.fillText('■ 傅里叶叠加 (N='+useN+')', pad+5, pad+15);
+    ctx.fillStyle = '#ffffff44'; ctx.fillText('■ 目标波形', pad+5, pad+30);
+
+    drawSpec(useN);
+    updateInfo(useN);
+  }
+
+  function drawSpec(useN){
+    var W = 270, H = 100;
+    specCtx.clearRect(0,0,W,H);
+    specCtx.fillStyle = '#0f0f1a';
+    specCtx.fillRect(0,0,W,H);
+
+    var pad = 25, bw = W - 2*pad;
+    var barW = Math.max(3, bw/20 - 2);
+    var maxCoeff = 1.5;
+
+    // Axes
+    specCtx.strokeStyle = '#444466'; specCtx.lineWidth = 1;
+    specCtx.beginPath(); specCtx.moveTo(pad, H-15); specCtx.lineTo(pad+bw, H-15); specCtx.stroke();
+
+    for(var n=1; n<=20; n++){
+      var c = fourierCoeff(n, waveType);
+      var x = pad + (n-1)*(bw/20);
+      var barH = Math.abs(c)/maxCoeff * (H-25);
+      specCtx.fillStyle = n<=useN ? '#00d4ff' : '#333355';
+      specCtx.fillRect(x, H-15-barH, barW, barH);
+      if(n<=5 || n%5===0){
+        specCtx.fillStyle = '#8888a0';
+        specCtx.font = '9px sans-serif';
+        specCtx.textAlign = 'center';
+        specCtx.fillText(n, x+barW/2, H-3);
+      }
+    }
+  }
+
+  function updateInfo(useN){
+    var mse = 0, maxErr = 0;
+    var steps = 200;
+    for(var i=0;i<steps;i++){
+      var t = (i/steps)*2*Math.PI;
+      var err = targetWave(t, waveType) - fourierSum(t, useN, waveType);
+      mse += err*err;
+      maxErr = Math.max(maxErr, Math.abs(err));
+    }
+    mse = Math.sqrt(mse/steps);
+    document.getElementById('dataN').textContent = useN;
+    document.getElementById('dataMSE').textContent = mse.toFixed(4);
+    document.getElementById('dataMaxErr').textContent = maxErr.toFixed(4);
+    document.getElementById('dataWave').textContent = {square:'方波',triangle:'三角波',sawtooth:'锯齿波'}[waveType];
+  }
+
+  // Wave type selector
+  document.querySelectorAll('.func-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.func-btn').forEach(function(b){b.classList.remove('active');});
+      this.classList.add('active');
+      waveType = this.dataset.wave;
+      draw();
+    });
+  });
+
+  // Sliders
+  document.getElementById('sliderN').addEventListener('input', function(){
+    N = parseInt(this.value);
+    document.getElementById('valN').textContent = N;
+    draw();
+  });
+  document.getElementById('sliderShow').addEventListener('input', function(){
+    showHarmonics = parseInt(this.value);
+    document.getElementById('valShow').textContent = showHarmonics;
+    draw();
+  });
+
+  // Animation
+  document.getElementById('btnAnimate').addEventListener('click', function(){
+    if(animating){
+      animating = false;
+      if(animId) cancelAnimationFrame(animId);
+      document.getElementById('btnAnimate').textContent = '▶ 逐项叠加';
+      N = animN;
+      document.getElementById('sliderN').value = N;
+      document.getElementById('valN').textContent = N;
+      draw(); return;
+    }
+    animating = true; animN = 1;
+    document.getElementById('btnAnimate').textContent = '⏸ 暂停';
+    var startTime = 0;
+    function animate(ts){
+      if(!startTime) startTime = ts;
+      var elapsed = (ts - startTime) / 1000;
+      animN = Math.min(20, Math.floor(elapsed * 1.5) + 1);
+      draw();
+      if(animN < 20 && animating){
+        animId = requestAnimationFrame(animate);
+      } else {
+        animating = false;
+        N = animN;
+        document.getElementById('btnAnimate').textContent = '▶ 逐项叠加';
+        document.getElementById('sliderN').value = N;
+        document.getElementById('valN').textContent = N;
+        draw();
+      }
+    }
+    animId = requestAnimationFrame(animate);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    animating = false;
+    if(animId) cancelAnimationFrame(animId);
+    N = 5; showHarmonics = 3; animN = 1;
+    document.getElementById('sliderN').value = 5;
+    document.getElementById('sliderShow').value = 3;
+    document.getElementById('valN').textContent = '5';
+    document.getElementById('valShow').textContent = '3';
+    document.getElementById('btnAnimate').textContent = '▶ 逐项叠加';
+    draw();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
+{% endblock %}

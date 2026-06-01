@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}双缝干涉 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-wave{color:var(--cyan)}.c-fringe{color:#ffd93d}.c-screen{color:#66bb6a}.c-accent{color:var(--accent,#e94560)}.c-lam{color:#ce93d8}.c-d{color:#ff8a65}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-color-preview{width:100%;height:30px;border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ffd93d;">💡 双缝干涉</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Young's Double-Slit Interference — Δx = λL/d</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">I-θ 强度</span><canvas id="chartITheta"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">I-y 屏上分布</span><canvas id="chartIY"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">干涉图样</span><canvas id="chartPattern"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">波长 λ</span><span class="exp-slider-value" id="valLam">550 nm</span></div>
+          <input type="range" id="sliderLam" min="380" max="780" step="1" value="550">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">缝距 d</span><span class="exp-slider-value" id="valD">0.20 mm</span></div>
+          <input type="range" id="sliderD" min="0.01" max="1" step="0.01" value="0.2">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">屏距 L</span><span class="exp-slider-value" id="valL">1.5 m</span></div>
+          <input type="range" id="sliderL" min="0.5" max="3" step="0.1" value="1.5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">光色预览</span></div>
+          <div class="exp-color-preview" id="colorPreview"></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">条纹间距 Δx</div><div class="value c-fringe" id="dataDeltaX">4.13 <span class="unit">mm</span></div></div>
+          <div class="exp-data-item"><div class="label">波长 λ</div><div class="value c-lam" id="dataLam">550 <span class="unit">nm</span></div></div>
+          <div class="exp-data-item"><div class="label">缝距 d</div><div class="value c-d" id="dataD">0.20 <span class="unit">mm</span></div></div>
+          <div class="exp-data-item"><div class="label">屏距 L</div><div class="value c-screen" id="dataL2">1.50 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">光色</div><div class="value c-wave" id="dataColor">黄绿光</div></div>
+          <div class="exp-data-item"><div class="label">极大级数</div><div class="value c-accent" id="dataOrder">—</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>Δx = λL/d = <span class="formula" id="fmDeltaX">4.13</span> mm</div>
+          <div>d·sinθ = mλ (亮纹条件)</div>
+          <div>d·sinθ = (m+½)λ (暗纹条件)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG={lam:550,d:0.2,L:1.5,timeScale:1};
+  var S={t:0,playing:false,wavePhase:0};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+
+  function wavelengthM(){return CFG.lam*1e-9;}
+  function slitDistM(){return CFG.d*1e-3;}
+  function fringeSpacing(){return wavelengthM()*CFG.L/slitDistM()*1000;}
+
+  function wavelengthToRGB(lam){
+    var r=0,g=0,b=0;
+    if(lam>=380&&lam<440){r=-(lam-440)/(440-380);b=1;}
+    else if(lam>=440&&lam<490){g=(lam-440)/(490-440);b=1;}
+    else if(lam>=490&&lam<510){g=1;b=-(lam-510)/(510-490);}
+    else if(lam>=510&&lam<580){r=(lam-510)/(580-510);g=1;}
+    else if(lam>=580&&lam<645){r=1;g=-(lam-645)/(645-580);}
+    else if(lam>=645&&lam<=780){r=1;}
+    var f=1;
+    if(lam>=380&&lam<420)f=0.3+0.7*(lam-380)/(420-380);
+    else if(lam>=700&&lam<=780)f=0.3+0.7*(780-lam)/(780-700);
+    else if(lam>645&&lam<700)f=1;
+    return[Math.round(r*f*255),Math.round(g*f*255),Math.round(b*f*255)];
+  }
+
+  function getColorName(lam){
+    if(lam<420)return'紫光';if(lam<460)return'蓝光';if(lam<500)return'青光';
+    if(lam<530)return'绿光';if(lam<570)return'黄绿光';if(lam<590)return'黄光';
+    if(lam<620)return'橙光';return'红光';
+  }
+
+  function intensityAtScreen(y){
+    var d=slitDistM();
+    var sinTheta=y/Math.sqrt(y*y+CFG.L*CFG.L);
+    var phase=2*Math.PI*d*sinTheta/wavelengthM();
+    return Math.pow(Math.cos(phase/2),2);
+  }
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    var rgb=wavelengthToRGB(CFG.lam);
+    var colorStr='rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')';
+
+    var srcX=W*0.12, slitX=W*0.35, screenX=W*0.82;
+    var slitGap=H*0.18;
+    var slitWidth=8;
+
+    ctx.fillStyle='#1a1a30';
+    ctx.fillRect(slitX-4,0,8,H*0.5-slitGap/2-slitWidth/2);
+    ctx.fillRect(slitX-4,H*0.5+slitGap/2+slitWidth/2,8,H);
+    ctx.fillRect(slitX-4,H*0.5-slitGap/2+slitWidth/2,8,slitWidth);
+
+    ctx.fillStyle=colorStr;
+    ctx.globalAlpha=0.8;
+    ctx.fillRect(slitX-3,H*0.5-slitGap/2-slitWidth/2,6,slitWidth);
+    ctx.fillRect(slitX-3,H*0.5+slitGap/2,6,slitWidth);
+    ctx.globalAlpha=1;
+
+    ctx.fillStyle='#333355';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('d',slitX+12,H*0.5);
+
+    ctx.strokeStyle='#333';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(slitX,H*0.5-slitGap/2);ctx.lineTo(slitX,H*0.5+slitGap/2);ctx.stroke();
+    ctx.setLineDash([]);
+
+    var wavePhase=S.wavePhase;
+    ctx.globalAlpha=0.15;
+    for(var wi=0;wi<12;wi++){
+      var r=wi*25+wavePhase*15;
+      ctx.strokeStyle=colorStr;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(srcX,srcX,r,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+
+    ctx.fillStyle='#ffd93d';ctx.beginPath();ctx.arc(srcX,srcX,8,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#cc9900';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#ffd93d';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('S',srcX,srcX-14);
+
+    var numRays=30;
+    for(var ri=0;ri<numRays;ri++){
+      var screenY=H*0.08+(H*0.84)*ri/(numRays-1);
+      var yRel=(screenY-H*0.5)/(H*0.42);
+      var intens=intensityAtScreen(yRel*CFG.L*0.3);
+
+      ctx.globalAlpha=intens*0.3+0.05;
+      ctx.strokeStyle=colorStr;ctx.lineWidth=0.8;
+      ctx.beginPath();ctx.moveTo(srcX,H*0.5);ctx.lineTo(slitX,H*0.5-slitGap/2);ctx.lineTo(screenX,screenY);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(srcX,H*0.5);ctx.lineTo(slitX,H*0.5+slitGap/2);ctx.lineTo(screenX,screenY);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+
+    var pixH=4;
+    for(var py=0;py<H;py+=pixH){
+      var yRel2=(py-H*0.5)/(H*0.42);
+      var intens2=intensityAtScreen(yRel2*CFG.L*0.3);
+      ctx.fillStyle='rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+intens2*0.9+')';
+      ctx.fillRect(screenX+5,py,15,pixH);
+    }
+
+    ctx.fillStyle='#555';ctx.font='10px sans-serif';ctx.textAlign='left';
+    ctx.fillText('L',screenX+25,H*0.5);
+
+    var arrowY1=H*0.5-slitGap/2,arrowY2=H*0.5+slitGap/2;
+    ctx.strokeStyle='#888';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(screenX+35,arrowY1);ctx.lineTo(screenX+35,arrowY2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(screenX+32,arrowY1+4);ctx.lineTo(screenX+35,arrowY1);ctx.lineTo(screenX+38,arrowY1+4);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(screenX+32,arrowY2-4);ctx.lineTo(screenX+35,arrowY2);ctx.lineTo(screenX+38,arrowY2-4);ctx.stroke();
+
+    var deltaMm=fringeSpacing();
+    ctx.fillStyle='#ffd93d';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Δx = '+deltaMm.toFixed(2)+' mm',screenX+40,H*0.5+4);
+  }
+
+  function drawChart(canvasId,data,opts){
+    var c=document.getElementById(canvasId);
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:15,bottom:22,left:45},cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var series=Array.isArray(data[0])?data:[data];
+    var xMin=Infinity,xMax=-Infinity,yMin=Infinity,yMax=-Infinity;
+    series.forEach(function(s){s.forEach(function(d){if(d.x<xMin)xMin=d.x;if(d.x>xMax)xMax=d.x;if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});});
+    if(xMax<=xMin)xMax=xMin+1;if(yMax<=yMin)yMax=yMin+1;
+    var xR=xMax-xMin,yR=yMax-yMin;
+    xMin-=xR*0.05;xMax+=xR*0.05;yMin-=yR*0.1;yMax+=yR*0.1;
+    if(yMin>0)yMin=0;
+    function toC(px,py){return{x:pad.left+(px-xMin)/(xMax-xMin)*cw,y:pad.top+(1-(py-yMin)/(yMax-yMin))*ch};}
+    c2.strokeStyle='#1e1e35';c2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;c2.beginPath();c2.moveTo(pad.left,gy);c2.lineTo(pad.left+cw,gy);c2.stroke();}
+    var zeroY=toC(0,0).y;
+    c2.strokeStyle='#444466';c2.lineWidth=1.5;
+    if(zeroY>=pad.top&&zeroY<=pad.top+ch){c2.beginPath();c2.moveTo(pad.left,zeroY);c2.lineTo(pad.left+cw,zeroY);c2.stroke();}
+    c2.fillStyle='#555570';c2.font='10px sans-serif';c2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);c2.fillText(val.toFixed(2),pad.left+(k/4)*cw,pad.top+ch+14);}
+    c2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);c2.fillText(val2.toFixed(2),pad.left-5,pad.top+(1-l/4)*ch+3);}
+    var colors=opts.colors||['#00d4ff'];
+    series.forEach(function(s,si){if(s.length<2)return;c2.strokeStyle=colors[si%colors.length];c2.lineWidth=2;c2.beginPath();
+      s.forEach(function(d,i){var p=toC(d.x,d.y);if(i===0)c2.moveTo(p.x,p.y);else c2.lineTo(p.x,p.y);});c2.stroke();});
+  }
+
+  function updateCharts(){
+    var rgb=wavelengthToRGB(CFG.lam);
+    var colorStr='rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')';
+
+    var thetaData=[];
+    for(var theta=-0.05;theta<=0.05;theta+=0.0005){
+      var d=slitDistM();
+      var phase=2*Math.PI*d*Math.sin(theta)/wavelengthM();
+      var I=Math.pow(Math.cos(phase/2),2);
+      thetaData.push({x:theta*1000,y:I});
+    }
+    drawChart('chartITheta',thetaData,{colors:[colorStr]});
+
+    var screenData=[];
+    for(var y=-0.05;y<=0.05;y+=0.0005){
+      var I2=intensityAtScreen(y);
+      screenData.push({x:y*1000,y:I2});
+    }
+    drawChart('chartIY',screenData,{colors:[colorStr]});
+
+    var c3=document.getElementById('chartPattern');
+    var c2d=c3.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c3.width/dpr,H=c3.height/dpr;
+    c2d.setTransform(dpr,0,0,dpr,0,0);c2d.clearRect(0,0,W,H);
+    c2d.fillStyle='#161625';c2d.fillRect(0,0,W,H);
+    for(var py=0;py<H;py+=2){
+      var y=(py-H/2)/(H/2)*0.05;
+      var I3=intensityAtScreen(y);
+      c2d.fillStyle='rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+I3*0.9+')';
+      c2d.fillRect(W*0.35,py,W*0.3,I3*3+1);
+    }
+    c2d.fillStyle='#8888a0';c2d.font='10px sans-serif';c2d.textAlign='center';
+    c2d.fillText('干涉图样',W/2,15);
+  }
+
+  function updateData(){
+    var deltaMm=fringeSpacing();
+    document.getElementById('dataDeltaX').innerHTML=deltaMm.toFixed(2)+' <span class="unit">mm</span>';
+    document.getElementById('dataLam').innerHTML=CFG.lam+' <span class="unit">nm</span>';
+    document.getElementById('dataD').innerHTML=CFG.d.toFixed(2)+' <span class="unit">mm</span>';
+    document.getElementById('dataL2').innerHTML=CFG.L.toFixed(2)+' <span class="unit">m</span>';
+    document.getElementById('dataColor').textContent=getColorName(CFG.lam);
+    document.getElementById('fmDeltaX').textContent=deltaMm.toFixed(2);
+    var rgb=wavelengthToRGB(CFG.lam);
+    document.getElementById('colorPreview').style.background='rgb('+rgb[0]+','+rgb[1]+','+rgb[2]+')';
+  }
+
+  var lastTime=0,animId=null;
+
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var wallDt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.wavePhase+=wallDt*CFG.timeScale*3;
+    S.t+=wallDt*CFG.timeScale;
+    drawSim();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.wavePhase=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderLam').addEventListener('input',function(){
+    CFG.lam=parseInt(this.value);document.getElementById('valLam').textContent=CFG.lam+' nm';updateData();updateCharts();
+  });
+  document.getElementById('sliderD').addEventListener('input',function(){
+    CFG.d=parseFloat(this.value);document.getElementById('valD').textContent=CFG.d.toFixed(2)+' mm';updateData();updateCharts();
+  });
+  document.getElementById('sliderL').addEventListener('input',function(){
+    CFG.L=parseFloat(this.value);document.getElementById('valL').textContent=CFG.L.toFixed(1)+' m';updateData();updateCharts();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

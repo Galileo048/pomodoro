@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}复数运算交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:55px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .toggle-group{display:flex;gap:6px;flex-wrap:wrap}
+  .toggle-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .toggle-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">🔢 复数运算 — 复平面可视化</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Complex Numbers — 向量表示、乘法旋转缩放、除法与共轭</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <!-- z1 参数 -->
+      <div class="exp-panel-section">
+        <h3>🔵 z₁ = a + bi</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">实部 a</span><span class="exp-slider-value" id="valA">1.50</span></div>
+          <input type="range" id="sliderA" min="-3" max="3" step="0.05" value="1.5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">虚部 b</span><span class="exp-slider-value" id="valB">1.00</span></div>
+          <input type="range" id="sliderB" min="-3" max="3" step="0.05" value="1">
+        </div>
+      </div>
+      <!-- z2 参数 -->
+      <div class="exp-panel-section">
+        <h3>🔴 z₂ = c + di</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">实部 c</span><span class="exp-slider-value" id="valC">0.50</span></div>
+          <input type="range" id="sliderC" min="-3" max="3" step="0.05" value="0.5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">虚部 d</span><span class="exp-slider-value" id="valD">2.00</span></div>
+          <input type="range" id="sliderD" min="-3" max="3" step="0.05" value="2">
+        </div>
+      </div>
+      <!-- 显示选项 -->
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="togProd">乘积 z₁z₂</button>
+          <button class="toggle-btn" id="togQuot">商 z₁/z₂</button>
+          <button class="toggle-btn active" id="togConj">共轭</button>
+          <button class="toggle-btn active" id="togCircle">单位圆</button>
+        </div>
+      </div>
+      <!-- 数据显示 -->
+      <div class="exp-panel-section">
+        <h3>📊 运算结果</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">|z₁|</div><div class="value c-cyan" id="dataMag1">1.80</div></div>
+          <div class="exp-data-item"><div class="label">|z₂|</div><div class="value c-accent" id="dataMag2">2.06</div></div>
+          <div class="exp-data-item"><div class="label">arg(z₁)</div><div class="value c-amber" id="dataArg1">33.7°</div></div>
+          <div class="exp-data-item"><div class="label">arg(z₂)</div><div class="value c-green" id="dataArg2">76.0°</div></div>
+          <div class="exp-data-item"><div class="label">z₁·z₂</div><div class="value c-purple" id="dataProd">—</div></div>
+          <div class="exp-data-item"><div class="label">z₁/z₂</div><div class="value c-cyan" id="dataQuot">—</div></div>
+          <div class="exp-data-item"><div class="label">z̄₁ (共轭)</div><div class="value c-amber" id="dataConj">—</div></div>
+          <div class="exp-data-item"><div class="label">z₁+z₂</div><div class="value c-green" id="dataSum">—</div></div>
+        </div>
+      </div>
+      <!-- 乘法几何意义 -->
+      <div class="exp-panel-section">
+        <h3>📐 乘法 = 旋转 + 缩放</h3>
+        <div class="exp-formula-box">
+          <div>|z₁·z₂| = |z₁|·|z₂| = <span class="result" id="fmProdMag">3.71</span></div>
+          <div>arg(z₁·z₂) = arg(z₁)+arg(z₂) = <span class="result" id="fmProdArg">109.7°</span></div>
+          <div style="margin-top:4px;color:var(--text-muted);font-size:11px;">乘法: 模相乘，辐角相加</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+  var Z1 = {a: 1.5, b: 1.0};
+  var Z2 = {a: 0.5, d: 2.0};
+  var showProd = true, showQuot = false, showConj = true, showCircle = true;
+  var dragging = null; // 'z1' or 'z2'
+
+  function resize(){
+    var dpr = window.devicePixelRatio||1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width*dpr);
+    canvas.height = Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  function toScreen(re, im, W, H){
+    var scale = Math.min(W, H) / 8;
+    return {x: W/2 + re*scale, y: H/2 - im*scale};
+  }
+  function fromScreen(sx, sy, W, H){
+    var scale = Math.min(W, H) / 8;
+    return {re: (sx - W/2)/scale, im: (H/2 - sy)/scale};
+  }
+
+  function draw(){
+    var W = canvas.width / (window.devicePixelRatio||1);
+    var H = canvas.height / (window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0,0,W,H);
+
+    var scale = Math.min(W, H) / 8;
+    var ox = W/2, oy = H/2;
+
+    // Unit circle
+    if(showCircle){
+      ctx.strokeStyle = '#ffffff15'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(ox, oy, scale, 0, Math.PI*2); ctx.stroke();
+    }
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for(var i=-4;i<=4;i++){
+      ctx.beginPath(); ctx.moveTo(ox+i*scale, 0); ctx.lineTo(ox+i*scale, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, oy+i*scale); ctx.lineTo(W, oy+i*scale); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0,oy); ctx.lineTo(W,oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox,0); ctx.lineTo(ox,H); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for(var k=-4;k<=4;k++){
+      if(k===0) continue;
+      ctx.fillText(k, ox+k*scale, oy+14);
+      if(k !== 0){
+        ctx.fillText(k+'i', ox-14, oy-k*scale+4);
+      }
+    }
+
+    // Re, Im labels
+    ctx.fillStyle = '#666688'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'right'; ctx.fillText('Re', W-8, oy-8);
+    ctx.textAlign = 'left'; ctx.fillText('Im', ox+8, 14);
+
+    var a = Z1.a, b = Z1.b;
+    var c = Z2.a, d = Z2.d;
+
+    // z1
+    drawVector(ctx, ox, oy, toScreen(a,b,W,H).x, toScreen(a,b,W,H).y, '#00aaff', 2.5);
+    drawPoint(ctx, toScreen(a,b,W,H).x, toScreen(a,b,W,H).y, '#00aaff', 'z₁');
+
+    // z2
+    drawVector(ctx, ox, oy, toScreen(c,d,W,H).x, toScreen(c,d,W,H).y, '#ff4466', 2.5);
+    drawPoint(ctx, toScreen(c,d,W,H).x, toScreen(c,d,W,H).y, '#ff4466', 'z₂');
+
+    // Product z1*z2 = (ac-bd) + (ad+bc)i
+    var pr = a*c - b*d;
+    var pi = a*d + b*c;
+    if(showProd && (Math.abs(pr)>0.01 || Math.abs(pi)>0.01)){
+      drawVector(ctx, ox, oy, toScreen(pr,pi,W,H).x, toScreen(pr,pi,W,H).y, '#a78bfa', 2.5);
+      drawPoint(ctx, toScreen(pr,pi,W,H).x, toScreen(pr,pi,W,H).y, '#a78bfa', 'z₁z₂');
+    }
+
+    // Quotient z1/z2 = (ac+bd)/(c²+d²) + (bc-ad)/(c²+d²)i
+    var dd = c*c + d*d;
+    if(showQuot && dd > 0.01){
+      var qr = (a*c + b*d) / dd;
+      var qi = (b*c - a*d) / dd;
+      drawVector(ctx, ox, oy, toScreen(qr,qi,W,H).x, toScreen(qr,qi,W,H).y, '#66ddaa', 2);
+      drawPoint(ctx, toScreen(qr,qi,W,H).x, toScreen(qr,qi,W,H).y, '#66ddaa', 'z₁/z₂');
+    }
+
+    // Conjugate z1_bar = (a, -b)
+    if(showConj){
+      drawVector(ctx, ox, oy, toScreen(a,-b,W,H).x, toScreen(a,-b,W,H).y, '#ffaa33', 2);
+      drawPoint(ctx, toScreen(a,-b,W,H).x, toScreen(a,-b,W,H).y, '#ffaa33', 'z̄₁');
+      // Dashed line between z1 and conj
+      ctx.setLineDash([3,3]); ctx.strokeStyle = '#ffaa3344'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(toScreen(a,b,W,H).x, toScreen(a,b,W,H).y);
+      ctx.lineTo(toScreen(a,-b,W,H).x, toScreen(a,-b,W,H).y);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Arc showing arg(z1)
+    var arg1 = Math.atan2(b, a);
+    if(Math.abs(arg1) > 0.05){
+      ctx.strokeStyle = '#00aaff66'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      var arcR = Math.min(25, Math.sqrt(a*a+b*b)*scale*0.4);
+      ctx.arc(ox, oy, arcR, 0, -arg1, arg1 > 0);
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  function drawVector(c, x1, y1, x2, y2, color, w){
+    var dx = x2-x1, dy = y2-y1;
+    var len = Math.sqrt(dx*dx+dy*dy);
+    if(len<2) return;
+    var ux = dx/len, uy = dy/len;
+    var headLen = Math.min(10, len*0.25);
+    c.strokeStyle = color; c.fillStyle = color; c.lineWidth = w; c.setLineDash([]);
+    c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+    c.beginPath();
+    c.moveTo(x2, y2);
+    c.lineTo(x2-headLen*ux+headLen*0.35*uy, y2-headLen*uy-headLen*0.35*ux);
+    c.lineTo(x2-headLen*ux-headLen*0.35*uy, y2-headLen*uy+headLen*0.35*ux);
+    c.closePath(); c.fill();
+  }
+
+  function drawPoint(c, x, y, color, label){
+    var glow = c.createRadialGradient(x,y,0,x,y,14);
+    glow.addColorStop(0, color+'66');
+    glow.addColorStop(1, color+'00');
+    c.fillStyle = glow;
+    c.beginPath(); c.arc(x,y,14,0,Math.PI*2); c.fill();
+    c.fillStyle = color;
+    c.beginPath(); c.arc(x,y,4,0,Math.PI*2); c.fill();
+    c.font = 'bold 12px sans-serif'; c.textAlign = 'left';
+    c.fillText(label, x+10, y-10);
+  }
+
+  function updateInfo(){
+    var a = Z1.a, b = Z1.b, c = Z2.a, d = Z2.d;
+    document.getElementById('valA').textContent = a.toFixed(2);
+    document.getElementById('valB').textContent = b.toFixed(2);
+    document.getElementById('valC').textContent = c.toFixed(2);
+    document.getElementById('valD').textContent = d.toFixed(2);
+
+    var mag1 = Math.sqrt(a*a+b*b);
+    var mag2 = Math.sqrt(c*c+d*d);
+    var arg1 = Math.atan2(b,a)*180/Math.PI;
+    var arg2 = Math.atan2(d,c)*180/Math.PI;
+    var pr = a*c-b*d, pi = a*d+b*c;
+    var magProd = Math.sqrt(pr*pr+pi*pi);
+    var argProd = Math.atan2(pi,pr)*180/Math.PI;
+    var dd = c*c+d*d;
+
+    document.getElementById('dataMag1').textContent = mag1.toFixed(3);
+    document.getElementById('dataMag2').textContent = mag2.toFixed(3);
+    document.getElementById('dataArg1').textContent = arg1.toFixed(1) + '°';
+    document.getElementById('dataArg2').textContent = arg2.toFixed(1) + '°';
+    document.getElementById('dataProd').textContent = pr.toFixed(2)+'+'+pi.toFixed(2)+'i';
+    document.getElementById('dataConj').textContent = a.toFixed(2)+'-'+b.toFixed(2)+'i';
+    document.getElementById('dataSum').textContent = (a+c).toFixed(2)+'+'+(b+d).toFixed(2)+'i';
+
+    if(dd > 0.01){
+      var qr = (a*c+b*d)/dd, qi = (b*c-a*d)/dd;
+      document.getElementById('dataQuot').textContent = qr.toFixed(2)+'+'+qi.toFixed(2)+'i';
+    } else {
+      document.getElementById('dataQuot').textContent = '未定义';
+    }
+
+    document.getElementById('fmProdMag').textContent = magProd.toFixed(3);
+    document.getElementById('fmProdArg').textContent = argProd.toFixed(1) + '°';
+  }
+
+  // Sliders
+  ['sliderA','sliderB','sliderC','sliderD'].forEach(function(id, idx){
+    document.getElementById(id).addEventListener('input', function(){
+      var v = parseFloat(this.value);
+      if(idx===0) Z1.a = v;
+      else if(idx===1) Z1.b = v;
+      else if(idx===2) Z2.a = v;
+      else Z2.d = v;
+      draw(); updateInfo();
+    });
+  });
+
+  // Toggle buttons
+  function setupToggle(id, getter, setter){
+    document.getElementById(id).addEventListener('click', function(){
+      var v = !getter(); setter(v);
+      this.classList.toggle('active', v);
+      draw();
+    });
+  }
+  setupToggle('togProd', function(){return showProd;}, function(v){showProd=v;});
+  setupToggle('togQuot', function(){return showQuot;}, function(v){showQuot=v;});
+  setupToggle('togConj', function(){return showConj;}, function(v){showConj=v;});
+  setupToggle('togCircle', function(){return showCircle;}, function(v){showCircle=v;});
+
+  // Drag endpoints
+  canvas.addEventListener('mousedown', function(e){
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var W = rect.width, H = rect.height;
+    var s1 = toScreen(Z1.a, Z1.b, W, H);
+    var s2 = toScreen(Z2.a, Z2.d, W, H);
+    if(Math.hypot(mx-s1.x, my-s1.y) < 20) dragging = 'z1';
+    else if(Math.hypot(mx-s2.x, my-s2.y) < 20) dragging = 'z2';
+  });
+  canvas.addEventListener('mousemove', function(e){
+    if(!dragging) return;
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var p = fromScreen(mx, my, rect.width, rect.height);
+    if(dragging==='z1'){
+      Z1.a = Math.max(-3,Math.min(3,p.re));
+      Z1.b = Math.max(-3,Math.min(3,p.im));
+      document.getElementById('sliderA').value = Z1.a;
+      document.getElementById('sliderB').value = Z1.b;
+    } else {
+      Z2.a = Math.max(-3,Math.min(3,p.re));
+      Z2.d = Math.max(-3,Math.min(3,p.im));
+      document.getElementById('sliderC').value = Z2.a;
+      document.getElementById('sliderD').value = Z2.d;
+    }
+    draw(); updateInfo();
+  });
+  canvas.addEventListener('mouseup', function(){dragging=null;});
+  canvas.addEventListener('mouseleave', function(){dragging=null;});
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateInfo();
+})();
+</script>
+{% endblock %}

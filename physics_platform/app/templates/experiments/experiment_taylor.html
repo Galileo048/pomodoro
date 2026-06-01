@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+{% block title %}泰勒展开交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#161625;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:55px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .func-btn{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-primary);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .func-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .func-btn:hover:not(.active){border-color:var(--cyan)}
+  .exp-btn-play{padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent,#e94560);color:#fff;flex:1}
+  .exp-btn-reset{padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:var(--border);color:var(--text-primary);flex:1}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--accent,#e94560);">📊 泰勒展开 — 用多项式逼近函数</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Taylor Series — 在展开点附近，多项式可任意精度逼近光滑函数</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <!-- 函数选择 -->
+      <div class="exp-panel-section">
+        <h3>📐 目标函数</h3>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="func-btn active" data-func="sin">sin(x)</button>
+          <button class="func-btn" data-func="cos">cos(x)</button>
+          <button class="func-btn" data-func="exp">eˣ</button>
+          <button class="func-btn" data-func="ln">ln(1+x)</button>
+        </div>
+      </div>
+      <!-- 参数 -->
+      <div class="exp-panel-section">
+        <h3>🎛️ 参数调节</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">展开点 x₀</span><span class="exp-slider-value" id="valX0">0.00</span></div>
+          <input type="range" id="sliderX0" min="-3" max="3" step="0.1" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">项数 N (0~10)</span><span class="exp-slider-value" id="valN">3</span></div>
+          <input type="range" id="sliderN" min="0" max="10" step="1" value="3">
+        </div>
+      </div>
+      <!-- 动画控制 -->
+      <div class="exp-panel-section">
+        <h3>▶️ 动画控制</h3>
+        <div style="display:flex;gap:6px;">
+          <button class="exp-btn-play" id="btnAnimate">▶ 逐项逼近</button>
+          <button class="exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+      </div>
+      <!-- 数据 -->
+      <div class="exp-panel-section">
+        <h3>📊 逼近质量</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">项数 N</div><div class="value c-cyan" id="dataN">3</div></div>
+          <div class="exp-data-item"><div class="label">可见最大误差</div><div class="value c-accent" id="dataMaxErr">—</div></div>
+          <div class="exp-data-item"><div class="label">x₀</div><div class="value c-green" id="dataX0">0.00</div></div>
+          <div class="exp-data-item"><div class="label">f(x₀)</div><div class="value c-amber" id="dataFx0">0.00</div></div>
+        </div>
+      </div>
+      <!-- 公式 -->
+      <div class="exp-panel-section">
+        <h3>📐 当前泰勒多项式</h3>
+        <div class="exp-formula-box" id="formulaBox" style="font-size:11px;line-height:1.7;">
+          <span class="result" id="fmFormula">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  var funcDefs = {
+    sin: {
+      f: function(x){return Math.sin(x);},
+      name: 'sin(x)',
+      // Taylor coefficients at x0
+      coeffs: function(x0, n){
+        // sin(x) = sin(x0)cos(x-x0) + cos(x0)sin(x-x0)
+        // Expand: sum_{k=0}^{n} f^(k)(x0)/k! * (x-x0)^k
+        var cs = [];
+        for(var k=0;k<=n;k++){
+          // f^(k)(x0) for sin is sin(x0+k*pi/2)
+          var dk = Math.sin(x0 + k*Math.PI/2);
+          cs.push(dk / factorial(k));
+        }
+        return cs;
+      },
+      formula: function(x0,n){
+        var cs = funcDefs.sin.coeffs(x0,n);
+        var parts = [];
+        for(var i=0;i<=n;i++){
+          if(Math.abs(cs[i])<1e-10) continue;
+          var c = cs[i].toFixed(4);
+          if(i===0) parts.push(c);
+          else parts.push(c+'(x'+(x0>=0?'-'+x0:'+'+(-x0))+')^'+i);
+        }
+        return parts.join(' + ').replace(/\+ -/g, '- ');
+      }
+    },
+    cos: {
+      f: function(x){return Math.cos(x);},
+      name: 'cos(x)',
+      coeffs: function(x0,n){
+        var cs = [];
+        for(var k=0;k<=n;k++){
+          var dk = Math.cos(x0 + k*Math.PI/2);
+          cs.push(dk / factorial(k));
+        }
+        return cs;
+      },
+      formula: function(x0,n){
+        var cs = funcDefs.cos.coeffs(x0,n);
+        var parts = [];
+        for(var i=0;i<=n;i++){
+          if(Math.abs(cs[i])<1e-10) continue;
+          var c = cs[i].toFixed(4);
+          if(i===0) parts.push(c);
+          else parts.push(c+'(x'+(x0>=0?'-'+x0:'+'+(-x0))+')^'+i);
+        }
+        return parts.join(' + ').replace(/\+ -/g, '- ');
+      }
+    },
+    exp: {
+      f: function(x){return Math.exp(x);},
+      name: 'eˣ',
+      coeffs: function(x0,n){
+        var cs = [];
+        var ex0 = Math.exp(x0);
+        for(var k=0;k<=n;k++){
+          cs.push(ex0 / factorial(k));
+        }
+        return cs;
+      },
+      formula: function(x0,n){
+        var cs = funcDefs.exp.coeffs(x0,n);
+        var parts = [];
+        for(var i=0;i<=n;i++){
+          if(Math.abs(cs[i])<1e-10) continue;
+          var c = cs[i].toFixed(4);
+          if(i===0) parts.push(c);
+          else parts.push(c+'(x'+(x0>=0?'-'+x0:'+'+(-x0))+')^'+i);
+        }
+        return parts.join(' + ').replace(/\+ -/g, '- ');
+      }
+    },
+    ln: {
+      f: function(x){return x>-1?Math.log(1+x):NaN;},
+      name: 'ln(1+x)',
+      coeffs: function(x0,n){
+        // ln(1+x) derivatives: f^(k)(x) = (-1)^(k-1) * (k-1)! / (1+x)^k for k>=1
+        var cs = [Math.log(1+x0)]; // k=0
+        for(var k=1;k<=n;k++){
+          var dk = Math.pow(-1,k-1) * factorial(k-1) / Math.pow(1+x0,k);
+          cs.push(dk / factorial(k));
+        }
+        return cs;
+      },
+      formula: function(x0,n){
+        var cs = funcDefs.ln.coeffs(x0,n);
+        var parts = [];
+        for(var i=0;i<=n;i++){
+          if(Math.abs(cs[i])<1e-10) continue;
+          var c = cs[i].toFixed(4);
+          if(i===0) parts.push(c);
+          else parts.push(c+'(x'+(x0>=0?'-'+x0:'+'+(-x0))+')^'+i);
+        }
+        return parts.join(' + ').replace(/\+ -/g, '- ');
+      }
+    }
+  };
+
+  function factorial(n){var r=1;for(var i=2;i<=n;i++)r*=i;return r;}
+
+  var currentFunc = 'sin';
+  var x0 = 0, N = 3;
+  var animating = false, animN = 0;
+  var animId = null;
+
+  function resize(){
+    var dpr = window.devicePixelRatio||1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width*dpr);
+    canvas.height = Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  function taylorEval(x, x0, cs){
+    var dx = x - x0;
+    var s = 0;
+    for(var i=0;i<cs.length;i++) s += cs[i] * Math.pow(dx, i);
+    return s;
+  }
+
+  function draw(){
+    var W = canvas.width / (window.devicePixelRatio||1);
+    var H = canvas.height / (window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0,0,W,H);
+
+    var pad = 50;
+    var cw = W - 2*pad, ch = H - 2*pad;
+    var xMin = -5, xMax = 5, yMin = -4, yMax = 4;
+
+    function tx(x){return pad + (x-xMin)/(xMax-xMin)*cw;}
+    function ty(y){return pad + (1-(y-yMin)/(yMax-yMin))*ch;}
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for(var i=Math.ceil(xMin);i<=Math.floor(xMax);i++){
+      ctx.beginPath(); ctx.moveTo(tx(i),pad); ctx.lineTo(tx(i),pad+ch); ctx.stroke();
+    }
+    for(var j=Math.ceil(yMin);j<=Math.floor(yMax);j++){
+      ctx.beginPath(); ctx.moveTo(pad,ty(j)); ctx.lineTo(pad+cw,ty(j)); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#444466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pad,ty(0)); ctx.lineTo(pad+cw,ty(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx(0),pad); ctx.lineTo(tx(0),pad+ch); ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#8888a0'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for(var k=-4;k<=4;k++){
+      if(k===0) continue;
+      ctx.fillText(k, tx(k), ty(0)+16);
+    }
+    ctx.textAlign = 'right';
+    for(var l=-3;l<=3;l++){
+      if(l===0) continue;
+      ctx.fillText(l, pad-6, ty(l)+4);
+    }
+
+    var f = funcDefs[currentFunc].f;
+    var useN = animating ? animN : N;
+    var cs = funcDefs[currentFunc].coeffs(x0, useN);
+
+    // Error shading (difference between original and Taylor)
+    ctx.fillStyle = 'rgba(255,68,102,0.1)';
+    ctx.beginPath();
+    var errStarted = false;
+    var maxErr = 0;
+    for(var px=0; px<=cw; px++){
+      var x = xMin + (px/cw)*(xMax-xMin);
+      var fy = f(x);
+      var ty2 = taylorEval(x, x0, cs);
+      if(isNaN(fy) || Math.abs(fy)>20) {errStarted=false; continue;}
+      var err = Math.abs(fy-ty2);
+      if(err > maxErr) maxErr = err;
+      var sx = tx(x);
+      var sy1 = ty(fy);
+      var sy2 = ty(ty2);
+      if(!errStarted){
+        ctx.moveTo(sx, sy1);
+        errStarted = true;
+      }
+      ctx.lineTo(sx, sy2);
+    }
+    // Close back along original function
+    for(var px2=cw; px2>=0; px2--){
+      var x2 = xMin + (px2/cw)*(xMax-xMin);
+      var fy2 = f(x2);
+      if(isNaN(fy2) || Math.abs(fy2)>20) continue;
+      ctx.lineTo(tx(x2), ty(fy2));
+    }
+    ctx.closePath(); ctx.fill();
+
+    // Original function (cyan)
+    ctx.strokeStyle = '#00d4ff'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    var started = false;
+    for(var px3=0; px3<=cw; px3++){
+      var x3 = xMin + (px3/cw)*(xMax-xMin);
+      var fy3 = f(x3);
+      if(isNaN(fy3) || Math.abs(fy3)>20){started=false;continue;}
+      var sx3 = tx(x3), sy3 = ty(fy3);
+      if(!started){ctx.moveTo(sx3,sy3);started=true;}else ctx.lineTo(sx3,sy3);
+    }
+    ctx.stroke();
+
+    // Taylor polynomial (orange)
+    ctx.strokeStyle = '#ff8844'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    started = false;
+    for(var px4=0; px4<=cw; px4++){
+      var x4 = xMin + (px4/cw)*(xMax-xMin);
+      var ty4 = taylorEval(x4, x0, cs);
+      if(isNaN(ty4) || Math.abs(ty4)>20){started=false;continue;}
+      var sx4 = tx(x4), sy4 = ty(ty4);
+      if(!started){ctx.moveTo(sx4,sy4);started=true;}else ctx.lineTo(sx4,sy4);
+    }
+    ctx.stroke();
+
+    // Expansion point marker
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath(); ctx.arc(tx(x0), ty(f(x0)), 5, 0, Math.PI*2); ctx.fill();
+    var glow = ctx.createRadialGradient(tx(x0),ty(f(x0)),0,tx(x0),ty(f(x0)),16);
+    glow.addColorStop(0,'rgba(255,255,0,0.3)');
+    glow.addColorStop(1,'rgba(255,255,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(tx(x0),ty(f(x0)),16,0,Math.PI*2); ctx.fill();
+
+    // Legend
+    ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#00d4ff'; ctx.fillText('■ 原函数 '+funcDefs[currentFunc].name, pad+5, pad+16);
+    ctx.fillStyle = '#ff8844'; ctx.fillText('■ 泰勒多项式 T(x, N='+useN+')', pad+5, pad+32);
+
+    // Update data
+    document.getElementById('dataMaxErr').textContent = maxErr.toFixed(5);
+    document.getElementById('dataFx0').textContent = f(x0).toFixed(4);
+    document.getElementById('fmFormula').textContent = funcDefs[currentFunc].formula(x0, useN);
+  }
+
+  // Function selector
+  document.querySelectorAll('.func-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.func-btn').forEach(function(b){b.classList.remove('active');});
+      this.classList.add('active');
+      currentFunc = this.dataset.func;
+      draw();
+    });
+  });
+
+  // Sliders
+  document.getElementById('sliderX0').addEventListener('input', function(){
+    x0 = parseFloat(this.value);
+    document.getElementById('valX0').textContent = x0.toFixed(2);
+    document.getElementById('dataX0').textContent = x0.toFixed(2);
+    draw();
+  });
+  document.getElementById('sliderN').addEventListener('input', function(){
+    N = parseInt(this.value);
+    document.getElementById('valN').textContent = N;
+    draw();
+  });
+
+  // Animation
+  document.getElementById('btnAnimate').addEventListener('click', function(){
+    if(animating){
+      animating = false;
+      if(animId) cancelAnimationFrame(animId);
+      document.getElementById('btnAnimate').textContent = '▶ 逐项逼近';
+      N = animN;
+      document.getElementById('sliderN').value = N;
+      document.getElementById('valN').textContent = N;
+      draw(); return;
+    }
+    animating = true; animN = 0;
+    document.getElementById('btnAnimate').textContent = '⏸ 暂停';
+    var startTime = 0;
+    function animate(ts){
+      if(!startTime) startTime = ts;
+      var elapsed = (ts - startTime)/1000;
+      animN = Math.min(10, Math.floor(elapsed));
+      draw();
+      if(animN < 10 && animating){
+        animId = requestAnimationFrame(animate);
+      } else {
+        animating = false;
+        N = animN;
+        document.getElementById('btnAnimate').textContent = '▶ 逐项逼近';
+        document.getElementById('sliderN').value = N;
+        document.getElementById('valN').textContent = N;
+        draw();
+      }
+    }
+    animId = requestAnimationFrame(animate);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    animating = false;
+    if(animId) cancelAnimationFrame(animId);
+    x0 = 0; N = 3;
+    document.getElementById('sliderX0').value = 0;
+    document.getElementById('sliderN').value = 3;
+    document.getElementById('valX0').textContent = '0.00';
+    document.getElementById('valN').textContent = '3';
+    document.getElementById('dataX0').textContent = '0.00';
+    document.getElementById('btnAnimate').textContent = '▶ 逐项逼近';
+    draw();
+  });
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+</script>
+{% endblock %}

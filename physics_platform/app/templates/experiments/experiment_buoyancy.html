@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+{% block title %}浮力 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-buoy{color:var(--cyan)}.c-grav{color:#e94560}.c-vdisp{color:var(--amber)}.c-dens{color:#83c167}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-state-box{border-radius:6px;padding:8px 10px;margin-top:6px;text-align:center;font-size:14px;font-weight:700}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🫧 浮力</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Buoyancy — F_buoy = ρ_liq · g · V_displaced</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">浮力 vs 深度</span><canvas id="chartBuoyDepth"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">密度对比</span><canvas id="chartDensity"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">物体密度 ρ_obj</span><span class="exp-slider-value" id="valRhoObj">2.0 g/cm³</span></div>
+          <input type="range" id="sliderRhoObj" min="0.5" max="5" step="0.1" value="2">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">液体密度 ρ_liq</span><span class="exp-slider-value" id="valRhoLiq">1.0 g/cm³</span></div>
+          <input type="range" id="sliderRhoLiq" min="0.5" max="3" step="0.05" value="1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">物体体积 V</span><span class="exp-slider-value" id="valVol">50 cm³</span></div>
+          <input type="range" id="sliderVol" min="1" max="100" step="1" value="50">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">浮力 F_浮</div><div class="value c-buoy" id="dataFb">0.49 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">重力 G</div><div class="value c-grav" id="dataG">0.98 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">排开体积</div><div class="value c-vdisp" id="dataVd">50 <span class="unit">cm³</span></div></div>
+          <div class="exp-data-item"><div class="label">状态</div><div class="value c-dens" id="dataState" style="font-size:12px;">下沉</div></div>
+        </div>
+        <div class="exp-state-box" id="stateBox" style="background:rgba(233,69,96,0.15);color:#e94560;">⬇ 下沉 (ρ_obj > ρ_liq)</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 浮力公式</h3>
+        <div class="exp-formula-box">
+          <div>F_浮 = ρ_liq · g · V_排</div>
+          <div>F_浮 = <span class="formula" id="fmRhoL">1.0</span> × 9.8 × <span class="formula" id="fmVd">50</span></div>
+          <div>F_浮 = <span class="result" id="fmFb">0.49</span> N</div>
+          <div style="margin-top:4px;">重力 G = ρ_obj · V · g</div>
+          <div>G = <span class="result" id="fmG">0.98</span> N</div>
+          <div style="margin-top:4px;">判据：<span class="result" id="fmCond">ρ_obj > ρ_liq → 下沉</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { rhoObj:2, rhoLiq:1, vol:50, timeScale:1 };
+  var S = { t:0, playing:false, objY:0, targetY:0 };
+  var g = 9.8;
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function getMass() { return CFG.rhoObj * CFG.vol / 1000; } // kg
+  function getGravity() { return getMass() * g; }
+  function getBuoyancy(depth) {
+    // 完全浸没时 V排=V物，部分浸没时 V排与深度成正比
+    var cubeSide = Math.pow(CFG.vol, 1/3);
+    var submergedFrac = Math.min(1, Math.max(0, depth / cubeSide));
+    return CFG.rhoLiq * 1000 * (CFG.vol * submergedFrac / 1e6) * g;
+  }
+  function getVdisplaced(depth) {
+    var cubeSide = Math.pow(CFG.vol, 1/3);
+    var submergedFrac = Math.min(1, Math.max(0, depth / cubeSide));
+    return CFG.vol * submergedFrac;
+  }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var containerLeft = W * 0.2, containerRight = W * 0.8;
+    var containerW = containerRight - containerLeft;
+    var liquidTop = H * 0.3, liquidBottom = H * 0.85;
+    var liquidH = liquidBottom - liquidTop;
+
+    // 容器
+    ctx.strokeStyle = '#556688';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(containerLeft, liquidTop);
+    ctx.lineTo(containerLeft, liquidBottom);
+    ctx.lineTo(containerRight, liquidBottom);
+    ctx.lineTo(containerRight, liquidTop);
+    ctx.stroke();
+
+    // 液体
+    var liquidColor = CFG.rhoLiq < 0.8 ? 'rgba(200,150,50,0.25)' : (CFG.rhoLiq < 1.5 ? 'rgba(30,100,200,0.3)' : 'rgba(100,50,150,0.3)');
+    ctx.fillStyle = liquidColor;
+    ctx.fillRect(containerLeft + 2, liquidTop, containerW - 4, liquidH);
+
+    // 液面波纹
+    ctx.strokeStyle = 'rgba(100,180,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (var x = containerLeft + 5; x < containerRight - 5; x++) {
+      var waveY = liquidTop + Math.sin((x + S.t * 40) * 0.03) * 2;
+      if (x === containerLeft + 5) ctx.moveTo(x, waveY); else ctx.lineTo(x, waveY);
+    }
+    ctx.stroke();
+
+    // 液体标签
+    ctx.fillStyle = 'rgba(100,180,255,0.6)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ρ_liq=' + CFG.rhoLiq.toFixed(2) + ' g/cm³', (containerLeft + containerRight) / 2, liquidTop + 20);
+
+    // ====== 物体（根据密度决定位置）=====
+    var isFloating = CFG.rhoObj < CFG.rhoLiq;
+    var isNeutral = Math.abs(CFG.rhoObj - CFG.rhoLiq) < 0.05;
+    var cubeSide = Math.pow(CFG.vol, 1/3) * 1.2; // 可视化缩放
+    cubeSide = Math.max(20, Math.min(70, cubeSide));
+
+    var objCenterX = (containerLeft + containerRight) / 2;
+    var objHalfSide = cubeSide / 2;
+
+    // 计算物体位置
+    if (isFloating) {
+      // 漂浮：部分浸没
+      var submergedFrac = CFG.rhoObj / CFG.rhoLiq;
+      S.targetY = liquidTop + cubeSide * submergedFrac / 2 - 2;
+    } else if (isNeutral) {
+      S.targetY = (liquidTop + liquidBottom) / 2;
+    } else {
+      // 下沉到底
+      S.targetY = liquidBottom - cubeSide / 2 - 5;
+    }
+
+    // 平滑动画
+    S.objY += (S.targetY - S.objY) * 0.08;
+
+    var objTop = S.objY - objHalfSide;
+    var objBottom = S.objY + objHalfSide;
+
+    // 被液体浸没的部分
+    var submergedTop = Math.max(objTop, liquidTop);
+    var submergedBottom = objBottom;
+    var submergedH = Math.max(0, submergedBottom - submergedTop);
+    var depth = submergedH;
+
+    // 物体颜色
+    var objColor = CFG.rhoObj < 0.8 ? '#8B4513' : (CFG.rhoObj < 1.5 ? '#888' : (CFG.rhoObj < 3 ? '#aaa' : '#cc6600'));
+    // 整个物体
+    ctx.fillStyle = objColor;
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(objCenterX - objHalfSide, objTop, cubeSide, cubeSide);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(objCenterX - objHalfSide, objTop, cubeSide, cubeSide);
+
+    // 质量标注
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(CFG.rhoObj.toFixed(1) + ' g/cm³', objCenterX, S.objY + 4);
+
+    // ====== 力的箭头 ======
+    var Fb = getBuoyancy(depth);
+    var G = getGravity();
+    var forceScale = 40;
+
+    // 重力 G（向下，红色）
+    var gLen = Math.min(G * forceScale, 80);
+    drawForceArrow(ctx, objCenterX + objHalfSide + 15, S.objY, objCenterX + objHalfSide + 15, S.objY + gLen, '#e94560', 'G=' + G.toFixed(2) + 'N');
+
+    // 浮力 F_浮（向上，青色）
+    var fbLen = Math.min(Fb * forceScale, 80);
+    if (fbLen > 2) {
+      drawForceArrow(ctx, objCenterX - objHalfSide - 15, S.objY, objCenterX - objHalfSide - 15, S.objY - fbLen, '#00d4ff', 'F=' + Fb.toFixed(2) + 'N');
+    }
+
+    // 容器外标注
+    ctx.fillStyle = '#888';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('物体 V=' + CFG.vol + ' cm³', objCenterX, objTop - 12);
+  }
+
+  function drawForceArrow(ctx, x1, y1, x2, y2, color, label) {
+    var headLen = 8;
+    var angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen * Math.cos(angle - 0.4), y2 - headLen * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - headLen * Math.cos(angle + 0.4), y2 - headLen * Math.sin(angle + 0.4));
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    var lx = (x1 + x2) / 2;
+    var ly = (y1 + y2) / 2;
+    ctx.fillText(label, lx + (x1 < W / 2 ? -35 : 35), ly);
+  }
+
+  function updateData() {
+    var Fb = getBuoyancy(Math.pow(CFG.vol, 1/3));
+    var G = getGravity();
+    var Vd = CFG.rhoObj < CFG.rhoLiq ? CFG.vol * (CFG.rhoObj / CFG.rhoLiq) : CFG.vol;
+    document.getElementById('dataFb').innerHTML = Fb.toFixed(3) + ' <span class="unit">N</span>';
+    document.getElementById('dataG').innerHTML = G.toFixed(3) + ' <span class="unit">N</span>';
+    document.getElementById('dataVd').innerHTML = Vd.toFixed(1) + ' <span class="unit">cm³</span>';
+
+    var isFloat = CFG.rhoObj < CFG.rhoLiq;
+    var isNeutral = Math.abs(CFG.rhoObj - CFG.rhoLiq) < 0.05;
+    var stateText = isFloat ? '漂浮' : (isNeutral ? '悬浮' : '下沉');
+    document.getElementById('dataState').textContent = stateText;
+
+    var box = document.getElementById('stateBox');
+    if (isFloat) {
+      box.textContent = '⬆ 漂浮 (ρ_obj < ρ_liq)';
+      box.style.background = 'rgba(0,212,255,0.15)';
+      box.style.color = '#00d4ff';
+    } else if (isNeutral) {
+      box.textContent = '⚖ 悬浮 (ρ_obj = ρ_liq)';
+      box.style.background = 'rgba(255,217,61,0.15)';
+      box.style.color = '#ffd93d';
+    } else {
+      box.textContent = '⬇ 下沉 (ρ_obj > ρ_liq)';
+      box.style.background = 'rgba(233,69,96,0.15)';
+      box.style.color = '#e94560';
+    }
+
+    document.getElementById('fmRhoL').textContent = CFG.rhoLiq.toFixed(2);
+    document.getElementById('fmVd').textContent = Vd.toFixed(1);
+    document.getElementById('fmFb').textContent = Fb.toFixed(3);
+    document.getElementById('fmG').textContent = G.toFixed(3);
+    var condText = CFG.rhoObj < CFG.rhoLiq ? 'ρ_obj < ρ_liq → 漂浮' : (isNeutral ? 'ρ_obj = ρ_liq → 悬浮' : 'ρ_obj > ρ_liq → 下沉');
+    document.getElementById('fmCond').textContent = condText;
+  }
+
+  /* ====== 图表: 浮力 vs 深度 ====== */
+  function drawChartBuoyDepth() {
+    var c = document.getElementById('chartBuoyDepth');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var cubeSide = Math.pow(CFG.vol, 1/3);
+    var maxDepth = cubeSide * 1.5;
+    var FbMax = CFG.rhoLiq * 1000 * (CFG.vol / 1e6) * g * 1.2;
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 浮力随深度变化
+    cx.strokeStyle = '#00d4ff';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var depth = (i / 100) * maxDepth;
+      var fb = getBuoyancy(depth);
+      var px = pad.l + (i / 100) * pw;
+      var py = pad.t + ph - (fb / FbMax) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 重力参考线
+    var G = getGravity();
+    if (G < FbMax) {
+      var gy = pad.t + ph - (G / FbMax) * ph;
+      cx.strokeStyle = '#e94560';
+      cx.lineWidth = 1;
+      cx.setLineDash([3, 3]);
+      cx.beginPath();
+      cx.moveTo(pad.l, gy);
+      cx.lineTo(pad.l + pw, gy);
+      cx.stroke();
+      cx.setLineDash([]);
+      cx.fillStyle = '#e94560';
+      cx.font = '9px sans-serif';
+      cx.textAlign = 'right';
+      cx.fillText('G=' + G.toFixed(2) + 'N', pad.l + pw - 4, gy - 4);
+    }
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('深度 (cm)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 图表: 密度对比 ====== */
+  function drawChartDensity() {
+    var c = document.getElementById('chartDensity');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:10, r:10, t:24, b:30 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+    var items = [
+      { label:'物体', value:CFG.rhoObj, color:'#83c167' },
+      { label:'液体', value:CFG.rhoLiq, color:'#00d4ff' }
+    ];
+    var barW = pw / (items.length * 2 + 1);
+    var maxVal = Math.max(CFG.rhoObj, CFG.rhoLiq, 3) * 1.1;
+
+    items.forEach(function(item, i) {
+      var x = pad.l + barW * (i * 2 + 0.5);
+      var barH = (item.value / maxVal) * ph;
+      cx.fillStyle = item.color;
+      cx.globalAlpha = 0.8;
+      cx.fillRect(x, pad.t + ph - barH, barW, barH);
+      cx.globalAlpha = 1;
+      cx.strokeStyle = item.color;
+      cx.lineWidth = 1;
+      cx.strokeRect(x, pad.t + ph - barH, barW, barH);
+
+      cx.fillStyle = item.color;
+      cx.font = 'bold 10px sans-serif';
+      cx.textAlign = 'center';
+      cx.fillText(item.value.toFixed(2), x + barW / 2, pad.t + ph - barH - 6);
+      cx.font = '9px sans-serif';
+      cx.fillText(item.label, x + barW / 2, pad.t + ph + 16);
+    });
+
+    // 参考线: 水的密度 1.0
+    var waterY = pad.t + ph - (1.0 / maxVal) * ph;
+    cx.strokeStyle = '#ffd93d';
+    cx.lineWidth = 1;
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.moveTo(pad.l, waterY);
+    cx.lineTo(pad.l + pw, waterY);
+    cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle = '#ffd93d';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'right';
+    cx.fillText('水=1.0', pad.l + pw - 4, waterY - 4);
+  }
+
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    S.t += dt * CFG.timeScale;
+
+    draw();
+    updateData();
+    drawChartBuoyDepth();
+    drawChartDensity();
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    S.objY = 0;
+    S.targetY = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartBuoyDepth();
+    drawChartDensity();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderRhoObj').addEventListener('input', function() {
+    CFG.rhoObj = parseFloat(this.value);
+    document.getElementById('valRhoObj').textContent = CFG.rhoObj.toFixed(1) + ' g/cm³';
+    S.objY = 0; S.targetY = 0;
+    updateData(); draw(); drawChartBuoyDepth(); drawChartDensity();
+  });
+  document.getElementById('sliderRhoLiq').addEventListener('input', function() {
+    CFG.rhoLiq = parseFloat(this.value);
+    document.getElementById('valRhoLiq').textContent = CFG.rhoLiq.toFixed(2) + ' g/cm³';
+    S.objY = 0; S.targetY = 0;
+    updateData(); draw(); drawChartBuoyDepth(); drawChartDensity();
+  });
+  document.getElementById('sliderVol').addEventListener('input', function() {
+    CFG.vol = parseInt(this.value);
+    document.getElementById('valVol').textContent = CFG.vol + ' cm³';
+    updateData(); draw(); drawChartBuoyDepth(); drawChartDensity();
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartBuoyDepth();
+    drawChartDensity();
+  });
+
+  resize();
+  updateData();
+  drawChartBuoyDepth();
+  drawChartDensity();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}气体状态方程 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:85px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-toggle-row{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-toggle-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-toggle-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.1)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-press{color:var(--cyan)}.c-vol{color:#ffd93d}.c-temp{color:#e94560}.c-mol{color:#66bb6a}.c-accent{color:var(--accent,#e94560)}.c-energy{color:#ce93d8}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#66bb6a;">🌡️ 气体状态方程</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Ideal Gas Law — pV = nRT, 等温/等压/等容/绝热过程</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">p-V 过程</span><canvas id="chartPV"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">p-T</span><canvas id="chartPT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">V-T</span><canvas id="chartVT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">速率分布</span><canvas id="chartSpeed"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">温度 T</span><span class="exp-slider-value" id="valT">300 K</span></div>
+          <input type="range" id="sliderT" min="100" max="1000" step="5" value="300">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">体积 V</span><span class="exp-slider-value" id="valV">5.0 L</span></div>
+          <input type="range" id="sliderV" min="1" max="10" step="0.1" value="5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">物质的量 n</span><span class="exp-slider-value" id="valN">1.0 mol</span></div>
+          <input type="range" id="sliderN" min="0.1" max="2" step="0.1" value="1">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>🔄 预设过程</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-process="isothermal">等温</button>
+          <button class="exp-toggle-btn" data-process="isobaric">等压</button>
+          <button class="exp-toggle-btn" data-process="isochoric">等容</button>
+          <button class="exp-toggle-btn" data-process="adiabatic">绝热</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-toggle="molecules">分子</button>
+          <button class="exp-toggle-btn active" data-toggle="piston">活塞</button>
+          <button class="exp-toggle-btn active" data-toggle="pressureGauge">压力表</button>
+          <button class="exp-toggle-btn active" data-toggle="tempDisplay">温度</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">压强 p</div><div class="value c-press" id="dataP">498.8 <span class="unit">kPa</span></div></div>
+          <div class="exp-data-item"><div class="label">体积 V</div><div class="value c-vol" id="dataV2">5.00 <span class="unit">L</span></div></div>
+          <div class="exp-data-item"><div class="label">温度 T</div><div class="value c-temp" id="dataT2">300 <span class="unit">K</span></div></div>
+          <div class="exp-data-item"><div class="label">物质的量 n</div><div class="value c-mol" id="dataN">1.00 <span class="unit">mol</span></div></div>
+          <div class="exp-data-item"><div class="label">pV乘积</div><div class="value c-accent" id="dataPV">2494 <span class="unit">J</span></div></div>
+          <div class="exp-data-item"><div class="label">平均动能</div><div class="value c-energy" id="dataKE">6.21 <span class="unit">×10⁻²¹ J</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>pV = nRT = <span class="formula" id="fmPV">2494</span> J</div>
+          <div>p = nRT/V = <span class="formula" id="fmP">498.8</span> kPa</div>
+          <div>R = 8.314 J/(mol·K)</div>
+          <div>等温: pV = C</div>
+          <div>绝热: pV^γ = C</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var R=8.314;
+  var CFG={T:300,V:5,n:1,timeScale:1,process:'isothermal'};
+  var SHOW={molecules:true,piston:true,pressureGauge:true,tempDisplay:true};
+  var S={t:0,playing:false,history:[],progress:0};
+
+  var molecules=[];
+  function initMolecules(){
+    molecules=[];
+    for(var i=0;i<40;i++){
+      molecules.push({
+        x:Math.random(),y:Math.random(),
+        vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,
+        r:3+Math.random()*2
+      });
+    }
+  }
+  initMolecules();
+
+  function pressure(){
+    return CFG.n*R*CFG.T/(CFG.V*1e-3);
+  }
+
+  function canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    var cylX=W*0.15,cylY=H*0.12,cylW=W*0.4,cylH=H*0.72;
+
+    ctx.fillStyle='#1a1a30';ctx.fillRect(cylX,cylY,cylW,cylH);
+    ctx.strokeStyle='#555577';ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(cylX,cylY);ctx.lineTo(cylX,cylY+cylH);ctx.lineTo(cylX+cylW,cylY+cylH);ctx.lineTo(cylX+cylW,cylY);
+    ctx.stroke();
+
+    var pistonRatio=CFG.V/10;
+    var pistonY=cylY+cylH*(1-pistonRatio);
+
+    if(SHOW.piston){
+      ctx.fillStyle='#888';
+      ctx.fillRect(cylX-8,pistonY-6,cylW+16,12);
+      var pGrad=ctx.createLinearGradient(cylX,pistonY-6,cylX,pistonY+6);
+      pGrad.addColorStop(0,'#aaa');pGrad.addColorStop(0.5,'#666');pGrad.addColorStop(1,'#888');
+      ctx.fillStyle=pGrad;ctx.fillRect(cylX-4,pistonY-4,cylW+8,8);
+
+      ctx.strokeStyle='#666';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(cylX+cylW/2,pistonY-6);ctx.lineTo(cylX+cylW/2,pistonY-40);ctx.stroke();
+      ctx.fillStyle='#555';ctx.fillRect(cylX+cylW/2-20,pistonY-50,40,14);
+      ctx.fillStyle='#888';ctx.font='10px sans-serif';ctx.textAlign='center';
+      ctx.fillText('活塞',cylX+cylW/2,pistonY-40);
+    }
+
+    var gasTop=pistonY+6;
+    var gasBot=cylY+cylH;
+    var gasH=gasBot-gasTop;
+    var gasMidY=(gasTop+gasBot)/2;
+
+    if(SHOW.molecules){
+      var tempFactor=Math.sqrt(CFG.T/300);
+      var volFactor=1/Math.sqrt(pistonRatio);
+      molecules.forEach(function(mol){
+        mol.x+=mol.vx*0.005*tempFactor;
+        mol.y+=mol.vy*0.005*tempFactor;
+        if(mol.x<0.02||mol.x>0.98){mol.vx*=-1;mol.x=Math.max(0.02,Math.min(0.98,mol.x));}
+        var yNorm=(mol.y*(gasBot-gasTop-20)+gasTop+10-gasTop)/(gasBot-gasTop);
+        if(yNorm<0.05||yNorm>0.95){mol.vy*=-1;}
+        var px=cylX+10+mol.x*(cylW-20);
+        var py=gasTop+10+mol.y*(gasH-20);
+        if(py<gasTop+5||py>gasBot-5)return;
+
+        var speed=Math.sqrt(mol.vx*mol.vx+mol.vy*mol.vy);
+        var hue=240-speed*40;
+        hue=Math.max(0,Math.min(240,hue));
+        ctx.fillStyle='hsl('+hue+',80%,60%)';
+        ctx.beginPath();ctx.arc(px,py,mol.r,0,Math.PI*2);ctx.fill();
+      });
+    }
+
+    if(SHOW.pressureGauge){
+      var gaugeX=W*0.72,gaugeY=H*0.25,gaugeR=50;
+      ctx.strokeStyle='#555577';ctx.lineWidth=2;ctx.beginPath();ctx.arc(gaugeX,gaugeY,gaugeR,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='#1a1a30';ctx.beginPath();ctx.arc(gaugeX,gaugeY,gaugeR-2,0,Math.PI*2);ctx.fill();
+
+      var pressKPa=pressure()/1000;
+      var needleAngle=-Math.PI*0.8+Math.min(pressKPa/1000,1)*Math.PI*1.6;
+      ctx.strokeStyle='#e94560';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(gaugeX,gaugeY);
+      ctx.lineTo(gaugeX+gaugeR*0.7*Math.cos(needleAngle),gaugeY+gaugeR*0.7*Math.sin(needleAngle));ctx.stroke();
+      ctx.fillStyle='#e94560';ctx.beginPath();ctx.arc(gaugeX,gaugeY,3,0,Math.PI*2);ctx.fill();
+
+      ctx.fillStyle='#8888a0';ctx.font='10px sans-serif';ctx.textAlign='center';
+      ctx.fillText('p = '+pressKPa.toFixed(0)+' kPa',gaugeX,gaugeY+gaugeR+16);
+      ctx.fillText('压力计',gaugeX,gaugeY+gaugeR+28);
+    }
+
+    if(SHOW.tempDisplay){
+      var tempX=W*0.72,tempY=H*0.55;
+      var tempColor=CFG.T<300?'#58C4DD':CFG.T<600?'#ffd93d':'#e94560';
+      ctx.fillStyle=tempColor;ctx.font='bold 18px sans-serif';ctx.textAlign='center';
+      ctx.fillText(CFG.T.toFixed(0)+' K',tempX,tempY);
+      ctx.fillStyle='#8888a0';ctx.font='10px sans-serif';
+      ctx.fillText('温度',tempX,tempY+16);
+      var celsius=CFG.T-273.15;
+      ctx.fillText('('+celsius.toFixed(1)+' °C)',tempX,tempY+30);
+    }
+
+    var procNames={isothermal:'等温过程',isobaric:'等压过程',isochoric:'等容过程',adiabatic:'绝热过程'};
+    var procColors={isothermal:'#58C4DD',isobaric:'#ffd93d',isochoric:'#e94560',adiabatic:'#ce93d8'};
+    ctx.fillStyle=procColors[CFG.process];ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText(procNames[CFG.process],W*0.72,H*0.78);
+
+    ctx.fillStyle='#8888a0';ctx.font='12px sans-serif';ctx.textAlign='left';ctx.textBaseline='top';
+    ctx.fillText('pV = nRT',10,20);
+    ctx.fillText('R = 8.314 J/(mol·K)',10,38);
+  }
+
+  function drawChart(canvasId,data,opts){
+    var c=document.getElementById(canvasId);
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:15,bottom:22,left:45},cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var series=Array.isArray(data[0])?data:[data];
+    var xMin=Infinity,xMax=-Infinity,yMin=Infinity,yMax=-Infinity;
+    series.forEach(function(s){s.forEach(function(d){if(d.x<xMin)xMin=d.x;if(d.x>xMax)xMax=d.x;if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});});
+    if(xMax<=xMin)xMax=xMin+1;if(yMax<=yMin)yMax=yMin+1;
+    var xR=xMax-xMin,yR=yMax-yMin;
+    xMin-=xR*0.05;xMax+=xR*0.05;yMin-=yR*0.1;yMax+=yR*0.1;
+    if(yMin>0&&xMin<=0)yMin=0;
+    function toC(px,py){return{x:pad.left+(px-xMin)/(xMax-xMin)*cw,y:pad.top+(1-(py-yMin)/(yMax-yMin))*ch};}
+    c2.strokeStyle='#1e1e35';c2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;c2.beginPath();c2.moveTo(pad.left,gy);c2.lineTo(pad.left+cw,gy);c2.stroke();}
+    c2.fillStyle='#555570';c2.font='10px sans-serif';c2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);c2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    c2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);c2.fillText(val2.toFixed(1),pad.left-5,pad.top+(1-l/4)*ch+3);}
+    var colors=opts.colors||['#00d4ff'];
+    series.forEach(function(s,si){if(s.length<2)return;c2.strokeStyle=colors[si%colors.length];c2.lineWidth=2;c2.beginPath();
+      s.forEach(function(d,i){var p=toC(d.x,d.y);if(i===0)c2.moveTo(p.x,p.y);else c2.lineTo(p.x,p.y);});c2.stroke();});
+  }
+
+  function updateCharts(){
+    var pvData=[];
+    for(var v=1;v<=10;v+=0.2){
+      var p=CFG.n*R*CFG.T/(v*1e-3)/1000;
+      pvData.push({x:v,y:p});
+    }
+    drawChart('chartPV',pvData,{colors:['#58C4DD']});
+
+    var ptData=[];
+    for(var t=100;t<=1000;t+=5){
+      var p2=CFG.n*R*t/(CFG.V*1e-3)/1000;
+      ptData.push({x:t,y:p2});
+    }
+    drawChart('chartPT',ptData,{colors:['#ffd93d']});
+
+    var vtData=[];
+    for(var t2=100;t2<=1000;t2+=5){
+      var v2=CFG.n*R*t2/(pressure())*1000;
+      vtData.push({x:t2,y:v2});
+    }
+    drawChart('chartVT',vtData,{colors:['#66bb6a']});
+
+    var speedData=[];
+    var kB=1.38e-23;
+    var mParticle=4.65e-26;
+    for(var sp=0;sp<=2000;sp+=20){
+      var fsp=Math.pow(mParticle/(2*Math.PI*kB*CFG.T),1.5)*4*Math.PI*Math.pow(sp,2)*Math.exp(-mParticle*sp*sp/(2*kB*CFG.T));
+      speedData.push({x:sp,y:fsp*1e10});
+    }
+    drawChart('chartSpeed',speedData,{colors:['#ce93d8']});
+  }
+
+  function updateData(){
+    var p=pressure();
+    document.getElementById('dataP').innerHTML=(p/1000).toFixed(1)+' <span class="unit">kPa</span>';
+    document.getElementById('dataV2').innerHTML=CFG.V.toFixed(1)+' <span class="unit">L</span>';
+    document.getElementById('dataT2').innerHTML=CFG.T+' <span class="unit">K</span>';
+    document.getElementById('dataN').innerHTML=CFG.n.toFixed(1)+' <span class="unit">mol</span>';
+    document.getElementById('dataPV').innerHTML=(p*CFG.V*1e-3).toFixed(0)+' <span class="unit">J</span>';
+    var kB=1.38e-23;
+    var avgKE=1.5*kB*CFG.T;
+    document.getElementById('dataKE').innerHTML=(avgKE/1e-21).toFixed(2)+' <span class="unit">×10⁻²¹ J</span>';
+    document.getElementById('fmPV').textContent=(p*CFG.V*1e-3).toFixed(0);
+    document.getElementById('fmP').textContent=(p/1000).toFixed(1);
+  }
+
+  var lastTime=0,animId=null,HISTORY_INT=0.05,lastHistT=0;
+  var processPhase=0;
+
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var wallDt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    var simDt=wallDt*CFG.timeScale;
+    S.t+=simDt;
+    processPhase+=simDt*0.3;
+
+    var p0=pressure();
+    var delta=p0*0.01*Math.sin(processPhase);
+    if(CFG.process==='isothermal'){
+      CFG.V=5+2*Math.sin(processPhase);
+      CFG.T=300;
+    }else if(CFG.process==='isobaric'){
+      CFG.V=3+4*Math.sin(processPhase*0.5);
+      CFG.T=300*CFG.V/5;
+    }else if(CFG.process==='isochoric'){
+      CFG.V=5;
+      CFG.T=300+200*Math.sin(processPhase*0.8);
+    }else{
+      var gamma=5/3;
+      CFG.V=3+3*Math.sin(processPhase*0.6);
+      CFG.T=300*Math.pow(5/CFG.V,gamma-1);
+      CFG.T=Math.max(100,Math.min(1000,CFG.T));
+    }
+
+    document.getElementById('sliderT').value=CFG.T;
+    document.getElementById('valT').textContent=CFG.T.toFixed(0)+' K';
+    document.getElementById('sliderV').value=CFG.V;
+    document.getElementById('valV').textContent=CFG.V.toFixed(1)+' L';
+
+    if(S.t-lastHistT>=HISTORY_INT){
+      S.history.push({t:S.t,p:pressure()/1000,v:CFG.V,T:CFG.T});
+      lastHistT=S.t;
+      if(S.history.length>300)S.history.shift();
+    }
+    drawSim();updateData();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.history=[];lastHistT=0;lastTime=0;processPhase=0;
+    initMolecules();
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();
+    document.querySelectorAll('.exp-chart-box canvas').forEach(function(c){c.getContext('2d').clearRect(0,0,c.width,c.height);});
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.querySelectorAll('.exp-toggle-btn[data-process]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      document.querySelectorAll('.exp-toggle-btn[data-process]').forEach(function(x){x.classList.remove('active');});
+      btn.classList.add('active');
+      CFG.process=btn.dataset.process;
+      reset();
+    });
+  });
+  document.querySelectorAll('.exp-toggle-btn[data-toggle]').forEach(function(btn){
+    btn.addEventListener('click',function(){var key=btn.dataset.toggle;SHOW[key]=!SHOW[key];btn.classList.toggle('active');drawSim();});
+  });
+
+  document.getElementById('sliderT').addEventListener('input',function(){
+    CFG.T=parseFloat(this.value);document.getElementById('valT').textContent=CFG.T+' K';
+    if(CFG.process==='isothermal'||CFG.process==='isochoric')reset();
+  });
+  document.getElementById('sliderV').addEventListener('input',function(){
+    CFG.V=parseFloat(this.value);document.getElementById('valV').textContent=CFG.V.toFixed(1)+' L';
+    if(CFG.process==='isothermal'||CFG.process==='isobaric')reset();
+  });
+  document.getElementById('sliderN').addEventListener('input',function(){
+    CFG.n=parseFloat(this.value);document.getElementById('valN').textContent=CFG.n.toFixed(1)+' mol';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

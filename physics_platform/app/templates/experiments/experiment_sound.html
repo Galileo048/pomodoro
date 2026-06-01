@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+{% block title %}声音的传播 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-wave{color:var(--cyan)}.c-speed{color:var(--amber)}.c-freq{color:#83c167}.c-temp{color:#ce93d8}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-medium-btns{display:flex;gap:4px;margin-bottom:8px}
+  .exp-medium-btn{flex:1;padding:6px 0;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;transition:all 0.2s}
+  .exp-medium-btn.active{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🔊 声音的传播</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Sound Propagation — v = 331 + 0.6T (air)</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">波形 (y-t)</span><canvas id="chartWave"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">波前 (x-y)</span><canvas id="chartFront"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">声速 vs 温度</span><canvas id="chartSpeed"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 介质选择</h3>
+        <div class="exp-medium-btns">
+          <button class="exp-medium-btn active" data-medium="air">空气</button>
+          <button class="exp-medium-btn" data-medium="water">水</button>
+          <button class="exp-medium-btn" data-medium="steel">钢</button>
+        </div>
+        <div class="exp-slider-group" id="tempGroup">
+          <div class="exp-slider-header"><span class="exp-slider-label">温度 T</span><span class="exp-slider-value" id="valTemp">20 °C</span></div>
+          <input type="range" id="sliderTemp" min="0" max="40" step="1" value="20">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">频率 f</span><span class="exp-slider-value" id="valFreq">3.0 Hz</span></div>
+          <input type="range" id="sliderFreq" min="0.5" max="8" step="0.1" value="3">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">声速 v</div><div class="value c-speed" id="dataV">343 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">频率 f</div><div class="value c-freq" id="dataF">3.0 <span class="unit">Hz</span></div></div>
+          <div class="exp-data-item"><div class="label">温度 T</div><div class="value c-temp" id="dataT">20 <span class="unit">°C</span></div></div>
+          <div class="exp-data-item"><div class="label">波长 λ</div><div class="value c-wave" id="dataLambda">114.3 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">介质</div><div class="value c-wave" id="dataMedium" style="font-size:12px;">空气</div></div>
+          <div class="exp-data-item"><div class="label">波源</div><div class="value" style="color:#e94560;font-size:12px;">S (中心)</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>空气: v = 331 + 0.6T</div>
+          <div>声速 = <span class="result" id="fmSpeed">343</span> m/s</div>
+          <div style="margin-top:4px;">波长 λ = v / f</div>
+          <div>λ = <span class="result" id="fmLambda">114.3</span> m</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { medium:'air', temp:20, freq:3, timeScale:1 };
+  var S = { t:0, playing:false, waveFronts:[] };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  /* ====== 声速计算 ====== */
+  function getSpeed(medium, temp) {
+    if (medium === 'air') return 331 + 0.6 * temp;
+    if (medium === 'water') return 1480 + 1.2 * temp; // 水中声速近似
+    if (medium === 'steel') return 5000 + 0.5 * temp; // 固体中声速近似
+    return 343;
+  }
+
+  /* ====== Canvas 尺寸自适应 ====== */
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  /* ====== 绘制主场景 ====== */
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var cx = W / 2, cy = H / 2;
+    var speed = getSpeed(CFG.medium, CFG.temp);
+    var freq = CFG.freq;
+
+    // 介质背景渐变
+    if (CFG.medium === 'air') {
+      var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * 0.45);
+      grad.addColorStop(0, 'rgba(0,212,255,0.03)');
+      grad.addColorStop(1, 'rgba(15,15,26,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    } else if (CFG.medium === 'water') {
+      var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * 0.45);
+      grad.addColorStop(0, 'rgba(30,100,200,0.08)');
+      grad.addColorStop(1, 'rgba(15,15,26,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      var grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * 0.45);
+      grad.addColorStop(0, 'rgba(200,150,80,0.06)');
+      grad.addColorStop(1, 'rgba(15,15,26,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // 波源
+    var pulse = 0.3 + 0.7 * Math.abs(Math.sin(S.t * freq * Math.PI));
+    ctx.fillStyle = '#e94560';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6 + 4 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(233,69,96,' + (0.3 + 0.4 * pulse) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10 + 8 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 同心圆波前 —— 速度越快扩散越快
+    var maxRadius = Math.min(W, H) * 0.42;
+    var waveSpacing = speed / freq * 0.3; // 视觉间距（比例缩放）
+    var numRings = Math.ceil(maxRadius / waveSpacing) + 1;
+
+    for (var i = 0; i < numRings; i++) {
+      var phase = (S.t * freq * Math.PI * 2 + i * Math.PI * 2 * 0.1) % (Math.PI * 2);
+      var r = ((S.t * speed * 0.15 + i * waveSpacing) % maxRadius);
+      if (r < 2) continue;
+      var alpha = 1 - r / maxRadius;
+      if (alpha < 0) continue;
+      // 波峰着色
+      var isCrest = Math.sin(phase) > 0.7;
+      var color = isCrest ? 'rgba(255,217,61,' + alpha + ')' : 'rgba(0,212,255,' + (alpha * 0.6) + ')';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isCrest ? 2.5 : 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 标注
+    ctx.fillStyle = '#e94560';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('S (波源)', cx, cy + 28);
+
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(CFG.medium === 'air' ? '空气' : (CFG.medium === 'water' ? '水' : '钢') + '中传播', cx, H - 20);
+
+    // 速度标注
+    ctx.fillStyle = '#ffd93d';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('v = ' + speed.toFixed(1) + ' m/s', cx, 25);
+  }
+
+  /* ====== 更新数据面板 ====== */
+  function updateData() {
+    var speed = getSpeed(CFG.medium, CFG.temp);
+    var lambda = speed / CFG.freq;
+    document.getElementById('dataV').innerHTML = speed.toFixed(1) + ' <span class="unit">m/s</span>';
+    document.getElementById('dataF').innerHTML = CFG.freq.toFixed(1) + ' <span class="unit">Hz</span>';
+    document.getElementById('dataT').innerHTML = CFG.temp + ' <span class="unit">°C</span>';
+    document.getElementById('dataLambda').innerHTML = lambda.toFixed(1) + ' <span class="unit">m</span>';
+    var mediumNames = { air:'空气', water:'水', steel:'钢' };
+    document.getElementById('dataMedium').textContent = mediumNames[CFG.medium];
+    document.getElementById('fmSpeed').textContent = speed.toFixed(1);
+    document.getElementById('fmLambda').textContent = lambda.toFixed(1);
+  }
+
+  /* ====== 图表: 波形 y-t ====== */
+  function drawChartWave() {
+    var c = document.getElementById('chartWave');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:35, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var midY = pad.t + ph / 2;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+    // 中线
+    cx.strokeStyle = '#222244';
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.moveTo(pad.l, midY);
+    cx.lineTo(pad.l + pw, midY);
+    cx.stroke();
+    cx.setLineDash([]);
+
+    // 正弦波 y = A sin(2πft)
+    var freq = CFG.freq;
+    var A = ph * 0.4;
+    cx.strokeStyle = '#00d4ff';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= pw; i++) {
+      var t = (i / pw) * 3; // 3秒显示
+      var y = midY - A * Math.sin(2 * Math.PI * freq * (t + S.t));
+      if (i === 0) cx.moveTo(pad.l + i, y); else cx.lineTo(pad.l + i, y);
+    }
+    cx.stroke();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('t (s)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 图表: 波前 x-y ====== */
+  function drawChartFront() {
+    var c = document.getElementById('chartFront');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var fcx = w / 2, fcy = h / 2 + 5;
+    var maxR = Math.min(w, h) * 0.38;
+    var speed = getSpeed(CFG.medium, CFG.temp);
+    var spacing = maxR / 8;
+
+    // 同心圆
+    for (var i = 1; i <= 8; i++) {
+      var r = (i * spacing + S.t * speed * 0.02) % maxR;
+      var alpha = 1 - r / maxR;
+      if (alpha < 0) continue;
+      var isCrest = (i % 3 === 0);
+      cx.strokeStyle = isCrest ? 'rgba(255,217,61,' + alpha + ')' : 'rgba(0,212,255,' + (alpha * 0.5) + ')';
+      cx.lineWidth = isCrest ? 2 : 1;
+      cx.beginPath();
+      cx.arc(fcx, fcy, r, 0, Math.PI * 2);
+      cx.stroke();
+    }
+
+    // 波源点
+    cx.fillStyle = '#e94560';
+    cx.beginPath();
+    cx.arc(fcx, fcy, 3, 0, Math.PI * 2);
+    cx.fill();
+  }
+
+  /* ====== 图表: 声速 vs 温度 ====== */
+  function drawChartSpeed() {
+    var c = document.getElementById('chartSpeed');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+    // 坐标轴
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // 空气声速线 v = 331 + 0.6T
+    var tMin = 0, tMax = 40;
+    var vMin = 331, vMax = 331 + 0.6 * 40 + 10;
+    cx.strokeStyle = '#00d4ff';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    for (var i = 0; i <= 100; i++) {
+      var t = tMin + (i / 100) * (tMax - tMin);
+      var v = 331 + 0.6 * t;
+      var px = pad.l + (i / 100) * pw;
+      var py = pad.t + ph - ((v - vMin) / (vMax - vMin)) * ph;
+      if (i === 0) cx.moveTo(px, py); else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前温度点
+    var curV = getSpeed(CFG.medium, CFG.temp);
+    var curPx = pad.l + (CFG.temp / tMax) * pw;
+    var curPy = pad.t + ph - ((curV - vMin) / (vMax - vMin)) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curPx, curPy, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    // 水平参考线
+    cx.strokeStyle = '#ffd93d44';
+    cx.lineWidth = 1;
+    cx.setLineDash([3, 3]);
+    cx.beginPath();
+    cx.moveTo(pad.l, curPy);
+    cx.lineTo(pad.l + pw, curPy);
+    cx.stroke();
+    cx.setLineDash([]);
+
+    cx.fillStyle = '#ffd93d';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'right';
+    cx.fillText(curV.toFixed(0) + ' m/s', pad.l + pw - 4, curPy - 5);
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('T (°C)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 动画循环 ====== */
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+
+    S.t += dt * CFG.timeScale;
+
+    draw();
+    updateData();
+    drawChartWave();
+    drawChartFront();
+    drawChartSpeed();
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  /* ====== 重置 ====== */
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartWave();
+    drawChartFront();
+    drawChartSpeed();
+  }
+
+  /* ====== 事件绑定 ====== */
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  // 介质选择
+  document.querySelectorAll('.exp-medium-btn').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-medium-btn').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.medium = b.dataset.medium;
+      // 空气可调温度，其他介质温度影响较小
+      document.getElementById('tempGroup').style.opacity = CFG.medium === 'air' ? '1' : '0.5';
+      updateData();
+      draw();
+      drawChartWave();
+      drawChartFront();
+      drawChartSpeed();
+    });
+  });
+
+  document.getElementById('sliderTemp').addEventListener('input', function() {
+    CFG.temp = parseInt(this.value);
+    document.getElementById('valTemp').textContent = CFG.temp + ' °C';
+    updateData();
+    draw();
+    drawChartSpeed();
+  });
+
+  document.getElementById('sliderFreq').addEventListener('input', function() {
+    CFG.freq = parseFloat(this.value);
+    document.getElementById('valFreq').textContent = CFG.freq.toFixed(1) + ' Hz';
+    updateData();
+    draw();
+    drawChartWave();
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartWave();
+    drawChartFront();
+    drawChartSpeed();
+  });
+
+  resize();
+  updateData();
+  drawChartWave();
+  drawChartFront();
+  drawChartSpeed();
+})();
+</script>
+{% endblock %}

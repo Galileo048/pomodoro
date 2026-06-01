@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}杠杆原理 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-force1{color:#83c167}.c-force2{color:#e94560}.c-torque{color:var(--amber)}.c-arm{color:var(--cyan)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-balance-indicator{text-align:center;padding:8px;margin-top:6px;border-radius:6px;font-size:13px;font-weight:700}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">⚖️ 杠杆原理</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Lever Principle — F₁·L₁ = F₂·L₂</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">F₁ vs L₁</span><canvas id="chartF1L1"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">力矩平衡</span><canvas id="chartTorque"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">力臂 L₁</span><span class="exp-slider-value" id="valL1">2.0 m</span></div>
+          <input type="range" id="sliderL1" min="0.5" max="5" step="0.1" value="2">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">阻力臂 L₂</span><span class="exp-slider-value" id="valL2">3.0 m</span></div>
+          <input type="range" id="sliderL2" min="0.5" max="5" step="0.1" value="3">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">阻力 F₂</span><span class="exp-slider-value" id="valF2">20.0 N</span></div>
+          <input type="range" id="sliderF2" min="1" max="50" step="0.5" value="20">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">动力 F₁</div><div class="value c-force1" id="dataF1">30.0 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">阻力 F₂</div><div class="value c-force2" id="dataF2">20.0 <span class="unit">N</span></div></div>
+          <div class="exp-data-item"><div class="label">力臂 L₁</div><div class="value c-arm" id="dataL1">2.0 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">阻力臂 L₂</div><div class="value c-arm" id="dataL2">3.0 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">动力矩</div><div class="value c-torque" id="dataT1">60.0 <span class="unit">N·m</span></div></div>
+          <div class="exp-data-item"><div class="label">阻力矩</div><div class="value c-torque" id="dataT2">60.0 <span class="unit">N·m</span></div></div>
+        </div>
+        <div class="exp-balance-indicator" id="balanceBox" style="background:rgba(0,255,136,0.15);color:#00ff88;">✓ 杠杆平衡</div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 杠杆平衡条件</h3>
+        <div class="exp-formula-box">
+          <div>F₁ · L₁ = F₂ · L₂</div>
+          <div>F₁ × <span class="formula" id="fmL1">2.0</span> = <span class="formula" id="fmF2">20.0</span> × <span class="formula" id="fmL2">3.0</span></div>
+          <div>F₁ = <span class="result" id="fmF1">30.0</span> N</div>
+          <div style="margin-top:4px;">平衡条件：<span class="result">F₁L₁ = F₂L₂</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var CFG = { L1:2, L2:3, F2:20, timeScale:1 };
+  var S = { t:0, playing:false, currentAngle:0, targetAngle:0 };
+
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function getF1() { return (CFG.F2 * CFG.L2) / CFG.L1; }
+  function getTorque1() { return getF1() * CFG.L1; }
+  function getTorque2() { return CFG.F2 * CFG.L2; }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function draw() {
+    var W = canvas.width / (window.devicePixelRatio || 1);
+    var H = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a';
+    ctx.fillRect(0, 0, W, H);
+
+    var cx = W / 2, fulcrumY = H * 0.55;
+    var beamLen = Math.min(W * 0.38, 300);
+    var totalArm = CFG.L1 + CFG.L2;
+    var l1Px = (CFG.L1 / totalArm) * beamLen * 2;
+    var l2Px = (CFG.L2 / totalArm) * beamLen * 2;
+
+    // 杠杆倾斜角度（根据力矩差）
+    var torqueDiff = getTorque1() - getTorque2();
+    S.targetAngle = Math.max(-0.25, Math.min(0.25, torqueDiff / 200));
+
+    // 支点三角形
+    var triH = 30;
+    ctx.fillStyle = '#445566';
+    ctx.beginPath();
+    ctx.moveTo(cx, fulcrumY);
+    ctx.lineTo(cx - 18, fulcrumY + triH);
+    ctx.lineTo(cx + 18, fulcrumY + triH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#667788';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 杠杆横梁（旋转）
+    ctx.save();
+    ctx.translate(cx, fulcrumY);
+    ctx.rotate(S.currentAngle);
+
+    // 横梁
+    ctx.strokeStyle = '#aabbcc';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-l1Px, 0);
+    ctx.lineTo(l2Px, 0);
+    ctx.stroke();
+
+    // 力臂标注线
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(-l1Px, 15);
+    ctx.lineTo(0, 15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, 15);
+    ctx.lineTo(l2Px, 15);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('L₁=' + CFG.L1.toFixed(1) + 'm', -l1Px / 2, 30);
+    ctx.fillText('L₂=' + CFG.L2.toFixed(1) + 'm', l2Px / 2, 30);
+
+    // ====== F₁ 动力（绿色箭头，左侧向下）=====
+    var f1Scale = Math.min(getF1() / 50, 1) * 80;
+    drawForceArrow(ctx, -l1Px, 0, -l1Px, f1Scale, '#83c167', 'F₁=' + getF1().toFixed(1) + 'N');
+
+    // ====== F₂ 阻力（红色箭头，右侧向下）=====
+    var f2Scale = Math.min(CFG.F2 / 50, 1) * 80;
+    drawForceArrow(ctx, l2Px, 0, l2Px, f2Scale, '#e94560', 'F₂=' + CFG.F2.toFixed(1) + 'N');
+
+    ctx.restore();
+
+    // 支点标记
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(cx, fulcrumY, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('支点 O', cx, fulcrumY + triH + 18);
+  }
+
+  function drawForceArrow(ctx, x1, y1, x2, y2, color, label) {
+    var headLen = 10;
+    var angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    // 箭头
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen * Math.cos(angle - 0.4), y2 - headLen * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - headLen * Math.cos(angle + 0.4), y2 - headLen * Math.sin(angle + 0.4));
+    ctx.closePath();
+    ctx.fill();
+    // 标签
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x1, y2 + 18);
+  }
+
+  function updateData() {
+    var F1 = getF1();
+    var T1 = getTorque1();
+    var T2 = getTorque2();
+    document.getElementById('dataF1').innerHTML = F1.toFixed(1) + ' <span class="unit">N</span>';
+    document.getElementById('dataF2').innerHTML = CFG.F2.toFixed(1) + ' <span class="unit">N</span>';
+    document.getElementById('dataL1').innerHTML = CFG.L1.toFixed(1) + ' <span class="unit">m</span>';
+    document.getElementById('dataL2').innerHTML = CFG.L2.toFixed(1) + ' <span class="unit">m</span>';
+    document.getElementById('dataT1').innerHTML = T1.toFixed(1) + ' <span class="unit">N·m</span>';
+    document.getElementById('dataT2').innerHTML = T2.toFixed(1) + ' <span class="unit">N·m</span>';
+
+    var box = document.getElementById('balanceBox');
+    var diff = Math.abs(T1 - T2);
+    if (diff < 0.5) {
+      box.textContent = '✓ 杠杆平衡';
+      box.style.background = 'rgba(0,255,136,0.15)';
+      box.style.color = '#00ff88';
+    } else if (T1 > T2) {
+      box.textContent = '↑ 左端下沉 (F₁L₁ > F₂L₂)';
+      box.style.background = 'rgba(131,193,103,0.15)';
+      box.style.color = '#83c167';
+    } else {
+      box.textContent = '↓ 右端下沉 (F₁L₁ < F₂L₂)';
+      box.style.background = 'rgba(233,69,96,0.15)';
+      box.style.color = '#e94560';
+    }
+
+    document.getElementById('fmL1').textContent = CFG.L1.toFixed(1);
+    document.getElementById('fmF2').textContent = CFG.F2.toFixed(1);
+    document.getElementById('fmL2').textContent = CFG.L2.toFixed(1);
+    document.getElementById('fmF1').textContent = F1.toFixed(1);
+  }
+
+  /* ====== 图表: F₁ vs L₁ ====== */
+  function drawChartF1L1() {
+    var c = document.getElementById('chartF1L1');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:24, b:28 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var L1max = 5;
+    var F1max = (CFG.F2 * CFG.L2) / 0.5 * 1.1;
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t);
+    cx.lineTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+
+    // F₁ = F₂L₂/L₁ 曲线
+    cx.strokeStyle = '#83c167';
+    cx.lineWidth = 2;
+    cx.beginPath();
+    var started = false;
+    for (var i = 1; i <= 100; i++) {
+      var L1 = (i / 100) * L1max;
+      var F1 = (CFG.F2 * CFG.L2) / L1;
+      if (F1 > F1max) continue;
+      var px = pad.l + (L1 / L1max) * pw;
+      var py = pad.t + ph - (F1 / F1max) * ph;
+      if (!started) { cx.moveTo(px, py); started = true; } else cx.lineTo(px, py);
+    }
+    cx.stroke();
+
+    // 当前点
+    var curF1 = getF1();
+    var curX = pad.l + (CFG.L1 / L1max) * pw;
+    var curY = pad.t + ph - (curF1 / F1max) * ph;
+    cx.fillStyle = '#ff6b6b';
+    cx.beginPath();
+    cx.arc(curX, curY, 4, 0, Math.PI * 2);
+    cx.fill();
+
+    cx.fillStyle = '#888';
+    cx.font = '9px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText('L₁ (m)', pad.l + pw / 2, pad.t + ph + 24);
+  }
+
+  /* ====== 图表: 力矩平衡 ====== */
+  function drawChartTorque() {
+    var c = document.getElementById('chartTorque');
+    var cx = c.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = c.parentElement.getBoundingClientRect();
+    c.width = rect.width * dpr;
+    c.height = rect.height * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var w = rect.width, h = rect.height;
+    cx.clearRect(0, 0, w, h);
+    cx.fillStyle = '#161625';
+    cx.fillRect(0, 0, w, h);
+
+    var pad = { l:40, r:10, t:30, b:30 };
+    var pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+    var T1 = getTorque1();
+    var T2 = getTorque2();
+    var Tmax = Math.max(T1, T2, 50) * 1.3;
+    var barW = pw * 0.3;
+
+    // 动力矩柱
+    var h1 = (T1 / Tmax) * ph;
+    cx.fillStyle = '#83c167';
+    cx.fillRect(pad.l + pw * 0.15, pad.t + ph - h1, barW, h1);
+    cx.fillStyle = '#83c167';
+    cx.font = 'bold 11px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText(T1.toFixed(1), pad.l + pw * 0.15 + barW / 2, pad.t + ph - h1 - 6);
+    cx.font = '10px sans-serif';
+    cx.fillText('F₁L₁', pad.l + pw * 0.15 + barW / 2, pad.t + ph + 20);
+
+    // 阻力矩柱
+    var h2 = (T2 / Tmax) * ph;
+    cx.fillStyle = '#e94560';
+    cx.fillRect(pad.l + pw * 0.55, pad.t + ph - h2, barW, h2);
+    cx.fillStyle = '#e94560';
+    cx.font = 'bold 11px sans-serif';
+    cx.textAlign = 'center';
+    cx.fillText(T2.toFixed(1), pad.l + pw * 0.55 + barW / 2, pad.t + ph - h2 - 6);
+    cx.font = '10px sans-serif';
+    cx.fillText('F₂L₂', pad.l + pw * 0.55 + barW / 2, pad.t + ph + 20);
+
+    cx.strokeStyle = '#333355';
+    cx.lineWidth = 1;
+    cx.beginPath();
+    cx.moveTo(pad.l, pad.t + ph);
+    cx.lineTo(pad.l + pw, pad.t + ph);
+    cx.stroke();
+  }
+
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    S.t += dt * CFG.timeScale;
+
+    // 平滑过渡角度
+    S.currentAngle += (S.targetAngle - S.currentAngle) * 0.05;
+
+    draw();
+    updateData();
+    drawChartF1L1();
+    drawChartTorque();
+
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false;
+    S.t = 0;
+    S.currentAngle = 0;
+    S.targetAngle = 0;
+    lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    draw();
+    updateData();
+    drawChartF1L1();
+    drawChartTorque();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    this.textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderL1').addEventListener('input', function() {
+    CFG.L1 = parseFloat(this.value);
+    document.getElementById('valL1').textContent = CFG.L1.toFixed(1) + ' m';
+    S.targetAngle = 0;
+    S.currentAngle = 0;
+    updateData(); draw(); drawChartF1L1(); drawChartTorque();
+  });
+  document.getElementById('sliderL2').addEventListener('input', function() {
+    CFG.L2 = parseFloat(this.value);
+    document.getElementById('valL2').textContent = CFG.L2.toFixed(1) + ' m';
+    S.targetAngle = 0;
+    S.currentAngle = 0;
+    updateData(); draw(); drawChartF1L1(); drawChartTorque();
+  });
+  document.getElementById('sliderF2').addEventListener('input', function() {
+    CFG.F2 = parseFloat(this.value);
+    document.getElementById('valF2').textContent = CFG.F2.toFixed(1) + ' N';
+    S.targetAngle = 0;
+    S.currentAngle = 0;
+    updateData(); draw(); drawChartF1L1(); drawChartTorque();
+  });
+
+  window.addEventListener('resize', function() {
+    resize();
+    drawChartF1L1();
+    drawChartTorque();
+  });
+
+  resize();
+  updateData();
+  drawChartF1L1();
+  drawChartTorque();
+})();
+</script>
+{% endblock %}
