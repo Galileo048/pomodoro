@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+
+{% block title %}知识诊断 — 物理AI学习平台{% endblock %}
+
+{% block content %}
+<!-- Header section -->
+<div class="diagnosis-header">
+    <h1 class="hero-title" style="text-align:left; font-size:1.8rem;">
+        &#9878; 知识诊断报告
+    </h1>
+    <p class="hero-desc" style="text-align:left; margin:0; margin-top:4px;">
+        基于你的答题数据分析各知识模块掌握情况，精准定位薄弱环节
+    </p>
+</div>
+
+<!-- Summary stats -->
+<div class="diagnosis-header">
+    <div class="diagnosis-stats">
+        <div class="stat-card">
+            <div class="stat-number" id="statTotal">0</div>
+            <div class="stat-label">总答题数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="statCorrect">0</div>
+            <div class="stat-label">正确题数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="statAccuracy">0%</div>
+            <div class="stat-label">正确率</div>
+        </div>
+    </div>
+</div>
+
+<!-- AI 诊断按钮 -->
+<div class="diagnosis-header" style="padding-bottom:0.5rem;">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="font-size:1.15rem; font-weight:600; color:var(--text-secondary); margin:0;">
+            各知识点掌握情况
+        </h2>
+        {% if results %}
+        <button id="aiDiagnosisBtn" onclick="runAiDiagnosis()" class="btn btn-primary btn-glow" style="font-size:0.82rem; padding:0.4rem 1rem;">
+            AI 诊断
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- AI 诊断结果区域 -->
+<div id="aiDiagnosisResult" style="display:none; margin-bottom:1.2rem;">
+    <div class="card-dark" style="overflow:hidden; border:none; background:linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(59,130,246,0.06) 100%); border:1px solid rgba(139,92,246,0.15);">
+
+        <!-- 标题栏 -->
+        <div style="display:flex; align-items:center; gap:0.6rem; padding:0.8rem 1rem; background:linear-gradient(90deg, rgba(139,92,246,0.12) 0%, transparent 100%); border-bottom:1px solid rgba(139,92,246,0.1);">
+            <div style="width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, #8b5cf6, #6366f1); display:flex; align-items:center; justify-content:center; font-size:1rem;">
+                🧠
+            </div>
+            <div>
+                <div class="ai-title" style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">AI 学情分析</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">基于 DeepSeek 大模型的个性化诊断</div>
+            </div>
+        </div>
+
+        <!-- 分析内容 -->
+        <div style="padding:1rem;">
+            <div id="aiAnalysisText" style="font-size:0.85rem; color:var(--text-primary); line-height:1.9; white-space:pre-wrap;"></div>
+            <div id="aiRecommendations" style="margin-top:0.8rem;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Knowledge cards grid -->
+<div class="knowledge-grid" id="knowledgeGrid">
+    {% if results %}
+        {% for kp in results %}
+        <div class="knowledge-card {% if (kp.accuracy or 0) < 60 %}weak-card{% endif %}"
+             data-accuracy="{{ kp.accuracy or 0 }}">
+
+            <div class="knowledge-card-title">
+                <span>{{ kp.topic_name or '未命名知识点' }}</span>
+                {% if (kp.accuracy or 0) < 60 %}
+                    <span class="status-badge weak">薄弱</span>
+                {% elif (kp.accuracy or 0) < 80 %}
+                    <span class="status-badge medium">待巩固</span>
+                {% else %}
+                    <span class="status-badge strong">已掌握</span>
+                {% endif %}
+            </div>
+
+            <!-- Ring chart -->
+            <div class="ring-chart">
+                <svg viewBox="0 0 80 80">
+                    <circle class="ring-bg" cx="40" cy="40" r="34"></circle>
+                    <circle class="ring-fill {% if (kp.accuracy or 0) < 60 %}weak{% elif (kp.accuracy or 0) < 80 %}medium{% endif %}"
+                            cx="40" cy="40" r="34"
+                            stroke-dasharray="213.6"
+                            stroke-dashoffset="213.6"
+                            data-target-offset="{{ (213.6 * (1 - (kp.accuracy or 0) / 100))|round(1) }}">
+                    </circle>
+                </svg>
+                <div class="ring-chart-value">{{ kp.accuracy or 0 }}%</div>
+            </div>
+
+            <!-- Stats -->
+            <div class="knowledge-card-stats">
+                <div class="knowledge-card-bar">
+                    <div class="knowledge-card-bar-fill {% if (kp.accuracy or 0) >= 80 %}high{% elif (kp.accuracy or 0) >= 60 %}medium{% else %}low{% endif %}"
+                         style="width: {{ kp.accuracy or 0 }}%;"
+                         data-target-width="{{ kp.accuracy or 0 }}">
+                    </div>
+                </div>
+                <span class="knowledge-card-percent text-mono"
+                      style="color:{% if (kp.accuracy or 0) >= 80 %}var(--green){% elif (kp.accuracy or 0) >= 60 %}var(--amber){% else %}var(--red){% endif %}">
+                    {{ kp.correct or 0 }}/{{ kp.total or 0 }}
+                </span>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div style="display:flex; gap:0.4rem; margin-top:0.6rem; flex-wrap:wrap;">
+                {% if kp.wrong_questions %}
+                <a href="{{ url_for('diagnosis.wrong_questions', topic_id=kp.topic_id) }}"
+                   class="btn btn-outline btn-sm" style="flex:1; text-align:center; min-width:80px;">
+                    查看错题 ({{ kp.wrong_questions|length }})
+                </a>
+                {% endif %}
+                <button onclick="runTopicAiDiagnosis('{{ kp.topic_id }}', this)"
+                   class="btn btn-outline btn-sm" style="flex:1; text-align:center; min-width:80px; color:var(--purple); border-color:rgba(139,92,246,0.3);">
+                    AI 诊断
+                </button>
+                {% if (kp.accuracy or 0) < 60 %}
+                <a href="{{ url_for('videos.video_list') }}?chapter={{ kp.topic_name or '' }}"
+                   class="btn btn-outline btn-sm" style="flex:1; text-align:center; min-width:80px; color:var(--red); border-color:rgba(255,80,80,0.3);">
+                    开始补弱
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <!-- Empty state: no data yet -->
+        <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-state-icon">&#9878;</div>
+            <p class="empty-state-text">暂无诊断数据</p>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-top:8px;">
+                完成视频学习和知识测验后，系统将自动生成诊断报告
+            </p>
+            <a href="{{ url_for('videos.video_list') }}" class="btn btn-primary btn-glow mt-3">
+                &#9654; 开始学习
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+</style>
+<script>
+    // AI 诊断功能
+    function parseAiAnalysis(text) {
+        // 把 AI 回复拆分成带图标的小节
+        var sectionMap = {
+            '学情分析': { icon: '📊', color: 'var(--cyan)' },
+            '错因分析': { icon: '🔍', color: 'var(--amber)' },
+            '学习建议': { icon: '📝', color: 'var(--green)' },
+            '建议': { icon: '📝', color: 'var(--green)' },
+            '重点提醒': { icon: '⚠️', color: 'var(--red)' },
+            '重点': { icon: '⚠️', color: 'var(--red)' }
+        };
+
+        var html = '';
+        var lines = text.split('\n');
+        var currentSection = null;
+        var currentContent = [];
+
+        function flushSection() {
+            if (currentSection && currentContent.length > 0) {
+                var info = sectionMap[currentSection] || { icon: '📄', color: 'var(--text-secondary)' };
+                var content = currentContent.join('\n').trim();
+                // 清理 markdown 标记
+                content = content.replace(/\*\*/g, '').replace(/^[-·•]\s*/gm, '');
+                html += '<div style="margin-bottom:0.7rem;">';
+                html += '<div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.3rem;">';
+                html += '<span style="font-size:0.95rem;">' + info.icon + '</span>';
+                html += '<span style="font-size:0.82rem; font-weight:700; color:' + info.color + ';">' + currentSection + '</span>';
+                html += '</div>';
+                html += '<div style="font-size:0.82rem; color:var(--text-primary); line-height:1.7; padding-left:1.4rem;">' + content.replace(/\n/g, '<br>') + '</div>';
+                html += '</div>';
+            }
+            currentContent = [];
+        }
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) continue;
+
+            // 检测是否是新的小节标题
+            var matched = false;
+            for (var key in sectionMap) {
+                // 匹配 "1. **学情分析**：" 或 "学情分析：" 等格式
+                if (line.indexOf(key) !== -1 && (line.match(/^\d/) || line.match(/^\*?\*?/) || line.match(/^[一二三四五]/))) {
+                    flushSection();
+                    currentSection = key;
+                    // 提取标题后的内容
+                    var afterTitle = line.substring(line.indexOf(key) + key.length).replace(/^[\s:*]+/, '').trim();
+                    if (afterTitle) currentContent.push(afterTitle);
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && currentSection) {
+                currentContent.push(line);
+            } else if (!matched && !currentSection) {
+                // 开头没有标题的内容
+                if (!currentSection) {
+                    currentSection = '学情分析';
+                    currentContent.push(line);
+                }
+            }
+        }
+        flushSection();
+
+        return html || '<div style="color:var(--text-muted);">' + text + '</div>';
+    }
+
+    // 单知识点 AI 诊断
+    function runTopicAiDiagnosis(topicId, btn) {
+        var resultDiv = document.getElementById('aiDiagnosisResult');
+        var textDiv = document.getElementById('aiAnalysisText');
+        var recsDiv = document.getElementById('aiRecommendations');
+        var titleEl = document.querySelector('#aiDiagnosisResult .ai-title');
+
+        btn.disabled = true;
+        btn.textContent = '分析中...';
+        resultDiv.style.display = '';
+        if (titleEl) titleEl.textContent = 'AI 学情分析 — ' + topicId;
+        textDiv.innerHTML = '<div style="display:flex; align-items:center; gap:0.6rem; padding:1rem 0;">' +
+            '<div style="width:20px; height:20px; border:2px solid rgba(139,92,246,0.2); border-top-color:var(--purple); border-radius:50%; animation:spin 1s linear infinite;"></div>' +
+            '<span style="color:var(--text-muted); font-size:0.85rem;">正在分析该知识点的答题数据...</span></div>';
+        recsDiv.innerHTML = '';
+
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        fetch('{{ url_for("diagnosis.ai_diagnosis") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
+            },
+            body: JSON.stringify({ topic_id: topicId })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'AI 诊断';
+            if (data.error) {
+                textDiv.innerHTML = '<div style="color:var(--red);">诊断失败: ' + data.error + '</div>';
+                return;
+            }
+            var analysis = data.analysis || '暂无分析结果';
+            textDiv.innerHTML = parseAiAnalysis(analysis);
+            if (data.recommendations && data.recommendations.length > 0) {
+                var recsHtml = '<div style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid rgba(139,92,246,0.1);">';
+                recsHtml += '<div style="font-size:0.78rem; font-weight:600; color:var(--purple); margin-bottom:0.4rem;">💡 改进建议</div>';
+                data.recommendations.forEach(function(rec, i) {
+                    recsHtml += '<div style="display:flex; gap:0.5rem; align-items:flex-start; padding:0.35rem 0.5rem; margin-bottom:0.3rem; background:rgba(139,92,246,0.05); border-radius:6px; font-size:0.82rem; color:var(--text-primary); line-height:1.5;">';
+                    recsHtml += '<span style="color:var(--purple); font-weight:700; min-width:18px;">' + (i+1) + '</span>';
+                    recsHtml += '<span>' + rec + '</span>';
+                    recsHtml += '</div>';
+                });
+                recsHtml += '</div>';
+                recsDiv.innerHTML = recsHtml;
+            }
+            // 滚动到结果区域
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'AI 诊断';
+            textDiv.innerHTML = '<div style="color:var(--red);">网络错误，请稍后重试</div>';
+        });
+    }
+
+    function runAiDiagnosis() {
+        var btn = document.getElementById('aiDiagnosisBtn');
+        var resultDiv = document.getElementById('aiDiagnosisResult');
+        var textDiv = document.getElementById('aiAnalysisText');
+        var recsDiv = document.getElementById('aiRecommendations');
+        var titleEl = document.querySelector('#aiDiagnosisResult .ai-title');
+
+        // 显示加载状态
+        btn.disabled = true;
+        btn.textContent = '分析中...';
+        resultDiv.style.display = '';
+        if (titleEl) titleEl.textContent = 'AI 学情分析';
+        textDiv.innerHTML = '<div style="display:flex; align-items:center; gap:0.6rem; padding:1rem 0;">' +
+            '<div style="width:20px; height:20px; border:2px solid rgba(139,92,246,0.2); border-top-color:var(--purple); border-radius:50%; animation:spin 1s linear infinite;"></div>' +
+            '<span style="color:var(--text-muted); font-size:0.85rem;">正在分析你的答题数据，AI 思考中...</span>' +
+            '</div>';
+        recsDiv.innerHTML = '';
+
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        fetch('{{ url_for("diagnosis.ai_diagnosis") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
+            },
+            body: JSON.stringify({})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = '重新诊断';
+            if (data.error) {
+                textDiv.innerHTML = '<div style="color:var(--red);">诊断失败: ' + data.error + '</div>';
+                return;
+            }
+
+            // 解析 AI 回复，分段渲染
+            var analysis = data.analysis || '暂无分析结果';
+            var sections = parseAiAnalysis(analysis);
+            textDiv.innerHTML = sections;
+
+            // 渲染建议列表
+            if (data.recommendations && data.recommendations.length > 0) {
+                var recsHtml = '<div style="margin-top:0.8rem; padding-top:0.6rem; border-top:1px solid rgba(139,92,246,0.1);">';
+                recsHtml += '<div style="font-size:0.78rem; font-weight:600; color:var(--purple); margin-bottom:0.4rem;">💡 改进建议</div>';
+                data.recommendations.forEach(function(rec, i) {
+                    recsHtml += '<div style="display:flex; gap:0.5rem; align-items:flex-start; padding:0.35rem 0.5rem; margin-bottom:0.3rem; background:rgba(139,92,246,0.05); border-radius:6px; font-size:0.82rem; color:var(--text-primary); line-height:1.5;">';
+                    recsHtml += '<span style="color:var(--purple); font-weight:700; min-width:18px;">' + (i+1) + '</span>';
+                    recsHtml += '<span>' + rec + '</span>';
+                    recsHtml += '</div>';
+                });
+                recsHtml += '</div>';
+                recsDiv.innerHTML = recsHtml;
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            btn.textContent = 'AI 诊断';
+            textDiv.textContent = '网络错误，请稍后重试';
+        });
+    }
+
+(function() {
+    // =============================================
+    // Animated counter for summary stats
+    // =============================================
+    function animateCounter(el, from, to, suffix, duration) {
+        suffix = suffix || '';
+        duration = duration || 1200;
+        var start = performance.now();
+
+        function tick(now) {
+            var elapsed = now - start;
+            var progress = Math.min(elapsed / duration, 1);
+            // ease-out cubic
+            var eased = 1 - Math.pow(1 - progress, 3);
+            var current = Math.round(from + (to - from) * eased);
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    }
+
+    // =============================================
+    // Calculate stats from knowledge point data
+    // =============================================
+    var cards = document.querySelectorAll('.knowledge-card');
+    var totalQuestions = 0;
+    var totalCorrect = 0;
+
+    cards.forEach(function(card) {
+        var percentEl = card.querySelector('.knowledge-card-percent');
+        if (percentEl) {
+            var parts = percentEl.textContent.trim().split('/');
+            if (parts.length === 2) {
+                totalCorrect += parseInt(parts[0], 10) || 0;
+                totalQuestions += parseInt(parts[1], 10) || 0;
+            }
+        }
+    });
+
+    var accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+    // Animate stat counters
+    setTimeout(function() {
+        animateCounter(document.getElementById('statTotal'), 0, totalQuestions, '');
+        animateCounter(document.getElementById('statCorrect'), 0, totalCorrect, '');
+        animateCounter(document.getElementById('statAccuracy'), 0, accuracy, '%');
+    }, 300);
+
+    // =============================================
+    // Animate ring charts
+    // =============================================
+    setTimeout(function() {
+        var rings = document.querySelectorAll('.ring-fill');
+        rings.forEach(function(ring) {
+            var target = parseFloat(ring.getAttribute('data-target-offset'));
+            ring.style.strokeDashoffset = target;
+        });
+    }, 500);
+
+    // =============================================
+    // Animate bar fills
+    // =============================================
+    setTimeout(function() {
+        var bars = document.querySelectorAll('.knowledge-card-bar-fill');
+        bars.forEach(function(bar) {
+            var target = bar.getAttribute('data-target-width');
+            bar.style.width = target + '%';
+        });
+    }, 600);
+
+    // =============================================
+    // Intersection observer for staggered card entrance
+    // =============================================
+    if ('IntersectionObserver' in window) {
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    entry.target.style.animation = 'fadeSlideIn 0.5s var(--ease-out) both';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        cards.forEach(function(card, i) {
+            card.style.opacity = '0';
+            card.style.animationDelay = (i * 0.08) + 's';
+            observer.observe(card);
+        });
+    }
+})();
+</script>
+{% endblock %}

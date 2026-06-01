@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}注册 — 物理AI学习平台{% endblock %}
+
+{% block content %}
+<!-- Decorative background formulas -->
+<div class="auth-bg-formula" style="top:10%; left:6%; transform:rotate(-5deg);">a = dv/dt &nbsp; v = ds/dt &nbsp; s = v&#8320;t + &frac12;at&sup2;</div>
+<div class="auth-bg-formula" style="top:18%; right:5%; transform:rotate(4deg);">F = Gmm/r&sup2; &nbsp; g = 9.8 m/s&sup2;</div>
+<div class="auth-bg-formula" style="bottom:18%; left:8%; transform:rotate(-2deg);">E = hf &nbsp; &lambda; = h/p &nbsp; c = 3&times;10&#8308; m/s</div>
+<div class="auth-bg-formula" style="bottom:10%; right:10%; transform:rotate(6deg);">I = q/t &nbsp; P = IV &nbsp; R = V/I</div>
+
+<div class="auth-container">
+    <div class="auth-card" style="max-width: 480px;">
+        <h1 class="auth-title">创建账号</h1>
+        <p class="auth-subtitle">开始你的物理探索之旅</p>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="form-error-msg" role="alert">
+                &#9888; {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form class="auth-form" method="POST" action="{{ url_for('auth.register') }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="username">用户名</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    class="form-input-dark"
+                    placeholder="3-20个字符，字母数字下划线"
+                    autocomplete="username"
+                    required
+                    minlength="3"
+                    maxlength="20"
+                    value="{{ request.form.get('username', '') }}"
+                >
+                <div class="form-hint">支持字母、数字和下划线，长度 3-20</div>
+            </div>
+
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="password">密码</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-input-dark"
+                    placeholder="至少6个字符"
+                    autocomplete="new-password"
+                    required
+                    minlength="6"
+                >
+                <div class="form-hint">密码长度至少 6 个字符</div>
+            </div>
+
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="confirm_password">确认密码</label>
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    class="form-input-dark"
+                    placeholder="再次输入密码"
+                    autocomplete="new-password"
+                    required
+                    minlength="6"
+                >
+            </div>
+
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="email">邮箱（选填）</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="form-input-dark"
+                    placeholder="your@email.com"
+                    autocomplete="email"
+                    value="{{ request.form.get('email', '') }}"
+                >
+            </div>
+
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="grade">年级</label>
+                <select id="grade" name="grade" class="form-select-dark" required>
+                    <option value="" disabled {% if not request.form.get('grade') %}selected{% endif %}>请选择年级</option>
+                    <option value="高一" {% if request.form.get('grade') == '高一' %}selected{% endif %}>高一</option>
+                    <option value="高二" {% if request.form.get('grade') == '高二' %}selected{% endif %}>高二</option>
+                    <option value="高三" {% if request.form.get('grade') == '高三' %}selected{% endif %}>高三</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-glow btn-lg" style="width:100%; margin-top:0.5rem;">
+                注册
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            已有账号？
+            <a href="{{ url_for('auth.login') }}">去登录</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+[
+  {
+    "title": "匀变速直线运动",
+    "description": "通过 Manim 动画直观展示匀变速直线运动的位移-时间图像、速度-时间图像，帮助理解加速度的概念。",
+    "topic": "匀变速直线运动",
+    "topic_id": "kinematics_01",
+    "chapter": "运动学",
+    "video_path": "videos/01_匀变速直线运动.mp4",
+    "duration": 300,
+    "difficulty": 2,
+    "prerequisites": [],
+    "related": ["kinematics_02"]
+  },
+  {
+    "title": "平抛运动",
+    "description": "将平抛运动分解为水平匀速和竖直自由落体两个分运动，用动画展示合成轨迹。",
+    "topic": "平抛运动",
+    "topic_id": "kinematics_02",
+    "chapter": "运动学",
+    "video_path": "videos/02_平抛运动.mp4",
+    "duration": 350,
+    "difficulty": 3,
+    "prerequisites": ["kinematics_01"],
+    "related": ["kinematics_01"]
+  },
+  {
+    "title": "三角函数图像",
+    "description": "用 Manim 绘制正弦、余弦函数图像，展示振幅、周期、相位的概念。",
+    "topic": "三角函数图像",
+    "topic_id": "math_01",
+    "chapter": "数学基础",
+    "video_path": "videos/03_三角函数图像.mp4",
+    "duration": 280,
+    "difficulty": 2,
+    "prerequisites": [],
+    "related": ["oscillation_01"]
+  },
+  {
+    "title": "简谐振动",
+    "description": "展示弹簧振子的简谐振动过程，关联三角函数图像，理解振动的数学描述。",
+    "topic": "简谐振动",
+    "topic_id": "oscillation_01",
+    "chapter": "振动与波",
+    "video_path": "videos/04_简谐振动.mp4",
+    "duration": 320,
+    "difficulty": 3,
+    "prerequisites": ["math_01"],
+    "related": ["math_01"]
+  }
+]

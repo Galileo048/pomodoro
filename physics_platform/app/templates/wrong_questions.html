@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}错题本 — {{ topic_name }} — 物理AI学习平台{% endblock %}
+
+{% block content %}
+<!-- 返回按钮 + 标题 -->
+<div style="margin-bottom:1.2rem;">
+    <a href="{{ url_for('diagnosis.diagnosis_page') }}" style="color:var(--cyan); text-decoration:none; font-size:0.88rem;">
+        ← 返回诊断报告
+    </a>
+    <h1 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin:0.5rem 0 0.2rem;">
+        {{ topic_name }} — 错题本
+    </h1>
+    <p style="font-size:0.85rem; color:var(--text-muted); margin:0;">
+        共 {{ records|length }} 条错误记录（同一题答错多次会重复显示）
+    </p>
+</div>
+
+{% if records %}
+<div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+    <button onclick="deleteAllRecords('{{ topic_id }}')" class="btn btn-outline btn-sm" style="color:var(--red); border-color:rgba(255,80,80,0.3);">
+        清空全部错题
+    </button>
+</div>
+{% endif %}
+
+<!-- 错题列表 -->
+{% for record in records %}
+<div class="card-dark" id="record-{{ record.id }}" style="margin-bottom:1rem; border-left:3px solid var(--red);">
+
+    <!-- 答题时间 + 删除按钮 -->
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">
+        <span>{{ record.answered_at.strftime('%m-%d %H:%M') if record.answered_at else '' }}</span>
+        <button onclick="deleteRecord({{ record.id }})" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; padding:0.2rem 0.4rem; border-radius:4px;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">
+            ✕ 删除
+        </button>
+    </div>
+
+    <!-- 题目内容 -->
+    <div style="font-size:0.95rem; color:var(--text-primary); line-height:1.6; margin-bottom:0.8rem;">
+        {{ record.question.content if record.question else '题目已删除' }}
+    </div>
+
+    <!-- 选项 -->
+    {% if record.question %}
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-bottom:0.8rem;">
+        {% set opts = [
+            ('A', record.question.option_a),
+            ('B', record.question.option_b),
+            ('C', record.question.option_c),
+            ('D', record.question.option_d)
+        ] %}
+        {% for letter, text in opts %}
+        <div style="
+            padding:0.4rem 0.6rem;
+            border-radius:6px;
+            font-size:0.82rem;
+            {% if letter == record.user_answer and letter != record.question.answer %}
+                background:rgba(255,80,80,0.12); color:var(--red); border:1px solid rgba(255,80,80,0.3);
+            {% elif letter == record.question.answer %}
+                background:rgba(0,255,136,0.08); color:var(--green); border:1px solid rgba(0,255,136,0.2);
+            {% else %}
+                background:rgba(255,255,255,0.03); color:var(--text-muted); border:1px solid rgba(255,255,255,0.05);
+            {% endif %}
+        ">
+            <strong>{{ letter }}.</strong> {{ text }}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 答案对比 -->
+    <div style="display:flex; gap:1.5rem; font-size:0.82rem; margin-bottom:0.4rem;">
+        <span style="color:var(--red);">你的答案: {{ record.user_answer }}</span>
+        <span style="color:var(--green);">正确答案: {{ record.question.answer }}</span>
+    </div>
+
+    <!-- 解析 -->
+    {% if record.question.explanation %}
+    <div style="
+        background:rgba(255,255,255,0.03);
+        border-radius:6px;
+        padding:0.5rem 0.7rem;
+        font-size:0.82rem;
+        color:var(--text-secondary);
+        line-height:1.5;
+        border-left:2px solid var(--cyan);
+    ">
+        <strong style="color:var(--cyan);">解析:</strong> {{ record.question.explanation }}
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+{% endfor %}
+
+<!-- 底部操作 -->
+{% if recommended_video %}
+<div style="text-align:center; margin-top:1.5rem;">
+    <a href="{{ url_for('videos.video_play', video_id=recommended_video.id) }}"
+       class="btn btn-primary btn-glow">
+        重新学习: {{ recommended_video.title }}
+    </a>
+</div>
+{% endif %}
+
+<script>
+function deleteRecord(recordId) {
+    if (!confirm('确定删除这条错题记录？')) return;
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    fetch('/api/wrong/delete/' + recordId, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfMeta ? csrfMeta.content : '' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var el = document.getElementById('record-' + recordId);
+            if (el) {
+                el.style.transition = 'opacity 0.3s, transform 0.3s';
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(20px)';
+                setTimeout(function() { el.remove(); }, 300);
+            }
+        }
+    });
+}
+
+function deleteAllRecords(topicId) {
+    if (!confirm('确定清空该知识点的所有错题记录？此操作不可撤销。')) return;
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    fetch('/api/wrong/delete-all/' + topicId, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfMeta ? csrfMeta.content : '' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            alert('已删除 ' + data.deleted + ' 条记录');
+            window.location.href = '{{ url_for("diagnosis.diagnosis_page") }}';
+        }
+    });
+}
+</script>
+
+{% endblock %}

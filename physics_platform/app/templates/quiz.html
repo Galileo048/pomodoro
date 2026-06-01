@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}知识测验 — 物理AI学习平台{% endblock %}
+
+{% block content %}
+<div class="quiz-container" id="quizApp">
+
+    <!-- Quiz header / title -->
+    <div style="text-align:center; margin-bottom:1.5rem;">
+        <h1 style="font-size:1.4rem; font-weight:700; color:var(--text-bright);">
+            &#9998; 知识测验
+        </h1>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">
+            {{ topic_name if topic_name else '综合测试' }}
+        </p>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="quiz-progress">
+        <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" id="quizProgressBar" style="width: 0%;"></div>
+        </div>
+        <div class="quiz-progress-text" id="quizProgressText">
+            题目 1 / {{ questions|length if questions else 0 }}
+        </div>
+    </div>
+
+    <!-- Question area (rendered by JS) -->
+    <div id="quizQuestionArea">
+        <!-- Populated dynamically -->
+    </div>
+
+    <!-- Score summary (hidden initially) -->
+    <div id="quizScoreArea" style="display:none;">
+        <div class="card-dark quiz-score-card">
+            <div class="quiz-score-number" id="scoreNumber">0</div>
+            <div class="quiz-score-label">最终得分</div>
+
+            <div class="quiz-score-details">
+                <div class="quiz-score-stat">
+                    <div class="quiz-score-stat-value text-green" id="scoreCorrect">0</div>
+                    <div class="quiz-score-stat-label">答对</div>
+                </div>
+                <div class="quiz-score-stat">
+                    <div class="quiz-score-stat-value text-red" id="scoreWrong">0</div>
+                    <div class="quiz-score-stat-label">答错</div>
+                </div>
+                <div class="quiz-score-stat">
+                    <div class="quiz-score-stat-value text-cyan" id="scoreAccuracy">0%</div>
+                    <div class="quiz-score-stat-label">正确率</div>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                <a href="{{ url_for('diagnosis.diagnosis_page') }}" class="btn btn-primary btn-glow">
+                    &#9878; 查看知识诊断
+                </a>
+                <a href="{{ url_for('videos.video_list') }}" class="btn btn-outline">
+                    &#9654; 继续学习
+                </a>
+                <button class="btn btn-ghost" onclick="location.reload();">
+                    &#8635; 重新测验
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quiz data -->
+<script>
+var __quizData = {{ questions|tojson if questions else '[]' }};
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function() {
+    var questions = window.__quizData || [];
+    var currentIndex = 0;
+    var score = 0;
+    var answered = 0;
+    var userAnswers = []; // 记录每道题的用户答案
+
+    var area = document.getElementById('quizQuestionArea');
+    var scoreArea = document.getElementById('quizScoreArea');
+    var progressBar = document.getElementById('quizProgressBar');
+    var progressText = document.getElementById('quizProgressText');
+
+    var letters = ['A', 'B', 'C', 'D'];
+
+    // Color accents for options
+    var optionColors = [
+        'var(--cyan)',
+        'var(--purple)',
+        'var(--amber)',
+        'var(--green)'
+    ];
+
+    function renderQuestion(index) {
+        if (index >= questions.length) {
+            showScore();
+            return;
+        }
+
+        var q = questions[index];
+        var total = questions.length;
+        var pct = ((index) / total) * 100;
+
+        progressBar.style.width = pct + '%';
+        progressText.textContent = '题目 ' + (index + 1) + ' / ' + total;
+
+        var optionsHtml = '';
+        if (q.options && q.options.length) {
+            q.options.forEach(function(opt, i) {
+                optionsHtml += '' +
+                    '<div class="quiz-option" data-index="' + i + '" onclick="window.__selectOption(' + i + ')">' +
+                    '  <div class="quiz-option-letter">' + letters[i] + '</div>' +
+                    '  <div class="quiz-option-text">' + escapeHtml(opt) + '</div>' +
+                    '</div>';
+            });
+        }
+
+        var formulaHtml = '';
+        if (q.formula) {
+            formulaHtml = '<div class="quiz-question-formula">' + escapeHtml(q.formula) + '</div>';
+        }
+
+        area.innerHTML = '' +
+            '<div class="quiz-question-card" style="animation: fadeSlideIn 0.5s var(--ease-out) both;">' +
+            '  <div class="quiz-question-number">QUESTION ' + String(index + 1).padStart(2, '0') + '</div>' +
+            '  <div class="quiz-question-text">' + escapeHtml(q.question || '') + '</div>' +
+            formulaHtml +
+            '</div>' +
+            '<div class="quiz-options" id="quizOptions">' +
+            optionsHtml +
+            '</div>' +
+            '<div class="quiz-feedback" id="quizFeedback"></div>' +
+            '<button class="btn btn-primary btn-glow quiz-next-btn" id="nextBtn" onclick="window.__nextQuestion()">' +
+            '  下一题 →' +
+            '</button>';
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    window.__selectOption = function(chosenIndex) {
+        var q = questions[currentIndex];
+        var options = document.querySelectorAll('.quiz-option');
+        var correctIndex = q.answer != null ? q.answer : 0;
+        var isCorrect = (chosenIndex === correctIndex);
+
+        // Disable all options
+        options.forEach(function(opt) {
+            opt.classList.add('disabled');
+            opt.onclick = null;
+        });
+
+        // Mark chosen
+        options[chosenIndex].classList.add(isCorrect ? 'correct' : 'wrong');
+
+        // Always show correct answer
+        if (!isCorrect) {
+            options[correctIndex].classList.add('correct');
+        }
+
+        // Update score
+        if (isCorrect) score++;
+        answered++;
+        // Record user answer
+        userAnswers.push({
+            question_id: q.id,
+            answer: letters[chosenIndex]
+        });
+
+        // Show feedback
+        var feedback = document.getElementById('quizFeedback');
+        feedback.className = 'quiz-feedback show ' + (isCorrect ? 'correct' : 'wrong');
+        feedback.innerHTML = '' +
+            '<div class="quiz-feedback-title">' +
+            (isCorrect ? '&#10003; 回答正确！' : '&#10007; 回答错误') +
+            '</div>' +
+            '<div class="quiz-feedback-explain">' +
+            escapeHtml(q.explanation || '') +
+            '</div>';
+
+        // Show next button
+        var nextBtn = document.getElementById('nextBtn');
+        nextBtn.classList.add('show');
+        nextBtn.textContent = (currentIndex >= questions.length - 1) ? '查看结果 →' : '下一题 →';
+    };
+
+    window.__nextQuestion = function() {
+        currentIndex++;
+        renderQuestion(currentIndex);
+        // Scroll to top of quiz
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    function showScore() {
+        area.style.display = 'none';
+        scoreArea.style.display = '';
+
+        // 提交答案到服务器（保存答题记录用于诊断）
+        var csrfToken = document.querySelector('meta[name="csrf-token"]');
+        fetch('{{ url_for("quiz.submit_quiz") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken ? csrfToken.content : ''
+            },
+            body: JSON.stringify({ answers: userAnswers })
+        }).then(function(r) { return r.json(); })
+          .then(function(data) { console.log('Quiz submitted:', data); })
+          .catch(function(err) { console.error('Quiz submit failed:', err); });
+
+        var total = questions.length;
+        var accuracy = total > 0 ? Math.round((score / total) * 100) : 0;
+
+        document.getElementById('scoreNumber').textContent = accuracy + '%';
+        document.getElementById('scoreCorrect').textContent = score;
+        document.getElementById('scoreWrong').textContent = total - score;
+        document.getElementById('scoreAccuracy').textContent = score + '/' + total;
+
+        progressBar.style.width = '100%';
+        progressText.textContent = '测验完成';
+
+        // Animate the score number
+        animateCounter(document.getElementById('scoreNumber'), 0, accuracy, '%');
+    }
+
+    function animateCounter(el, from, to, suffix) {
+        var duration = 1200;
+        var start = performance.now();
+        suffix = suffix || '';
+
+        function tick(now) {
+            var elapsed = now - start;
+            var progress = Math.min(elapsed / duration, 1);
+            // ease-out quad
+            var eased = 1 - Math.pow(1 - progress, 3);
+            var current = Math.round(from + (to - from) * eased);
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    }
+
+    // Initialize
+    if (questions.length > 0) {
+        renderQuestion(0);
+    } else {
+        area.innerHTML = '' +
+            '<div class="empty-state">' +
+            '  <div class="empty-state-icon">&#9998;</div>' +
+            '  <p class="empty-state-text">暂无测验题目，请先完成视频学习</p>' +
+            '  <a href="{{ url_for("videos.video_list") }}" class="btn btn-outline mt-3">返回视频列表</a>' +
+            '</div>';
+    }
+})();
+</script>
+{% endblock %}

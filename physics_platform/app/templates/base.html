@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}物理AI自适应学习平台{% endblock %}</title>
+
+    <!-- Google Fonts: JetBrains Mono + Noto Sans SC -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Video.js -->
+    <link href="https://cdn.jsdelivr.net/npm/video.js@8.10.0/dist/video-js.min.css" rel="stylesheet">
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- ========== Navigation ========== -->
+    <nav class="navbar-custom" id="mainNav" role="navigation" aria-label="主导航">
+        <!-- Brand -->
+        <a href="{{ url_for('auth.index') }}" class="nav-brand">
+            <div class="nav-brand-icon">P</div>
+            <div class="nav-brand-text">物理<span>AI</span> 学习平台</div>
+        </a>
+
+        <!-- Mobile toggle -->
+        <button class="nav-mobile-toggle" id="navToggle" aria-label="切换菜单" aria-expanded="false">
+            &#9776;
+        </button>
+
+        <!-- Nav links -->
+        <ul class="nav-links" id="navLinks">
+            <li>
+                <a href="{{ url_for('auth.index') }}"
+                   class="{% if request.endpoint == 'auth.index' %}active{% endif %}">
+                    &#9881; 首页
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('videos.video_list') }}"
+                   class="{% if request.endpoint in ['videos.video_list', 'videos.video_play'] %}active{% endif %}">
+                    &#9654; 视频学习
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('diagnosis.diagnosis_page') }}"
+                   class="{% if request.endpoint == 'diagnosis.diagnosis_page' %}active{% endif %}">
+                    &#9878; 知识诊断
+                </a>
+            </li>
+            <li>
+                <a href="{{ url_for('auth.profile') }}"
+                   class="{% if request.endpoint == 'auth.profile' %}active{% endif %}">
+                    &#9786; 个人中心
+                </a>
+            </li>
+        </ul>
+
+        <!-- Auth actions -->
+        <div class="nav-actions">
+            {% if current_user.is_authenticated %}
+                <div class="nav-user">
+                    <div class="nav-user-avatar">
+                        {{ current_user.username|first|upper }}
+                    </div>
+                    <span>{{ current_user.username }}</span>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm">退出</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-ghost btn-sm">登录</a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">注册</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- ========== Main Content ========== -->
+    <main class="page-content page-enter" role="main" id="mainContent">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ========== Footer ========== -->
+    <footer class="site-footer">
+        <p>
+            <span class="footer-brand">物理AI自适应学习平台</span>
+            &nbsp;&mdash;&nbsp;
+            基于 Manim 与 AI 辅助的中学数理可视化教学资源开发
+        </p>
+        <p class="mt-1" style="font-size:0.78rem; opacity:0.6;">
+            大创项目 &middot; 高中物理 &middot; 自适应学习 &middot; 2026
+        </p>
+    </footer>
+
+    <!-- ========== Scripts ========== -->
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Video.js -->
+    <script src="https://cdn.jsdelivr.net/npm/video.js@8.10.0/dist/video.min.js"></script>
+
+    <!-- Custom nav JS -->
+    <script>
+    (function() {
+        // Mobile nav toggle
+        const toggle = document.getElementById('navToggle');
+        const links = document.getElementById('navLinks');
+        if (toggle && links) {
+            toggle.addEventListener('click', function() {
+                const isOpen = links.classList.toggle('open');
+                toggle.setAttribute('aria-expanded', isOpen);
+            });
+        }
+
+        // Navbar scroll effect
+        const nav = document.getElementById('mainNav');
+        if (nav) {
+            window.addEventListener('scroll', function() {
+                nav.classList.toggle('scrolled', window.scrollY > 20);
+            }, { passive: true });
+        }
+    })();
+    </script>
+
+    <!-- Page transition animations -->
+    <style>
+        @keyframes pageEnter {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes pageExit {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+        }
+        .page-enter {
+            animation: pageEnter 0.35s var(--ease-out, ease-out) both;
+        }
+        .page-exit {
+            animation: pageExit 0.2s ease-in both;
+        }
+        /* Nav links transition */
+        .nav-links a, .nav-actions a {
+            transition: color 0.2s, transform 0.15s;
+        }
+        .nav-links a:active, .nav-actions a:active {
+            transform: scale(0.95);
+        }
+        /* Button press effect */
+        .btn {
+            transition: transform 0.12s, box-shadow 0.2s, background 0.2s;
+        }
+        .btn:active {
+            transform: scale(0.96);
+        }
+        /* Card hover lift */
+        .card-dark {
+            transition: transform 0.2s, box-shadow 0.25s;
+        }
+    </style>
+    <script>
+    (function() {
+        // 页面离开动画
+        var mainContent = document.getElementById('mainContent');
+        var navLinks = document.querySelectorAll('.nav-links a, .nav-actions a, .btn');
+
+        navLinks.forEach(function(link) {
+            if (!link.href || link.href.indexOf(location.origin) !== 0) return;
+            if (link.target === '_blank') return;
+            link.addEventListener('click', function(e) {
+                if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+                e.preventDefault();
+                var href = this.href;
+                mainContent.classList.remove('page-enter');
+                mainContent.classList.add('page-exit');
+                setTimeout(function() {
+                    window.location.href = href;
+                }, 180);
+            });
+        });
+
+        // 浏览器前进/后退时重播进入动画
+        window.addEventListener('pageshow', function() {
+            mainContent.classList.remove('page-exit');
+            mainContent.classList.add('page-enter');
+        });
+    })();
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

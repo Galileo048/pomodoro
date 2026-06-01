@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}登录 — 物理AI学习平台{% endblock %}
+
+{% block content %}
+<!-- Decorative background formulas -->
+<div class="auth-bg-formula" style="top:8%; left:5%; transform:rotate(-8deg);">F = ma &nbsp; E = mc&sup2; &nbsp; V = IR &nbsp; PV = nRT</div>
+<div class="auth-bg-formula" style="top:15%; right:8%; transform:rotate(5deg);">&omega; = 2&pi;f &nbsp; T = 2&pi;&radic;(l/g) &nbsp; v = &lambda;f</div>
+<div class="auth-bg-formula" style="bottom:20%; left:10%; transform:rotate(-3deg);">KE = &frac12;mv&sup2; &nbsp; p = mv &nbsp; W = Fs</div>
+<div class="auth-bg-formula" style="bottom:12%; right:12%; transform:rotate(7deg);">F = kx &nbsp; &tau; = r &times; F &nbsp; L = mvr</div>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h1 class="auth-title">欢迎回来</h1>
+        <p class="auth-subtitle">登录你的物理学习空间</p>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="form-error-msg" role="alert">
+                &#9888; {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form class="auth-form" method="POST" action="{{ url_for('auth.login') }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="username">用户名</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    class="form-input-dark"
+                    placeholder="请输入用户名"
+                    autocomplete="username"
+                    required
+                    value="{{ request.form.get('username', '') }}"
+                >
+            </div>
+
+            <div class="form-group-custom">
+                <label class="form-label-custom" for="password">密码</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-input-dark"
+                    placeholder="请输入密码"
+                    autocomplete="current-password"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-glow btn-lg" style="width:100%;">
+                登录
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            还没有账号？
+            <a href="{{ url_for('auth.register') }}">立即注册</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title if video else '视频播放' }} — 物理AI学习平台{% endblock %}
+
+{% block content %}
+<div class="player-layout">
+    <!-- Main player area -->
+    <div class="player-main">
+        <!-- Video player -->
+        <div class="video-player-wrapper">
+            <video-js
+                id="mainPlayer"
+                class="video-js vjs-big-play-centered vjs-theme-city"
+                controls
+                preload="auto"
+                data-setup='{"fluid": true, "responsive": true}'
+                {% if video and video.video_path %}
+                    src="{{ url_for('static', filename=video.video_path) }}"
+                {% endif %}
+            >
+                <p class="vjs-no-js">
+                    请启用 JavaScript 以使用视频播放器
+                </p>
+            </video-js>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar-wrapper mt-2">
+            <div class="progress-bar-fill"
+                 id="videoProgress"
+                 style="width: {{ video.progress if video and video.progress is defined else 0 }}%;"
+                 role="progressbar"
+                 aria-valuenow="{{ video.progress if video and video.progress is defined else 0 }}"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+            </div>
+        </div>
+
+        <!-- Video info -->
+        <div class="player-info">
+            <h1 class="player-info-title">
+                {{ video.title if video else '视频标题' }}
+            </h1>
+
+            <p class="player-info-desc">
+                {{ video.description if video else '本节视频将深入讲解核心物理概念，配合可视化动画帮助理解抽象原理。' }}
+            </p>
+
+            <div class="player-info-tags">
+                {% if video and video.chapter %}
+                <span class="video-card-tag">{{ video.chapter }}</span>
+                {% endif %}
+                {% if video and video.topic %}
+                <span class="video-card-tag" style="background: #a78bfa22; color: var(--purple);">
+                    {{ video.topic }}
+                </span>
+                {% endif %}
+                {% if video and video.difficulty %}
+                <span class="video-card-tag" style="background: var(--amber-dim); color: var(--amber);">
+                    难度 {{ video.difficulty }}/5
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- 做题模式选择 -->
+            <div class="card-dark" style="margin-top:1rem; padding:0.8rem 1rem;">
+                <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:0.6rem;">选择做题模式</div>
+
+                <!-- 题量选择 -->
+                <div style="margin-bottom:0.5rem;">
+                    <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">题量</div>
+                    <div style="display:flex; gap:0.3rem;" id="countBtns">
+                        <button class="quiz-mode-btn active" data-count="5" onclick="selectCount(5, this)">5 题</button>
+                        <button class="quiz-mode-btn" data-count="10" onclick="selectCount(10, this)">10 题</button>
+                        <button class="quiz-mode-btn" data-count="15" onclick="selectCount(15, this)">15 题</button>
+                        <button class="quiz-mode-btn" data-count="20" onclick="selectCount(20, this)">全部</button>
+                    </div>
+                </div>
+
+                <!-- 难度选择 -->
+                <div style="margin-bottom:0.6rem;">
+                    <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.3rem;">难度</div>
+                    <div style="display:flex; gap:0.3rem;" id="diffBtns">
+                        <button class="quiz-mode-btn active" data-diff="0" onclick="selectDiff(0, this)">全部</button>
+                        <button class="quiz-mode-btn" data-diff="1" onclick="selectDiff(1, this)">基础</button>
+                        <button class="quiz-mode-btn" data-diff="2" onclick="selectDiff(2, this)">中等</button>
+                        <button class="quiz-mode-btn" data-diff="3" onclick="selectDiff(3, this)">进阶</button>
+                    </div>
+                </div>
+
+                <a id="startQuizLink"
+                   href="{{ url_for('quiz.quiz_page', topic_id=video.topic_id, count=5, difficulty=0) if video else '#' }}"
+                   class="btn btn-primary btn-glow" style="width:100%; text-align:center;">
+                    &#9998; 开始测试
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+    .quiz-mode-btn {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: var(--text-muted);
+        padding: 0.3rem 0.7rem;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .quiz-mode-btn:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+    }
+    .quiz-mode-btn.active {
+        background: rgba(0,212,255,0.1);
+        border-color: var(--cyan);
+        color: var(--cyan);
+        font-weight: 600;
+    }
+    </style>
+
+    <script>
+    var selectedCount = 5;
+    var selectedDiff = 0;
+    var topicId = '{{ video.topic_id if video else "" }}';
+
+    function selectCount(count, btn) {
+        selectedCount = count;
+        document.querySelectorAll('#countBtns .quiz-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        updateLink();
+    }
+
+    function selectDiff(diff, btn) {
+        selectedDiff = diff;
+        document.querySelectorAll('#diffBtns .quiz-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        updateLink();
+    }
+
+    function updateLink() {
+        var url = '/quiz/' + topicId + '?count=' + selectedCount + '&difficulty=' + selectedDiff;
+        document.getElementById('startQuizLink').href = url;
+    }
+    </script>
+
+    <!-- Sidebar -->
+    <aside class="player-sidebar">
+        <!-- Progress summary -->
+        <div class="sidebar-card">
+            <div class="sidebar-card-title">学习进度</div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div style="flex:1;">
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar-fill" style="width: {{ video.progress if video and video.progress is defined else 0 }}%;"></div>
+                    </div>
+                </div>
+                <span class="text-mono" style="font-size:0.85rem; color:var(--cyan);">
+                    {{ video.progress if video and video.progress is defined else 0 }}%
+                </span>
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">
+                完成观看后可参加知识测验
+            </p>
+        </div>
+
+        <!-- Related videos -->
+        <div class="sidebar-card">
+            <div class="sidebar-card-title">相关视频</div>
+
+            {% if related_videos %}
+                {% for rv in related_videos %}
+                <a href="{{ url_for('videos.video_play', video_id=rv.id) }}" class="related-video-item">
+                    <div class="related-video-thumb">&#9654;</div>
+                    <div class="related-video-info">
+                        <div class="related-video-info-title">{{ rv.title }}</div>
+                        <div class="related-video-info-meta">{{ rv.duration or '--:--' }}</div>
+                    </div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <p style="font-size:0.85rem; color:var(--text-muted); padding:8px 0;">
+                    暂无相关视频
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- Quick actions -->
+        <div class="sidebar-card">
+            <div class="sidebar-card-title">快捷操作</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <a href="{{ url_for('videos.video_list') }}" class="btn btn-ghost btn-sm" style="width:100%;">
+                    &#8592; 返回视频列表
+                </a>
+                <a href="{{ url_for('quiz.quiz_page', topic_id=video.topic_id) if video else '#' }}" class="btn btn-outline btn-sm" style="width:100%;">
+                    &#9998; 知识测验
+                </a>
+            </div>
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/progress.js') }}"></script>
+<script>
+(function() {
+    // Initialize Video.js player
+    var player = videojs('mainPlayer', {
+        playbackRates: [0.5, 1, 1.25, 1.5, 2],
+        controlBar: {
+            volumePanel: { inline: true },
+            fullscreenToggle: true
+        }
+    });
+
+    // Expose player globally for progress.js
+    window.__videoPlayer = player;
+
+    // Setup progress tracking
+    var videoId = {{ video.id if video else 'null' }};
+    if (videoId && window.PhysicsProgress) {
+        window.PhysicsProgress.init(videoId, player);
+    }
+})();
+</script>
+{% endblock %}
