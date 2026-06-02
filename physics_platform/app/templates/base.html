@@ -46,36 +46,85 @@
 
         <!-- Nav links -->
         <ul class="nav-links" id="navLinks">
-            <li>
-                <a href="{{ url_for('auth.index') }}"
-                   class="{% if request.endpoint == 'auth.index' %}active{% endif %}">
-                    &#9881; 首页
-                </a>
-            </li>
-            <li>
-                <a href="{{ url_for('videos.video_list') }}"
-                   class="{% if request.endpoint in ['videos.video_list', 'videos.video_play'] %}active{% endif %}">
-                    &#9654; 视频学习
-                </a>
-            </li>
-            <li>
-                <a href="{{ url_for('diagnosis.diagnosis_page') }}"
-                   class="{% if request.endpoint == 'diagnosis.diagnosis_page' %}active{% endif %}">
-                    &#9878; 知识诊断
-                </a>
-            </li>
-            <li>
-                <a href="{{ url_for('experiments.experiment_list') }}"
-                   class="{% if request.endpoint and 'experiments' in request.endpoint %}active{% endif %}">
-                    &#128300; 交互动画
-                </a>
-            </li>
-            <li>
-                <a href="{{ url_for('auth.profile') }}"
-                   class="{% if request.endpoint == 'auth.profile' %}active{% endif %}">
-                    &#9786; 个人中心
-                </a>
-            </li>
+            {% if current_user.is_authenticated and current_user.role == 'teacher' %}
+                <!-- 教师导航 -->
+                <li>
+                    <a href="{{ url_for('teacher.dashboard') }}"
+                       class="{% if request.endpoint and 'teacher' in request.endpoint %}active{% endif %}">
+                        &#127979; 教师控制台
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('teacher.classes') }}"
+                       class="{% if request.endpoint == 'teacher.classes' or request.endpoint == 'teacher.class_detail' %}active{% endif %}">
+                        &#128218; 班级管理
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('teacher.assignments') }}"
+                       class="{% if request.endpoint == 'teacher.assignments' or request.endpoint == 'teacher.assignment_detail' %}active{% endif %}">
+                        &#128221; 作业管理
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('teacher.statistics') }}"
+                       class="{% if request.endpoint == 'teacher.statistics' %}active{% endif %}">
+                        &#128202; 数据统计
+                    </a>
+                </li>
+            {% elif current_user.is_authenticated %}
+                <!-- 学生导航 -->
+                <li>
+                    <a href="{{ url_for('student.dashboard') }}"
+                       class="{% if request.endpoint == 'student.dashboard' %}active{% endif %}">
+                        &#127891; 我的学习
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('videos.video_list') }}"
+                       class="{% if request.endpoint in ['videos.video_list', 'videos.video_play'] %}active{% endif %}">
+                        &#9654; 视频学习
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('experiments.experiment_list') }}"
+                       class="{% if request.endpoint and 'experiments' in request.endpoint %}active{% endif %}">
+                        &#128300; 交互动画
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('student.report') }}"
+                       class="{% if request.endpoint == 'student.report' %}active{% endif %}">
+                        &#128202; 学习报告
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('student.ai_tutor') }}"
+                       class="{% if request.endpoint == 'student.ai_tutor' %}active{% endif %}">
+                        &#129302; AI答疑
+                    </a>
+                </li>
+            {% else %}
+                <!-- 未登录导航 -->
+                <li>
+                    <a href="{{ url_for('auth.index') }}"
+                       class="{% if request.endpoint == 'auth.index' %}active{% endif %}">
+                        &#9881; 首页
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('videos.video_list') }}"
+                       class="{% if request.endpoint in ['videos.video_list', 'videos.video_play'] %}active{% endif %}">
+                        &#9654; 视频学习
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('experiments.experiment_list') }}"
+                       class="{% if request.endpoint and 'experiments' in request.endpoint %}active{% endif %}">
+                        &#128300; 交互动画
+                    </a>
+                </li>
+            {% endif %}
         </ul>
 
         <!-- Auth actions -->

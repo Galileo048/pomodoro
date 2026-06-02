@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ cls.name }} — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-header">
+        <h1>📋 {{ cls.name }}</h1>
+        <p>邀请码: <code class="invite-code" style="font-size:1rem;">{{ cls.invite_code }}</code></p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="form-error-msg" style="{% if category == 'success' %}background:#00ff8812;border-color:#00ff8844;color:#00ff88{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="dashboard-section">
+        <h2>👥 学生列表（{{ students|length }} 人）</h2>
+        {% if students %}
+        <div class="assignment-list">
+            {% for student in students %}
+            <div class="assignment-item">
+                <div class="assignment-info">
+                    <h4>{{ student.username }}</h4>
+                    <span class="assignment-class">{{ student.grade }}</span>
+                    <span class="assignment-date">加入: {{ student.joined_at }}</span>
+                </div>
+                <div class="assignment-stats">
+                    <div class="stat">
+                        <span class="stat-value">{{ student.total_questions }}</span>
+                        <span class="stat-label">答题数</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" style="{% if student.accuracy >= 80 %}color:var(--green){% elif student.accuracy >= 60 %}color:var(--amber){% else %}color:var(--red){% endif %}">{{ student.accuracy }}%</span>
+                        <span class="stat-label">正确率</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p class="empty-state-text">还没有学生加入班级</p>
+            <p class="text-muted mt-1">将邀请码 <code class="invite-code">{{ cls.invite_code }}</code> 分享给学生</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

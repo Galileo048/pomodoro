@@ -44,7 +44,9 @@ def index():
     未登录 → 跳转到登录页
     """
     if current_user.is_authenticated:
-        return redirect(url_for('videos.video_list'))
+        if current_user.role == 'teacher':
+            return redirect(url_for('teacher.dashboard'))
+        return redirect(url_for('student.dashboard'))
     return redirect(url_for('auth.login'))
 
 
@@ -103,7 +105,13 @@ def login():
         next_page = request.args.get('next')
         if next_page and urlparse(next_page).netloc:
             next_page = None
-        return redirect(next_page or url_for('videos.video_list'))
+
+        # 根据角色跳转到不同首页
+        if next_page:
+            return redirect(next_page)
+        if user.role == 'teacher':
+            return redirect(url_for('teacher.dashboard'))
+        return redirect(url_for('student.dashboard'))
 
     # GET 请求：显示登录表单
     return render_template('login.html')
@@ -134,6 +142,7 @@ def register():
         confirm = request.form.get('confirm_password', '')
         email = request.form.get('email', '').strip()
         grade = request.form.get('grade', '高一')
+        role = request.form.get('role', 'student')
 
         # ---- 表单验证 ----
 
@@ -163,7 +172,9 @@ def register():
             return render_template('register.html')
 
         # ---- 创建用户 ----
-        user = User(username=username, email=email, grade=grade)
+        if role not in ('student', 'teacher'):
+            role = 'student'
+        user = User(username=username, email=email, grade=grade, role=role)
         user.set_password(password)  # 生成密码哈希
         db.session.add(user)
         db.session.commit()

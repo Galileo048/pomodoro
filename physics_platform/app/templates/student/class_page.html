@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}我的班级 — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-header">
+        <h1>📚 {{ cls.name }}</h1>
+        <p>班主任: {{ teacher_name }} · 班级人数: {{ member_count }}</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="form-error-msg" style="{% if category == 'success' %}background:#00ff8812;border-color:#00ff8844;color:#00ff88{% elif category == 'info' %}background:#00d4ff12;border-color:#00d4ff44;color:#00d4ff{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- 班级作业 -->
+    <section class="dashboard-section">
+        <h2>📝 班级作业</h2>
+        {% if assignments %}
+        <div class="assignment-list">
+            {% for assignment in assignments %}
+            <div class="assignment-item {% if assignment.is_urgent and not assignment.completed %}urgent{% endif %}">
+                <div class="assignment-info">
+                    <h4>{{ assignment.title }}</h4>
+                    {% if assignment.description %}
+                    <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">{{ assignment.description[:80] }}{% if assignment.description|length > 80 %}...{% endif %}</p>
+                    {% endif %}
+                    <span class="assignment-date">截止: {{ assignment.due_date }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.8rem;">
+                    {% if assignment.completed %}
+                    <span class="status-badge strong" style="font-size:0.85rem;">✓ 已完成 {{ assignment.score }}分</span>
+                    {% else %}
+                        {% if assignment.days_left is not none and assignment.days_left <= 0 %}
+                        <span class="days-left overdue">已截止</span>
+                        {% elif assignment.days_left is not none %}
+                        <span class="days-left">还剩 {{ assignment.days_left }} 天</span>
+                        {% endif %}
+                        <a href="{{ url_for('student.do_assignment', assignment_id=assignment.id) }}" class="btn btn-primary btn-sm">开始作业</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-text">暂无作业</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

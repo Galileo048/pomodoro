@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}我的学习 — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-header">
+        <h1>🎓 我的学习</h1>
+        <p>查看学习进度、完成作业、提升物理成绩</p>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="form-error-msg" style="{% if category == 'success' %}background:#00ff8812;border-color:#00ff8844;color:#00ff88{% elif category == 'info' %}background:#00d4ff12;border-color:#00d4ff44;color:#00d4ff{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- 学习概览 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-value">{{ total_study_hours }}h</div>
+            <div class="stat-label">总学习时长</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-value">{{ avg_accuracy }}%</div>
+            <div class="stat-label">平均正确率</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📹</div>
+            <div class="stat-value">{{ watched_videos }}/{{ total_videos }}</div>
+            <div class="stat-label">已看视频</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔬</div>
+            <div class="stat-value">79</div>
+            <div class="stat-label">互动实验</div>
+        </div>
+    </div>
+
+    <!-- 我的班级 -->
+    <section class="dashboard-section">
+        <h2>📚 我的班级</h2>
+        {% if my_class %}
+        <div class="class-card" style="max-width:500px;">
+            <div class="class-header">
+                <h3>{{ my_class.name }}</h3>
+            </div>
+            <div class="class-info">
+                <div>班主任: {{ my_class.teacher_name }}</div>
+            </div>
+            <div class="class-actions">
+                <a href="{{ url_for('student.class_page') }}" class="btn btn-primary btn-sm">进入班级</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="join-class-box">
+            <p>还没有加入班级</p>
+            <form action="{{ url_for('student.join_class') }}" method="POST" class="join-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="invite_code" placeholder="输入班级邀请码" class="form-input-dark" required>
+                <button type="submit" class="btn btn-primary">加入</button>
+            </form>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- 待完成作业 -->
+    <section class="dashboard-section">
+        <h2>📝 待完成作业</h2>
+        {% if pending_assignments %}
+        <div class="assignment-list">
+            {% for assignment in pending_assignments %}
+            <div class="assignment-item {% if assignment.is_urgent %}urgent{% endif %}">
+                <div class="assignment-info">
+                    <h4>{{ assignment.title }}</h4>
+                    <span class="assignment-subject">{{ assignment.topic_names }}</span>
+                </div>
+                <div class="assignment-deadline">
+                    {% if assignment.days_left is not none %}
+                        {% if assignment.days_left > 0 %}
+                        <span class="days-left">还剩 {{ assignment.days_left }} 天</span>
+                        {% else %}
+                        <span class="days-left overdue">已截止</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <a href="{{ url_for('student.do_assignment', assignment_id=assignment.id) }}" class="btn btn-primary btn-sm">去做</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-text">暂无待完成作业 🎉</p>
+        {% endif %}
+    </section>
+
+    <!-- 薄弱知识点 -->
+    <section class="dashboard-section">
+        <h2>⚠️ 需要加强</h2>
+        {% if weak_topics %}
+        <div class="weak-topics">
+            {% for topic in weak_topics %}
+            <div class="topic-card weak">
+                <span class="topic-name">{{ topic.name }}</span>
+                <span class="topic-accuracy">正确率 {{ topic.accuracy }}%</span>
+                <a href="{{ url_for('videos.video_list', topic=topic.id) }}" class="btn btn-ghost btn-sm">复习</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-text">太棒了！暂时没有薄弱知识点 🎉</p>
+        {% endif %}
+    </section>
+
+    <!-- 快捷入口 -->
+    <section class="dashboard-section">
+        <h2>🚀 快捷入口</h2>
+        <div class="quick-actions">
+            <a href="{{ url_for('student.report') }}" class="action-card">
+                <span class="action-icon">📊</span>
+                <span class="action-text">学习报告</span>
+            </a>
+            <a href="{{ url_for('student.ai_tutor') }}" class="action-card">
+                <span class="action-icon">🤖</span>
+                <span class="action-text">AI 答疑</span>
+            </a>
+            <a href="{{ url_for('student.knowledge_graph') }}" class="action-card">
+                <span class="action-icon">🕸️</span>
+                <span class="action-text">知识图谱</span>
+            </a>
+        </div>
+    </section>
+</div>
+{% endblock %}

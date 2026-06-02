@@ -87,6 +87,28 @@
             </div>
 
             <div class="form-group-custom">
+                <label class="form-label-custom">我是</label>
+                <div class="role-select">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="student" checked>
+                        <span class="role-card">
+                            <span class="role-icon">🎓</span>
+                            <span class="role-text">学生</span>
+                            <span class="role-desc">观看视频、做练习、查看诊断</span>
+                        </span>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="teacher">
+                        <span class="role-card">
+                            <span class="role-icon">👨‍🏫</span>
+                            <span class="role-text">教师</span>
+                            <span class="role-desc">管理班级、布置作业、查看统计</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group-custom">
                 <label class="form-label-custom" for="grade">年级</label>
                 <select id="grade" name="grade" class="form-select-dark" required>
                     <option value="" disabled {% if not request.form.get('grade') %}selected{% endif %}>请选择年级</option>

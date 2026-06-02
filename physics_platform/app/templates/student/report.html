@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}学习报告 — Kinetic M&P{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    <div class="page-header">
+        <h1>📊 我的学习报告</h1>
+        <p>生成时间: {{ report_date }}</p>
+    </div>
+
+    <!-- 核心指标 -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">本周学习时长</div>
+            <div class="metric-value">{{ weekly_hours }}<span class="unit">小时</span></div>
+            <div class="metric-trend up">↑ {{ weekly_trend }}% 较上周</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">知识点掌握度</div>
+            <div class="metric-value">{{ mastery_rate }}<span class="unit">%</span></div>
+            <div class="metric-progress">
+                <div class="progress-bar" style="width: {{ mastery_rate }}%"></div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">班级排名</div>
+            <div class="metric-value">{{ class_rank }}<span class="unit">/{{ class_total }}</span></div>
+            <div class="metric-trend up">前 {{ (class_rank / class_total * 100)|round }}%</div>
+        </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>📈 近7天学习时长</h3>
+            <div id="studyTrendChart" style="height: 250px;"></div>
+        </div>
+        <div class="chart-card">
+            <h3>🎯 知识点掌握分布</h3>
+            <div id="masteryChart" style="height: 250px;"></div>
+        </div>
+        <div class="chart-card">
+            <h3>📋 各知识点正确率</h3>
+            <div id="accuracyChart" style="height: 250px;"></div>
+        </div>
+        <div class="chart-card">
+            <h3>🎖️ 综合能力评估</h3>
+            <div id="radarChart" style="height: 250px;"></div>
+        </div>
+    </div>
+
+    <!-- 学习建议 -->
+    <div class="suggestions-section">
+        <h3>💡 学习建议</h3>
+        <div class="suggestion-list">
+            {% for suggestion in suggestions %}
+            <div class="suggestion-item">
+                <span class="suggestion-icon">{{ suggestion.icon }}</span>
+                <div class="suggestion-content">
+                    <h4>{{ suggestion.title }}</h4>
+                    <p>{{ suggestion.description }}</p>
+                </div>
+                <a href="{{ suggestion.link }}" class="btn btn-ghost btn-sm">去练习</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+// 学习时长趋势图
+const studyTrendChart = echarts.init(document.getElementById('studyTrendChart'));
+studyTrendChart.setOption({
+    tooltip: { trigger: 'axis' },
+    xAxis: {
+        type: 'category',
+        data: {{ study_dates | tojson }},
+        axisLine: { lineStyle: { color: '#5a6480' } },
+        axisLabel: { color: '#8892b0' }
+    },
+    yAxis: {
+        type: 'value',
+        name: '小时',
+        axisLine: { lineStyle: { color: '#5a6480' } },
+        splitLine: { lineStyle: { color: '#1a2048' } },
+        axisLabel: { color: '#8892b0' }
+    },
+    series: [{
+        data: {{ study_hours | tojson }},
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { color: '#00d4ff', width: 3 },
+        itemStyle: { color: '#00d4ff' },
+        areaStyle: {
+            color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                    { offset: 0, color: 'rgba(0, 212, 255, 0.3)' },
+                    { offset: 1, color: 'rgba(0, 212, 255, 0)' }
+                ]
+            }
+        }
+    }]
+});
+
+// 知识点掌握分布（饼图）
+const masteryChart = echarts.init(document.getElementById('masteryChart'));
+masteryChart.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0, textStyle: { color: '#8892b0' } },
+    series: [{
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 6, borderColor: '#0a0e27', borderWidth: 2 },
+        label: { show: false },
+        data: [
+            { value: {{ mastered_count }}, name: '已掌握', itemStyle: { color: '#00ff88' } },
+            { value: {{ learning_count }}, name: '学习中', itemStyle: { color: '#00d4ff' } },
+            { value: {{ weak_count }}, name: '需加强', itemStyle: { color: '#ff4466' } }
+        ]
+    }]
+});
+
+// 题型正确率（柱状图）
+const accuracyChart = echarts.init(document.getElementById('accuracyChart'));
+accuracyChart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: {
+        type: 'category',
+        data: {{ question_types | tojson }},
+        axisLine: { lineStyle: { color: '#5a6480' } },
+        axisLabel: { rotate: 30, color: '#8892b0' }
+    },
+    yAxis: {
+        type: 'value',
+        max: 100,
+        axisLine: { lineStyle: { color: '#5a6480' } },
+        splitLine: { lineStyle: { color: '#1a2048' } },
+        axisLabel: { color: '#8892b0' }
+    },
+    series: [{
+        data: {{ type_accuracies | tojson }},
+        type: 'bar',
+        barWidth: '50%',
+        itemStyle: {
+            color: {
+                type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                    { offset: 0, color: '#00d4ff' },
+                    { offset: 1, color: 'rgba(0, 212, 255, 0.27)' }
+                ]
+            }
+        }
+    }]
+});
+
+// 能力雷达图
+const radarChart = echarts.init(document.getElementById('radarChart'));
+radarChart.setOption({
+    radar: {
+        indicator: [
+            { name: '概念理解', max: 100 },
+            { name: '公式运用', max: 100 },
+            { name: '图像分析', max: 100 },
+            { name: '实验探究', max: 100 },
+            { name: '综合应用', max: 100 }
+        ],
+        axisName: { color: '#8892b0' },
+        splitArea: { areaStyle: { color: ['#151a3a', '#0d1233'] } },
+        axisLine: { lineStyle: { color: '#1a2048' } },
+        splitLine: { lineStyle: { color: '#1a2048' } }
+    },
+    series: [{
+        type: 'radar',
+        data: [{
+            value: {{ ability_scores | tojson }},
+            name: '我的能力',
+            areaStyle: { color: 'rgba(0, 212, 255, 0.3)' },
+            lineStyle: { color: '#00d4ff', width: 2 },
+            itemStyle: { color: '#00d4ff' }
+        }]
+    }]
+});
+
+window.addEventListener('resize', () => {
+    studyTrendChart.resize();
+    masteryChart.resize();
+    accuracyChart.resize();
+    radarChart.resize();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}知识图谱 — Kinetic M&P{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="graph-container">
+    <div class="page-header">
+        <h1>🕸️ 高中物理知识图谱</h1>
+        <p>可视化展示知识点关联 · 绿色=已掌握 · 黄色=学习中 · 红色=需加强</p>
+    </div>
+
+    <div class="graph-legend">
+        <span class="legend-item"><span class="dot mastered"></span> 已掌握</span>
+        <span class="legend-item"><span class="dot learning"></span> 学习中</span>
+        <span class="legend-item"><span class="dot weak"></span> 需加强</span>
+    </div>
+
+    <div id="knowledgeGraph" style="height: 600px; background: var(--bg-card); border-radius: var(--radius); border: 1px solid #ffffff08;"></div>
+
+    <div id="nodeDetail" class="node-detail" style="display: none;">
+        <h3 id="nodeName"></h3>
+        <p id="nodeDesc"></p>
+        <div id="nodeStats" style="margin-bottom:1rem;"></div>
+        <a id="nodeLink" href="#" class="btn btn-primary btn-sm" style="width:100%;">开始学习</a>
+    </div>
+</div>
+
+<script>
+const graphChart = echarts.init(document.getElementById('knowledgeGraph'));
+const nodes = {{ graph_nodes | tojson }};
+const links = {{ graph_links | tojson }};
+
+const statusColors = {
+    'mastered': '#00ff88',
+    'learning': '#ffb800',
+    'weak': '#ff4466',
+    'locked': '#5a6480'
+};
+
+const statusSizes = {
+    'mastered': 30,
+    'learning': 25,
+    'weak': 25,
+    'locked': 18
+};
+
+const statusLabels = {
+    'mastered': '已掌握',
+    'learning': '学习中',
+    'weak': '需加强',
+    'locked': '未解锁'
+};
+
+const formattedNodes = nodes.map(node => ({
+    ...node,
+    itemStyle: { color: statusColors[node.status] || '#5a6480', borderColor: '#0a0e27', borderWidth: 2 },
+    symbolSize: statusSizes[node.status] || 18,
+    label: {
+        show: true,
+        formatter: node.name,
+        color: '#e8eaf6',
+        fontSize: 12,
+        fontWeight: 500
+    }
+}));
+
+graphChart.setOption({
+    tooltip: {
+        formatter: function(params) {
+            if (params.dataType === 'node') {
+                return `<b>${params.data.name}</b><br/>` +
+                       `状态: ${statusLabels[params.data.status] || '未知'}<br/>` +
+                       `正确率: ${params.data.accuracy || 0}%`;
+            }
+            return '';
+        }
+    },
+    series: [{
+        type: 'graph',
+        layout: 'force',
+        data: formattedNodes,
+        links: links,
+        roam: true,
+        draggable: true,
+        force: {
+            repulsion: 400,
+            edgeLength: 120,
+            gravity: 0.1
+        },
+        lineStyle: {
+            color: '#5a6480',
+            width: 1.5,
+            curveness: 0.2
+        },
+        emphasis: {
+            focus: 'adjacency',
+            lineStyle: { width: 3, color: '#00d4ff' }
+        }
+    }]
+});
+
+graphChart.on('click', function(params) {
+    if (params.dataType === 'node') {
+        const detail = document.getElementById('nodeDetail');
+        document.getElementById('nodeName').textContent = params.data.name;
+        document.getElementById('nodeDesc').textContent = statusLabels[params.data.status] || '';
+        document.getElementById('nodeStats').innerHTML =
+            `正确率: <b style="color:${statusColors[params.data.status]}">${params.data.accuracy || 0}%</b>`;
+        document.getElementById('nodeLink').href = `/videos?topic=${params.data.id}`;
+        detail.style.display = 'block';
+    }
+});
+
+window.addEventListener('resize', () => graphChart.resize());
+
+// 点击空白处关闭详情
+graphChart.getZr().on('click', function(e) {
+    if (!e.target) {
+        document.getElementById('nodeDetail').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

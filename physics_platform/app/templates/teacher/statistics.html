@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}数据统计 — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-header">
+        <h1>📊 数据统计</h1>
+        <p>查看所有班级的整体学习数据</p>
+    </div>
+
+    <!-- 总览 -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value">{{ total_students }}</div>
+            <div class="stat-label">总学生数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📝</div>
+            <div class="stat-value">{{ total_questions }}</div>
+            <div class="stat-label">总答题数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-value">{{ overall_accuracy }}%</div>
+            <div class="stat-label">整体正确率</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-value">{{ classes|length }}</div>
+            <div class="stat-label">班级数量</div>
+        </div>
+    </div>
+
+    <!-- 各班级详情 -->
+    <section class="dashboard-section">
+        <h2>📚 各班级数据</h2>
+        {% if classes %}
+        <div class="class-grid">
+            {% for cls in classes %}
+            <div class="class-card">
+                <div class="class-header">
+                    <h3>{{ cls.name }}</h3>
+                    <span class="student-count">{{ cls.student_count }} 人</span>
+                </div>
+                <div class="class-info">
+                    <div>答题数: {{ cls.total_questions }}</div>
+                    <div>平均正确率: <span style="{% if cls.avg_accuracy >= 80 %}color:var(--green){% elif cls.avg_accuracy >= 60 %}color:var(--amber){% else %}color:var(--red){% endif %}">{{ cls.avg_accuracy }}%</span></div>
+                </div>
+                <div class="progress-bar-wrapper" style="margin-top:0.5rem;">
+                    <div class="progress-bar-fill" style="width:{{ cls.avg_accuracy }}%;{% if cls.avg_accuracy >= 80 %}background:var(--green);{% elif cls.avg_accuracy >= 60 %}background:var(--amber);{% else %}background:var(--red);{% endif %}"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">暂无班级数据</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

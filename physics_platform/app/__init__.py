@@ -110,12 +110,16 @@ def create_app(config_name=None):
     from app.routes.quiz import quiz_bp
     from app.routes.diagnosis import diagnosis_bp
     from app.routes.experiments import experiments_bp
+    from app.routes.teacher import teacher_bp
+    from app.routes.student import student_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(videos_bp)
     app.register_blueprint(quiz_bp)
     app.register_blueprint(diagnosis_bp)
     app.register_blueprint(experiments_bp)
+    app.register_blueprint(teacher_bp)
+    app.register_blueprint(student_bp)
 
     # ========================================================
     # 创建数据库表

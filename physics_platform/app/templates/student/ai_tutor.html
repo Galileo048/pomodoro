@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}AI 答疑助手 — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="ai-tutor-container">
+    <div class="chat-header">
+        <h1>🤖 AI 物理助教</h1>
+        <p>问我任何高中物理问题，我会一步步帮你分析</p>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+        <div class="message ai">
+            <div class="message-avatar">🤖</div>
+            <div class="message-content">
+                <p>你好！我是你的 AI 物理助教。我可以帮你：</p>
+                <ul>
+                    <li>📐 解释物理概念和公式</li>
+                    <li>🧮 一步步讲解解题思路</li>
+                    <li>📊 推荐相关的学习资源</li>
+                    <li>🎯 分析你的薄弱知识点</li>
+                </ul>
+                <p>你想问什么问题呢？</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-input-area">
+        <div class="quick-questions">
+            <button onclick="sendQuickQuestion('什么是平抛运动？')">平抛运动</button>
+            <button onclick="sendQuickQuestion('如何求合速度？')">求合速度</button>
+            <button onclick="sendQuickQuestion('动能定理公式是什么？')">动能定理</button>
+            <button onclick="sendQuickQuestion('牛顿三定律怎么用？')">牛顿定律</button>
+        </div>
+        <form id="chatForm" class="chat-form">
+            <input type="text" id="userInput" placeholder="输入你的物理问题..." autocomplete="off">
+            <button type="submit" class="btn btn-primary">发送</button>
+        </form>
+    </div>
+</div>
+
+<script>
+const chatMessages = document.getElementById('chatMessages');
+const chatForm = document.getElementById('chatForm');
+const userInput = document.getElementById('userInput');
+
+chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const question = userInput.value.trim();
+    if (!question) return;
+
+    addMessage(question, 'user');
+    userInput.value = '';
+    showTyping();
+
+    try {
+        const response = await fetch('{{ url_for("student.api_ai_tutor") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ question })
+        });
+        const data = await response.json();
+        hideTyping();
+        addMessage(data.answer || data.error || '抱歉，暂时无法回答', 'ai');
+    } catch (error) {
+        hideTyping();
+        addMessage('网络连接失败，请稍后重试。', 'ai');
+    }
+});
+
+function sendQuickQuestion(question) {
+    userInput.value = question;
+    chatForm.dispatchEvent(new Event('submit'));
+}
+
+function addMessage(text, sender) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}`;
+    const avatar = sender === 'ai' ? '🤖' : '👤';
+    // Simple markdown-like rendering
+    let html = escapeHtml(text)
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\$(.*?)\$/g, '<code style="color:var(--amber);">$1</code>')
+        .replace(/\n/g, '<br>');
+    messageDiv.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div class="message-content"><p>${html}</p></div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showTyping() {
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message ai typing';
+    typingDiv.id = 'typingIndicator';
+    typingDiv.innerHTML = `
+        <div class="message-avatar">🤖</div>
+        <div class="message-content">
+            <div class="typing-indicator">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    `;
+    chatMessages.appendChild(typingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function hideTyping() {
+    const typing = document.getElementById('typingIndicator');
+    if (typing) typing.remove();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

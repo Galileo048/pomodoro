@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ assignment.title }} — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-header">
+        <h1>📋 {{ assignment.title }}</h1>
+        <p>
+            班级: {{ cls.name if cls else '未知' }}
+            {% if assignment.due_date %} · 截止: {{ assignment.due_date.strftime('%Y-%m-%d') }}{% endif %}
+        </p>
+    </div>
+
+    {% if assignment.description %}
+    <div class="card-dark" style="padding:1.5rem;margin-bottom:1.5rem;">
+        <p style="color:var(--text-secondary);">{{ assignment.description }}</p>
+    </div>
+    {% endif %}
+
+    {% if topic_names %}
+    <div style="margin-bottom:1.5rem;">
+        <span style="color:var(--text-muted);font-size:0.88rem;">知识点：</span>
+        {% for name in topic_names %}
+        <span class="video-card-tag" style="margin-left:4px;">{{ name }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <section class="dashboard-section">
+        <h2>👥 完成情况（{{ students|length }} 人）</h2>
+        {% if students %}
+        <div class="assignment-list">
+            {% for student in students %}
+            <div class="assignment-item">
+                <div class="assignment-info">
+                    <h4>{{ student.username }}</h4>
+                    {% if student.completed %}
+                    <span class="assignment-date">完成于 {{ student.completed_at }}</span>
+                    {% else %}
+                    <span class="assignment-date" style="color:var(--red);">未完成</span>
+                    {% endif %}
+                </div>
+                <div class="assignment-stats">
+                    {% if student.completed %}
+                    <div class="stat">
+                        <span class="stat-value" style="{% if student.score >= 80 %}color:var(--green){% elif student.score >= 60 %}color:var(--amber){% else %}color:var(--red){% endif %}">{{ student.score }}</span>
+                        <span class="stat-label">得分</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">{{ student.correct_count }}/{{ student.total_count }}</span>
+                        <span class="stat-label">正确/总题</span>
+                    </div>
+                    {% else %}
+                    <div class="stat">
+                        <span class="stat-value" style="color:var(--text-muted);">-</span>
+                        <span class="stat-label">待完成</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p class="empty-state-text">暂无学生数据</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}{{ assignment.title }} — Kinetic M&P{% endblock %}
+{% block content %}
+<div class="quiz-container">
+    <!-- 作业标题 -->
+    <div style="text-align:center; margin-bottom:2rem;">
+        <h1 style="font-size:1.4rem; color:var(--text-bright); margin-bottom:0.3rem;">📝 {{ assignment.title }}</h1>
+        <p style="color:var(--text-muted); font-size:0.9rem;">
+            共 {{ total_count }} 题
+            {% if assignment.due_date %} · 截止: {{ assignment.due_date.strftime('%Y-%m-%d') }}{% endif %}
+        </p>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="quiz-progress">
+        <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+        <div class="quiz-progress-text" id="progressText">0 / {{ total_count }}</div>
+    </div>
+
+    <!-- 题目区域 -->
+    <div id="quizArea">
+        {% for q in questions %}
+        <div class="quiz-question-card" id="question{{ loop.index0 }}" style="{% if not loop.first %}display:none{% endif %}">
+            <div class="quiz-question-number">第 {{ loop.index }} 题 / {{ total_count }}</div>
+            <div class="quiz-question-text">{{ q.question }}</div>
+            <div class="quiz-options" id="options{{ loop.index0 }}">
+                {% for opt in q.options %}
+                <div class="quiz-option" data-qidx="{{ q.idx }}" data-oidx="{{ loop.index0 }}" data-qid="{{ q.id }}" data-correct="{{ q.answer }}">
+                    <div class="quiz-option-letter">{{ 'ABCD'[loop.index0] }}</div>
+                    <div class="quiz-option-text">{{ opt }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- 反馈区域 -->
+            <div class="quiz-feedback" id="feedback{{ loop.index0 }}">
+                <div class="quiz-feedback-title" id="feedbackTitle{{ loop.index0 }}"></div>
+                <div class="quiz-feedback-explain" id="feedbackExplain{{ loop.index0 }}"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 下一题/提交按钮 -->
+    <div style="text-align:center; margin-top:1.5rem;">
+        <button class="btn btn-primary btn-glow" id="nextBtn" style="display:none;">
+            下一题 →
+        </button>
+        <button class="btn btn-success btn-glow" id="submitBtn" style="display:none;">
+            ✓ 提交作业
+        </button>
+    </div>
+
+    <!-- 结果卡片 -->
+    <div class="quiz-score-card card-dark" id="resultCard" style="display:none;">
+        <div class="quiz-score-number" id="scoreNumber">0</div>
+        <div class="quiz-score-label">作业得分</div>
+        <div class="quiz-score-details">
+            <div class="quiz-score-stat">
+                <div class="quiz-score-stat-value" id="correctCount">0</div>
+                <div class="quiz-score-stat-label">正确</div>
+            </div>
+            <div class="quiz-score-stat">
+                <div class="quiz-score-stat-value" id="totalCount">0</div>
+                <div class="quiz-score-stat-label">总题数</div>
+            </div>
+            <div class="quiz-score-stat">
+                <div class="quiz-score-stat-value" id="accuracyRate">0%</div>
+                <div class="quiz-score-stat-label">正确率</div>
+            </div>
+        </div>
+        <a href="{{ url_for('student.class_page') }}" class="btn btn-primary">返回班级</a>
+    </div>
+</div>
+
+<script>
+(function() {
+    const TOTAL = {{ total_count }};
+    const questions = {{ questions | tojson }};
+    let currentIndex = 0;
+    let answers = {};
+    let answeredSet = new Set();  // 用 Set 存已答题目索引，干净可靠
+
+    // ====== 用事件委托绑定点击，不依赖 inline onclick ======
+    document.getElementById('quizArea').addEventListener('click', function(e) {
+        var option = e.target.closest('.quiz-option');
+        if (!option) return;
+        if (option.classList.contains('disabled')) return;
+
+        var qIdx = parseInt(option.getAttribute('data-qidx'));
+        var oIdx = parseInt(option.getAttribute('data-oidx'));
+        var qId  = parseInt(option.getAttribute('data-qid'));
+        var correct = parseInt(option.getAttribute('data-correct'));
+
+        if (answeredSet.has(qIdx)) return;
+        answeredSet.add(qIdx);
+
+        var letters = ['A','B','C','D'];
+        answers[qId] = letters[oIdx];
+
+        // 禁用同题所有选项
+        var siblings = option.parentElement.querySelectorAll('.quiz-option');
+        siblings.forEach(function(opt, i) {
+            opt.classList.add('disabled');
+            if (i === correct) opt.classList.add('correct');
+        });
+        if (oIdx !== correct) option.classList.add('wrong');
+
+        // 反馈
+        var fb  = document.getElementById('feedback' + qIdx);
+        var ttl = document.getElementById('feedbackTitle' + qIdx);
+        var exp = document.getElementById('feedbackExplain' + qIdx);
+        if (oIdx === correct) {
+            fb.className = 'quiz-feedback show correct';
+            ttl.textContent = '✓ 回答正确！';
+        } else {
+            fb.className = 'quiz-feedback show wrong';
+            ttl.textContent = '✗ 回答错误，正确答案是 ' + letters[correct];
+        }
+        if (questions[qIdx].explanation) exp.textContent = questions[qIdx].explanation;
+
+        // 进度
+        var pct = (answeredSet.size / TOTAL) * 100;
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressText').textContent = answeredSet.size + ' / ' + TOTAL;
+
+        // 按钮
+        if (currentIndex < TOTAL - 1) {
+            document.getElementById('nextBtn').style.display = 'inline-flex';
+        } else {
+            document.getElementById('submitBtn').style.display = 'inline-flex';
+        }
+    });
+
+    // ====== 下一题 ======
+    document.getElementById('nextBtn').addEventListener('click', function() {
+        document.getElementById('question' + currentIndex).style.display = 'none';
+        currentIndex++;
+        document.getElementById('question' + currentIndex).style.display = 'block';
+        this.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // ====== 提交 ======
+    document.getElementById('submitBtn').addEventListener('click', async function() {
+        if (Object.keys(answers).length < TOTAL) {
+            if (!confirm('还有题目未作答，确定要提交吗？')) return;
+        }
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = '提交中...';
+
+        var answerList = Object.entries(answers).map(function(pair) {
+            return { question_id: parseInt(pair[0]), answer: pair[1] };
+        });
+
+        try {
+            var resp = await fetch('{{ url_for("student.submit_assignment", assignment_id=assignment.id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({ answers: answerList })
+            });
+            var result = await resp.json();
+            if (result.error) { alert(result.error); btn.disabled = false; btn.textContent = '✓ 提交作业'; return; }
+
+            document.getElementById('quizArea').style.display = 'none';
+            btn.style.display = 'none';
+            document.getElementById('nextBtn').style.display = 'none';
+            document.getElementById('resultCard').style.display = 'block';
+
+            animateNumber('scoreNumber', result.score, '%');
+            document.getElementById('correctCount').textContent = result.correct_count;
+            document.getElementById('totalCount').textContent = result.total;
+            document.getElementById('accuracyRate').textContent = Math.round(result.correct_count / result.total * 100) + '%';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch(err) {
+            alert('提交失败：' + err.message);
+            btn.disabled = false;
+            btn.textContent = '✓ 提交作业';
+        }
+    });
+
+    function animateNumber(id, target, suffix) {
+        var el = document.getElementById(id);
+        var cur = 0, step = Math.max(1, Math.ceil(target / 30));
+        var t = setInterval(function() {
+            cur += step;
+            if (cur >= target) { cur = target; clearInterval(t); }
+            el.textContent = cur + (suffix || '');
+        }, 30);
+    }
+})();
+</script>
+{% endblock %}
