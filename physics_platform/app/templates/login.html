@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}登录 — 物理AI学习平台{% endblock %}
+{% block title %}登录 — Kinetic M&P{% endblock %}
 
 {% block content %}
 <!-- Decorative background formulas -->
@@ -11,7 +11,10 @@
 
 <div class="auth-container">
     <div class="auth-card">
-        <h1 class="auth-title">欢迎回来</h1>
+        <div style="text-align:center; margin-bottom:1rem;">
+            <img src="{{ url_for('static', filename='logo_hero.png') }}" alt="Logo" style="height:60px; width:auto; filter:drop-shadow(0 2px 8px rgba(0,100,255,0.3));">
+        </div>
+        <h1 class="auth-title" style="font-family:'Orbitron',sans-serif; letter-spacing:2px;">KINETIC M&P</h1>
         <p class="auth-subtitle">登录你的物理学习空间</p>
 
         <!-- Flash messages -->
