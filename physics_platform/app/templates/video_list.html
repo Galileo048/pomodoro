@@ -3,32 +3,18 @@
 {% block title %}视频学习 — Kinetic M&P{% endblock %}
 
 {% block content %}
-<!-- Hero section -->
+<!-- Hero -->
 <section class="hero-section">
     <h1 class="hero-title">物理视频学习中心</h1>
-    <p class="hero-desc">系统化掌握高中物理核心知识，从运动学到波动学，用可视化动画理解抽象概念</p>
+    <p class="hero-desc">系统化掌握高中物理核心知识，用可视化动画理解抽象概念</p>
 </section>
 
 <!-- Filter tabs -->
-<div class="filter-tabs" role="tablist" aria-label="章节筛选">
-    <button class="filter-tab active" role="tab" data-chapter="all" aria-selected="true">
-        全部
-    </button>
-    <button class="filter-tab" role="tab" data-chapter="运动学" aria-selected="false">
-        运动学
-    </button>
-    <button class="filter-tab" role="tab" data-chapter="数学基础" aria-selected="false">
-        数学基础
-    </button>
-    <button class="filter-tab" role="tab" data-chapter="振动与波" aria-selected="false">
-        振动与波
-    </button>
-    <button class="filter-tab" role="tab" data-chapter="力学" aria-selected="false">
-        力学
-    </button>
-    <button class="filter-tab" role="tab" data-chapter="电磁学" aria-selected="false">
-        电磁学
-    </button>
+<div class="filter-tabs" role="tablist">
+    <button class="filter-tab active" data-chapter="all">全部</button>
+    <button class="filter-tab" data-chapter="运动学">运动学</button>
+    <button class="filter-tab" data-chapter="数学基础">数学基础</button>
+    <button class="filter-tab" data-chapter="振动与波">振动与波</button>
 </div>
 
 <!-- Video grid -->
@@ -37,19 +23,21 @@
         {% for video in videos %}
         <a href="{{ url_for('videos.video_play', video_id=video.id) }}"
            class="video-card"
-           data-chapter="{{ video.chapter or '' }}"
-           aria-label="播放 {{ video.title }}">
+           data-chapter="{{ video.chapter or '' }}">
             <div class="video-card-cover">
-                <div class="video-card-gradient">
+                <div class="video-card-gradient" style="background: linear-gradient(135deg,
+                    {% if loop.index0 % 4 == 0 %}#1a1a4e, #0d2a4a{% elif loop.index0 % 4 == 1 %}#2a1a3e, #1a0d3a{% elif loop.index0 % 4 == 2 %}#0d2a3a, #1a3a2a{% else %}#3a2a1a, #2a1a0d{% endif %});">
                     <div class="video-card-play-icon">&#9654;</div>
                 </div>
-                <div class="video-card-duration">{{ video.duration or '--:--' }}</div>
+                <div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); color:#fff; padding:3px 8px; border-radius:6px; font-family:var(--font-mono); font-size:0.75rem;">
+                    {{ video.duration or '5:00' }}
+                </div>
             </div>
             <div class="video-card-body">
                 <h3 class="video-card-title">{{ video.title }}</h3>
                 <div class="video-card-meta">
                     <span class="video-card-tag">{{ video.chapter or '未分类' }}</span>
-                    <div class="video-card-difficulty" title="难度 {{ video.difficulty or 1 }}/5">
+                    <div class="video-card-difficulty">
                         {% for i in range(5) %}
                             <span class="difficulty-dot {% if i < (video.difficulty or 1) %}filled{% endif %}"></span>
                         {% endfor %}
@@ -59,55 +47,30 @@
         </a>
         {% endfor %}
     {% else %}
-        <!-- Empty state -->
-        <div class="empty-state" style="grid-column: 1 / -1;">
+        <div class="empty-state" style="grid-column:1/-1;">
             <div class="empty-state-icon">&#9881;</div>
             <p class="empty-state-text">暂无视频内容，课程正在准备中...</p>
         </div>
     {% endif %}
 </div>
-
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 (function() {
-    // Chapter filter functionality
-    const tabs = document.querySelectorAll('.filter-tab');
-    const cards = document.querySelectorAll('.video-card');
-
+    var tabs = document.querySelectorAll('.filter-tab');
+    var cards = document.querySelectorAll('.video-card');
     tabs.forEach(function(tab) {
         tab.addEventListener('click', function() {
-            // Update active tab
-            tabs.forEach(function(t) {
-                t.classList.remove('active');
-                t.setAttribute('aria-selected', 'false');
-            });
+            tabs.forEach(function(t) { t.classList.remove('active'); });
             this.classList.add('active');
-            this.setAttribute('aria-selected', 'true');
-
             var chapter = this.getAttribute('data-chapter');
-
-            // Filter cards
             cards.forEach(function(card) {
                 if (chapter === 'all' || card.getAttribute('data-chapter') === chapter) {
                     card.style.display = '';
-                    // Stagger animation
-                    card.style.animation = 'none';
-                    card.offsetHeight; // force reflow
-                    card.style.animation = '';
                 } else {
                     card.style.display = 'none';
                 }
-            });
-
-            // Show empty state if nothing matches
-            var visibleCards = document.querySelectorAll('.video-card[style=""],.video-card:not([style])');
-            var emptyState = document.querySelector('.empty-state');
-            // simple visibility check
-            var anyVisible = false;
-            cards.forEach(function(c) {
-                if (c.style.display !== 'none') anyVisible = true;
             });
         });
     });
