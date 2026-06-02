@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% block title %}光的全反射实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0a0a18;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#111125;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-chart-tabs{display:flex;gap:3px;margin-bottom:6px}
+  .exp-chart-tab{flex:1;padding:4px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-chart-tab.active{background:var(--cyan);color:#0a0a18;border-color:var(--cyan)}
+  .chart-canvas-wrap{width:100%;height:140px;position:relative;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  .chart-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .status-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+  .status-normal{background:rgba(0,212,255,0.15);color:var(--cyan);border:1px solid rgba(0,212,255,0.3)}
+  .status-total{background:rgba(255,68,102,0.15);color:var(--accent,#e94560);border:1px solid rgba(255,68,102,0.3)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0a0a18;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0a0a18);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">💎 光的全反射实验</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Total Internal Reflection — sinC = n₂/n₁ (n₁>n₂)</div>
+  </div>
+  <div style="padding:6px 20px;background:#0a0a18;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">入射角 θ</span><span class="exp-slider-value" id="valTheta">30°</span></div>
+          <input type="range" id="sliderTheta" min="0" max="89" step="1" value="30">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">介质1 折射率 n₁</span><span class="exp-slider-value" id="valN1">1.50</span></div>
+          <input type="range" id="sliderN1" min="1.0" max="2.5" step="0.01" value="1.50">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">介质2 折射率 n₂</span><span class="exp-slider-value" id="valN2">1.00</span></div>
+          <input type="range" id="sliderN2" min="1.0" max="2.5" step="0.01" value="1.00">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 自动扫描</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+          <button class="exp-speed-btn" data-speed="4">4x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">入射角 θ₁</div><div class="value c-cyan" id="dataTheta1">30.0°</div></div>
+          <div class="exp-data-item"><div class="label">折射角 θ₂</div><div class="value c-green" id="dataTheta2">41.8°</div></div>
+          <div class="exp-data-item"><div class="label">临界角 C</div><div class="value c-amber" id="dataCritical">41.8°</div></div>
+          <div class="exp-data-item"><div class="label">状态</div><div class="value" id="dataStatus"><span class="status-badge status-normal">折射</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>n₁ sinθ₁ = n₂ sinθ₂</div>
+          <div>临界角: sinC = n₂/n₁ = <span class="formula" id="fmSinC">0.667</span></div>
+          <div>C = <span class="formula" id="fmC">41.8°</span></div>
+          <div id="fmResult" style="margin-top:4px;color:var(--cyan)">当前: 折射+反射</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📈 图表</h3>
+        <div class="exp-chart-tabs">
+          <button class="exp-chart-tab active" data-chart="theta">θ₁-θ₂</button>
+          <button class="exp-chart-tab" data-chart="reflect">反射系数</button>
+          <button class="exp-chart-tab" data-chart="fresnel">菲涅尔</button>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ============ 配置 ============ */
+  var CFG={theta:30, n1:1.50, n2:1.00, timeScale:1};
+  var S={playing:false, t:0, autoTheta:30};
+  var activeChart='theta';
+
+  var canvas=document.getElementById('simCanvas'), ctx=canvas.getContext('2d');
+  var chartCanvas=document.getElementById('chartCanvas'), chartCtx=chartCanvas.getContext('2d');
+
+  /* ============ 物理计算 ============ */
+  function criticalAngle(){ return Math.asin(Math.min(CFG.n2/CFG.n1,1))*180/Math.PI; }
+  function refractAngle(theta1Deg){
+    var sinT2=CFG.n1*Math.sin(theta1Deg*Math.PI/180)/CFG.n2;
+    if(Math.abs(sinT2)>1) return null; // 全反射
+    return Math.asin(sinT2)*180/Math.PI;
+  }
+  /* 菲涅尔反射系数 (s偏振近似) */
+  function reflectivity(theta1Deg){
+    var t1=theta1Deg*Math.PI/180;
+    var t2r=refractAngle(theta1Deg);
+    if(t2r===null) return 1.0;
+    var t2=t2r*Math.PI/180;
+    var rs=Math.pow((CFG.n1*Math.cos(t1)-CFG.n2*Math.cos(t2))/(CFG.n1*Math.cos(t1)+CFG.n2*Math.cos(t2)),2);
+    var rp=Math.pow((CFG.n1*Math.cos(t2)-CFG.n2*Math.cos(t1))/(CFG.n1*Math.cos(t2)+CFG.n2*Math.cos(t1)),2);
+    return (rs+rp)/2;
+  }
+
+  /* ============ 主场景绘制 ============ */
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1), H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#0a0a18'; ctx.fillRect(0,0,W,H);
+
+    var cx=W/2, cy=H/2;
+    var isTotal=CFG.theta>=criticalAngle() && CFG.n1>CFG.n2;
+    var theta1=CFG.theta*Math.PI/180;
+
+    /* --- 介质背景 --- */
+    // 上方：介质1（较密）
+    var grad1=ctx.createLinearGradient(0,0,0,cy);
+    grad1.addColorStop(0,'rgba(20,40,120,0.35)');grad1.addColorStop(1,'rgba(20,40,120,0.15)');
+    ctx.fillStyle=grad1; ctx.fillRect(0,0,W,cy);
+    // 下方：介质2（较疏）
+    var grad2=ctx.createLinearGradient(0,cy,0,H);
+    grad2.addColorStop(0,'rgba(20,80,40,0.15)');grad2.addColorStop(1,'rgba(20,80,40,0.35)');
+    ctx.fillStyle=grad2; ctx.fillRect(0,cy,W,H-cy);
+
+    /* --- 界面线 --- */
+    ctx.strokeStyle='rgba(0,212,255,0.4)';ctx.lineWidth=2;
+    ctx.setLineDash([8,4]);ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();ctx.setLineDash([]);
+
+    /* --- 法线 --- */
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(cx,cy-160);ctx.lineTo(cx,cy+160);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='11px sans-serif';ctx.textAlign='left';
+    ctx.fillText('法线',cx+6,cy-150);
+
+    /* --- 入射光线 --- */
+    var rayLen=140;
+    var ix=cx-Math.sin(theta1)*rayLen, iy=cy-Math.cos(theta1)*rayLen;
+    // 入射光发光效果
+    ctx.strokeStyle='rgba(255,220,100,0.15)';ctx.lineWidth=8;
+    ctx.beginPath();ctx.moveTo(ix,iy);ctx.lineTo(cx,cy);ctx.stroke();
+    ctx.strokeStyle='#ffdd66';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(ix,iy);ctx.lineTo(cx,cy);ctx.stroke();
+    // 箭头
+    drawArrow(ctx,cx,cy,Math.PI/2+theta1,'#ffdd66',8);
+
+    /* --- 折射光线 / 全反射 --- */
+    if(!isTotal){
+      var theta2=refractAngle(CFG.theta)*Math.PI/180;
+      var rx=cx+Math.sin(theta2)*rayLen, ry=cy+Math.cos(theta2)*rayLen;
+      // 折射光
+      ctx.strokeStyle='rgba(0,200,255,0.15)';ctx.lineWidth=8;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(rx,ry);ctx.stroke();
+      ctx.strokeStyle='#00ccff';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(rx,ry);ctx.stroke();
+      drawArrow(ctx,cx,cy,-Math.PI/2+theta2,'#00ccff',8);
+
+      // 折射角标注
+      var arcR=35;
+      ctx.strokeStyle='rgba(0,200,255,0.5)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(cx,cy,arcR,-Math.PI/2,-Math.PI/2+theta2,theta2>0);ctx.stroke();
+      ctx.fillStyle='#00ccff';ctx.font='11px sans-serif';ctx.textAlign='left';
+      ctx.fillText('θ₂='+refractAngle(CFG.theta).toFixed(1)+'°',cx+arcR+4,cy+15);
+
+      // 折射区域标签
+      ctx.fillStyle='rgba(0,200,255,0.12)';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+      ctx.fillText('折射区',W*0.75,cy+60);
+    }
+
+    /* --- 反射光线 --- */
+    var refTheta=theta1; // 反射角=入射角
+    var rfx=cx+Math.sin(refTheta)*rayLen, rfy=cy-Math.cos(refTheta)*rayLen;
+    var reflAlpha=isTotal?1:0.5;
+    var reflWidth=isTotal?3:2;
+    // 反射光发光
+    if(isTotal){
+      ctx.strokeStyle='rgba(255,100,100,0.2)';ctx.lineWidth=10;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(rfx,rfy);ctx.stroke();
+    }
+    ctx.strokeStyle='rgba(255,100,100,'+reflAlpha+')';ctx.lineWidth=reflWidth;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(rfx,rfy);ctx.stroke();
+    drawArrow(ctx,cx,cy,Math.PI/2-refTheta,'rgba(255,100,100,'+reflAlpha+')',8);
+
+    // 反射角标注
+    var arcR2=45;
+    ctx.strokeStyle='rgba(255,100,100,0.5)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(cx,cy,arcR2,-Math.PI/2-refTheta,-Math.PI/2,true);ctx.stroke();
+    ctx.fillStyle='#ff6666';ctx.font='11px sans-serif';ctx.textAlign='right';
+    ctx.fillText('θ₁\'='+CFG.theta.toFixed(1)+'°',cx-arcR2-4,cy-15);
+
+    // 入射角标注
+    ctx.strokeStyle='rgba(255,220,100,0.5)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(cx,cy,arcR2,-Math.PI/2,-Math.PI/2-theta1,true);ctx.stroke();
+    ctx.fillStyle='#ffdd66';ctx.font='11px sans-serif';ctx.textAlign='right';
+    ctx.fillText('θ₁='+CFG.theta.toFixed(1)+'°',cx-arcR2-4,cy+15);
+
+    /* --- 全反射特效 --- */
+    if(isTotal){
+      ctx.fillStyle='rgba(255,68,102,0.08)';ctx.font='bold 16px sans-serif';ctx.textAlign='center';
+      ctx.fillText('✦ 全反射 Total Internal Reflection ✦',cx,cy+80);
+      // 临界角指示线
+      var cAngle=criticalAngle()*Math.PI/180;
+      ctx.strokeStyle='rgba(255,180,0,0.3)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.sin(cAngle)*rayLen,cy+Math.cos(cAngle)*rayLen);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx-Math.sin(cAngle)*rayLen,cy+Math.cos(cAngle)*rayLen);ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle='rgba(255,180,0,0.5)';ctx.font='10px sans-serif';
+      ctx.fillText('C='+criticalAngle().toFixed(1)+'°',cx+Math.sin(cAngle)*rayLen*0.5+15,cy+Math.cos(cAngle)*rayLen*0.5);
+    }
+
+    /* --- 介质标签 --- */
+    ctx.fillStyle='rgba(100,160,255,0.5)';ctx.font='bold 13px sans-serif';ctx.textAlign='left';
+    ctx.fillText('介质1  n₁='+CFG.n1.toFixed(2),20,30);
+    ctx.fillStyle='rgba(100,200,100,0.5)';
+    ctx.fillText('介质2  n₂='+CFG.n2.toFixed(2),20,H-20);
+
+    /* --- 全反射警告 --- */
+    if(CFG.n1<=CFG.n2){
+      ctx.fillStyle='rgba(255,180,0,0.6)';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+      ctx.fillText('⚠ 需要 n₁ > n₂ 才能发生全反射',cx,30);
+    }
+  }
+
+  function drawArrow(c,x,y,angle,color,len){
+    c.fillStyle=color;c.beginPath();
+    c.moveTo(x+Math.cos(angle)*len,y+Math.sin(angle)*len);
+    c.lineTo(x+Math.cos(angle+2.6)*len*0.4,y+Math.sin(angle+2.6)*len*0.4);
+    c.lineTo(x+Math.cos(angle-2.6)*len*0.4,y+Math.sin(angle-2.6)*len*0.4);
+    c.closePath();c.fill();
+  }
+
+  /* ============ 图表绘制 ============ */
+  function drawChart(){
+    var W=chartCanvas.width/(window.devicePixelRatio||1), H=chartCanvas.height/(window.devicePixelRatio||1);
+    chartCtx.clearRect(0,0,W,H);chartCtx.fillStyle='rgba(0,0,0,0.2)';chartCtx.fillRect(0,0,W,H);
+    var m={l:40,r:10,t:15,b:25}, pw=W-m.l-m.r, ph=H-m.t-m.b;
+
+    if(activeChart==='theta'){
+      /* θ₁ vs θ₂ 曲线 */
+      var C=criticalAngle();
+      // 坐标轴
+      drawAxes(chartCtx,m,pw,ph,'θ₁ (°)','θ₂ (°)');
+      // 曲线
+      chartCtx.strokeStyle='#00ccff';chartCtx.lineWidth=2;chartCtx.beginPath();
+      for(var i=0;i<=100;i++){
+        var th=i*0.89; // 0~89
+        var t2=refractAngle(th);
+        if(t2===null) break;
+        var px=m.l+(th/90)*pw, py=m.t+ph-(t2/90)*ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 临界角标记
+      var cxP=m.l+(C/90)*pw;
+      chartCtx.strokeStyle='rgba(255,180,0,0.6)';chartCtx.lineWidth=1;chartCtx.setLineDash([4,3]);
+      chartCtx.beginPath();chartCtx.moveTo(cxP,m.t);chartCtx.lineTo(cxP,m.t+ph);chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      chartCtx.fillStyle='#ffb800';chartCtx.font='10px sans-serif';chartCtx.textAlign='center';
+      chartCtx.fillText('C='+C.toFixed(1)+'°',cxP,m.t-3);
+      // 当前位置
+      var curT2=refractAngle(CFG.theta);
+      if(curT2!==null){
+        var dotX=m.l+(CFG.theta/90)*pw, dotY=m.t+ph-(curT2/90)*ph;
+        chartCtx.fillStyle='#ff4466';chartCtx.beginPath();chartCtx.arc(dotX,dotY,4,0,Math.PI*2);chartCtx.fill();
+      }
+      // 图例
+      chartCtx.fillStyle='#00ccff';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ 折射曲线',m.l+5,m.t+12);
+    } else if(activeChart==='reflect'){
+      /* 反射系数 vs θ */
+      drawAxes(chartCtx,m,pw,ph,'θ₁ (°)','反射系数 R');
+      chartCtx.strokeStyle='#ff6666';chartCtx.lineWidth=2;chartCtx.beginPath();
+      for(var i=0;i<=100;i++){
+        var th=i*0.89;
+        var R=reflectivity(th);
+        var px=m.l+(th/90)*pw, py=m.t+ph-R*ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 临界角标记
+      var C2=criticalAngle();
+      var cxP2=m.l+(C2/90)*pw;
+      chartCtx.strokeStyle='rgba(255,180,0,0.6)';chartCtx.lineWidth=1;chartCtx.setLineDash([4,3]);
+      chartCtx.beginPath();chartCtx.moveTo(cxP2,m.t);chartCtx.lineTo(cxP2,m.t+ph);chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      chartCtx.fillStyle='#ffb800';chartCtx.font='10px sans-serif';chartCtx.textAlign='center';
+      chartCtx.fillText('C',cxP2,m.t-3);
+      // 当前点
+      var curR=reflectivity(CFG.theta);
+      var dotX=m.l+(CFG.theta/90)*pw, dotY=m.t+ph-curR*ph;
+      chartCtx.fillStyle='#ff4466';chartCtx.beginPath();chartCtx.arc(dotX,dotY,4,0,Math.PI*2);chartCtx.fill();
+      chartCtx.fillStyle='#ff6666';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ 反射系数 (平均偏振)',m.l+5,m.t+12);
+    } else if(activeChart==='fresnel'){
+      /* 菲涅尔曲线: Rs, Rp */
+      drawAxes(chartCtx,m,pw,ph,'θ₁ (°)','R');
+      // Rs
+      chartCtx.strokeStyle='#00ccff';chartCtx.lineWidth=1.5;chartCtx.beginPath();
+      for(var i=0;i<=100;i++){
+        var th=i*0.89*Math.PI/180;
+        var sinT2=CFG.n1*Math.sin(th)/CFG.n2;
+        if(Math.abs(sinT2)>1){var px=m.l+(i*0.89/90)*pw;chartCtx.lineTo(px,m.t);continue;}
+        var t2=Math.asin(sinT2);
+        var rs=Math.pow((CFG.n1*Math.cos(th)-CFG.n2*Math.cos(t2))/(CFG.n1*Math.cos(th)+CFG.n2*Math.cos(t2)),2);
+        var px=m.l+(i*0.89/90)*pw, py=m.t+ph-rs*ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // Rp
+      chartCtx.strokeStyle='#ff6666';chartCtx.lineWidth=1.5;chartCtx.beginPath();
+      for(var i=0;i<=100;i++){
+        var th=i*0.89*Math.PI/180;
+        var sinT2=CFG.n1*Math.sin(th)/CFG.n2;
+        if(Math.abs(sinT2)>1){var px=m.l+(i*0.89/90)*pw;chartCtx.lineTo(px,m.t);continue;}
+        var t2=Math.asin(sinT2);
+        var rp=Math.pow((CFG.n1*Math.cos(t2)-CFG.n2*Math.cos(th))/(CFG.n1*Math.cos(t2)+CFG.n2*Math.cos(th)),2);
+        var px=m.l+(i*0.89/90)*pw, py=m.t+ph-rp*ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      chartCtx.fillStyle='#00ccff';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ Rs (s偏振)',m.l+5,m.t+12);
+      chartCtx.fillStyle='#ff6666';
+      chartCtx.fillText('━ Rp (p偏振)',m.l+5,m.t+24);
+    }
+  }
+
+  function drawAxes(c,m,pw,ph,xLabel,yLabel){
+    c.strokeStyle='#5a6480';c.lineWidth=1;
+    c.beginPath();c.moveTo(m.l,m.t);c.lineTo(m.l,m.t+ph);c.lineTo(m.l+pw,m.t+ph);c.stroke();
+    c.fillStyle='#5a6480';c.font='10px sans-serif';c.textAlign='center';
+    c.fillText(xLabel,m.l+pw/2,H?H-3:m.t+ph+18);
+    c.save();c.translate(10,m.t+ph/2);c.rotate(-Math.PI/2);c.fillText(yLabel,0,0);c.restore();
+  }
+
+  /* ============ 数据更新 ============ */
+  function updateData(){
+    var isTotal=CFG.theta>=criticalAngle() && CFG.n1>CFG.n2;
+    var t2=refractAngle(CFG.theta);
+    var C=criticalAngle();
+    var sinC=CFG.n1>CFG.n2?CFG.n2/CFG.n1:1;
+
+    document.getElementById('dataTheta1').textContent=CFG.theta.toFixed(1)+'°';
+    document.getElementById('dataTheta2').textContent=t2!==null?t2.toFixed(1)+'°':'-- (全反射)';
+    document.getElementById('dataCritical').textContent=CFG.n1>CFG.n2?C.toFixed(1)+'°':'N/A';
+    document.getElementById('dataStatus').innerHTML=isTotal?
+      '<span class="status-badge status-total">全反射</span>':
+      '<span class="status-badge status-normal">折射</span>';
+    document.getElementById('fmSinC').textContent=sinC.toFixed(3);
+    document.getElementById('fmC').textContent=CFG.n1>CFG.n2?C.toFixed(1)+'°':'N/A';
+    document.getElementById('fmResult').textContent=isTotal?'当前: 全反射 (θ≥C)':'当前: 折射+反射 (θ<C)';
+    document.getElementById('fmResult').style.color=isTotal?'var(--accent,#e94560)':'var(--cyan)';
+  }
+
+  /* ============ 动画循环 ============ */
+  var lastTime=0,animId=null;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.autoTheta+=dt*CFG.timeScale*15; // 每秒扫描15度
+    if(S.autoTheta>89){S.autoTheta=0;}
+    CFG.theta=Math.round(S.autoTheta)%90;
+    document.getElementById('sliderTheta').value=CFG.theta;
+    document.getElementById('valTheta').textContent=CFG.theta+'°';
+    draw();updateData();drawChart();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.autoTheta=CFG.theta;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 自动扫描';
+    draw();updateData();drawChart();
+  }
+
+  /* ============ 事件绑定 ============ */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 自动扫描';
+    if(S.playing){lastTime=0;S.autoTheta=CFG.theta;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn').forEach(function(x){x.classList.remove('active')});b.classList.add('active');
+      CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderTheta').addEventListener('input',function(){
+    CFG.theta=parseFloat(this.value);document.getElementById('valTheta').textContent=CFG.theta+'°';
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderN1').addEventListener('input',function(){
+    CFG.n1=parseFloat(this.value);document.getElementById('valN1').textContent=CFG.n1.toFixed(2);
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderN2').addEventListener('input',function(){
+    CFG.n2=parseFloat(this.value);document.getElementById('valN2').textContent=CFG.n2.toFixed(2);
+    draw();updateData();drawChart();
+  });
+
+  document.querySelectorAll('.exp-chart-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.exp-chart-tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');
+      activeChart=tab.dataset.chart;drawChart();
+    });
+  });
+
+  /* ============ 初始化 ============ */
+  function resize(){
+    var dpr=window.devicePixelRatio||1;
+    var rect=canvas.parentElement.getBoundingClientRect();
+    canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var cr=chartCanvas.parentElement.getBoundingClientRect();
+    chartCanvas.width=Math.round(cr.width*dpr);chartCanvas.height=Math.round(cr.height*dpr);
+    chartCtx.setTransform(dpr,0,0,dpr,0,0);
+    draw();drawChart();
+  }
+  window.addEventListener('resize',resize);
+  resize();updateData();
+})();
+</script>
+{% endblock %}

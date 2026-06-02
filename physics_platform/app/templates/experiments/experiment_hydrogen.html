@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}氢原子能级跃迁 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}.c-red{color:#ff6666}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .series-lyman{color:#ff6666;font-weight:700}.series-balmer{color:#ffd93d;font-weight:700}.series-paschen{color:#58C4DD;font-weight:700}.series-brackett{color:#a78bfa;font-weight:700}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ffd93d;">⚛️ 氢原子能级跃迁</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Eₙ = -13.6/n² eV, ΔE = hν — 跃迁产生光子</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">能级图</span><canvas id="chartLevels"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">光子波长 (nm)</span><canvas id="chartSpectrum"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">谱系分类</span><canvas id="chartSeries"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 跃迁设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">初始能级 nᵢ</span><span class="exp-slider-value" id="valNi">3</span></div>
+          <input type="range" id="sliderNi" min="1" max="6" step="1" value="3">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">终态能级 nᶠ</span><span class="exp-slider-value" id="valNf">2</span></div>
+          <input type="range" id="sliderNf" min="1" max="6" step="1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 跃迁</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 跃迁信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">Eᵢ (初始)</div><div class="value c-cyan" id="dataEi">-1.51 eV</div></div>
+          <div class="exp-data-item"><div class="label">Eᶠ (终态)</div><div class="value c-amber" id="dataEf">-3.40 eV</div></div>
+          <div class="exp-data-item"><div class="label">ΔE (能量差)</div><div class="value c-green" id="dataDE">1.89 eV</div></div>
+          <div class="exp-data-item"><div class="label">光子频率 ν</div><div class="value c-purple" id="dataNu">4.57×10¹⁴ Hz</div></div>
+          <div class="exp-data-item"><div class="label">光子波长 λ</div><div class="value c-accent" id="dataLam">656.3 nm</div></div>
+          <div class="exp-data-item"><div class="label">谱系</div><div class="value series-balmer" id="dataSeries">巴尔末系</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>Eₙ = -13.6/n² eV</div>
+          <div>Eᵢ = <span class="result" id="fmEi">-1.51</span> eV (n=3)</div>
+          <div>Eᶠ = <span class="result" id="fmEf">-3.40</span> eV (n=2)</div>
+          <div>ΔE = Eᵢ - Eᶠ = <span class="result" id="fmDE">1.89</span> eV</div>
+          <div>λ = hc/ΔE = <span class="result" id="fmLam">656.3</span> nm</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var H_C_EV_NM = 1240; // h*c in eV·nm
+  var S = {ni: 3, nf: 2, playing: false, progress: 0, animId: null};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function energy(n) { return -13.6 / (n * n); }
+  function deltaE() { return energy(S.ni) - energy(S.nf); }
+  function wavelength() { return H_C_EV_NM / Math.abs(deltaE()); }
+  function frequency() { return Math.abs(deltaE()) * 1.602e-19 / 6.626e-34; }
+  function seriesName() {
+    if (S.nf === 1) return '莱曼系';
+    if (S.nf === 2) return '巴尔末系';
+    if (S.nf === 3) return '帕邢系';
+    if (S.nf === 4) return '布拉开系';
+    return 'n≥' + S.nf + '系';
+  }
+  function seriesColor() {
+    if (S.nf === 1) return '#ff6666';
+    if (S.nf === 2) return '#ffd93d';
+    if (S.nf === 3) return '#58C4DD';
+    return '#a78bfa';
+  }
+  function photonColor() {
+    var lam = wavelength();
+    if (lam < 380) return '#8800ff';
+    if (lam < 450) return '#4400ff';
+    if (lam < 495) return '#0066ff';
+    if (lam < 570) return '#00ff00';
+    if (lam < 590) return '#ffff00';
+    if (lam < 620) return '#ff8800';
+    if (lam < 750) return '#ff0000';
+    return '#ff0000';
+  }
+
+  function resizeAll() {
+    var dpr = window.devicePixelRatio || 1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c) {
+      var rect = c.parentElement.getBoundingClientRect();
+      var w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
+    });
+    drawSim(); updateCharts();
+  }
+
+  function drawSim() {
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, W, H);
+
+    var pad = 60;
+    var levelLeft = pad + 30, levelRight = W - pad - 30;
+    var levelWidth = levelRight - levelLeft;
+    var topY = pad + 20, botY = H - pad;
+    var totalH = botY - topY;
+
+    // Energy scale: n=1 at bottom, n=6 near top, 0 at very top
+    function nToY(n) {
+      var eVal = energy(n);
+      var eMin = energy(6), eMax = 0;
+      var t = (eVal - eMin) / (eMax - eMin); // 0 at n=6, 1 at E=0
+      return botY - t * totalH;
+    }
+
+    // Draw energy levels
+    for (var ni = 1; ni <= 6; ni++) {
+      var ly = nToY(ni);
+      var isCurrent = (ni === S.ni || ni === S.nf);
+      ctx.strokeStyle = isCurrent ? '#ffffff' : '#444466';
+      ctx.lineWidth = isCurrent ? 2 : 1;
+      ctx.setLineDash(isCurrent ? [] : [4, 3]);
+      ctx.beginPath(); ctx.moveTo(levelLeft, ly); ctx.lineTo(levelRight, ly); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Level label
+      ctx.fillStyle = isCurrent ? '#ffffff' : '#8888a0';
+      ctx.font = (isCurrent ? 'bold ' : '') + '12px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('n=' + ni + '  E=' + energy(ni).toFixed(2) + 'eV', levelLeft - 8, ly + 4);
+    }
+
+    // 0 eV line
+    ctx.strokeStyle = '#333355'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(levelLeft, nToY(6) - 20); ctx.lineTo(levelRight, nToY(6) - 20); ctx.stroke();
+    ctx.fillStyle = '#555'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('E=0 (电离)', levelLeft - 8, nToY(6) - 16);
+
+    // Transition arrow
+    var fromY = nToY(S.ni);
+    var toY = nToY(S.nf);
+    var arrowX = (levelLeft + levelRight) / 2;
+
+    if (S.playing) {
+      // Animated electron
+      var currentY = fromY + (toY - fromY) * Math.min(S.progress, 1);
+      // Draw electron
+      var eGrad = ctx.createRadialGradient(arrowX, currentY, 0, arrowX, currentY, 12);
+      eGrad.addColorStop(0, '#00d4ff');
+      eGrad.addColorStop(1, '#00d4ff00');
+      ctx.fillStyle = eGrad;
+      ctx.beginPath(); ctx.arc(arrowX, currentY, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#00d4ff';
+      ctx.beginPath(); ctx.arc(arrowX, currentY, 5, 0, Math.PI * 2); ctx.fill();
+
+      // Photon emission (if going down)
+      if (S.ni > S.nf && S.progress > 0.5) {
+        var photonProgress = (S.progress - 0.5) * 2;
+        var photonX = arrowX + 60 + photonProgress * 120;
+        var photonY = (fromY + toY) / 2;
+        var pColor = photonColor();
+        var pGrad = ctx.createRadialGradient(photonX, photonY, 0, photonX, photonY, 10);
+        pGrad.addColorStop(0, pColor);
+        pGrad.addColorStop(1, pColor + '00');
+        ctx.fillStyle = pGrad;
+        ctx.beginPath(); ctx.arc(photonX, photonY, 10, 0, Math.PI * 2); ctx.fill();
+        // Wavy line for photon
+        ctx.strokeStyle = pColor; ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (var wave = 0; wave < 30; wave++) {
+          var wx = photonX - 20 + wave;
+          var wy = photonY + Math.sin(wave * 0.5) * 4;
+          if (wave === 0) ctx.moveTo(wx, wy);
+          else ctx.lineTo(wx, wy);
+        }
+        ctx.stroke();
+        ctx.fillStyle = pColor; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('γ (' + wavelength().toFixed(0) + 'nm)', photonX, photonY - 14);
+      }
+
+      // Arrow
+      var arrowProgress = Math.min(S.progress * 2, 1);
+      var ay1 = fromY, ay2 = fromY + (toY - fromY) * arrowProgress;
+      ctx.strokeStyle = seriesColor(); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(arrowX - 15, ay1); ctx.lineTo(arrowX - 15, ay2); ctx.stroke();
+      // Arrowhead
+      if (arrowProgress >= 1) {
+        var dir = toY > fromY ? 1 : -1;
+        ctx.fillStyle = seriesColor();
+        ctx.beginPath();
+        ctx.moveTo(arrowX - 15, ay2);
+        ctx.lineTo(arrowX - 20, ay2 - dir * 8);
+        ctx.lineTo(arrowX - 10, ay2 - dir * 8);
+        ctx.closePath(); ctx.fill();
+      }
+    } else {
+      // Static arrow
+      ctx.strokeStyle = seriesColor(); ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(arrowX - 15, fromY); ctx.lineTo(arrowX - 15, toY); ctx.stroke();
+      ctx.setLineDash([]);
+      // Arrowhead
+      var dir2 = toY > fromY ? 1 : -1;
+      ctx.fillStyle = seriesColor();
+      ctx.beginPath();
+      ctx.moveTo(arrowX - 15, toY);
+      ctx.lineTo(arrowX - 20, toY - dir2 * 8);
+      ctx.lineTo(arrowX - 10, toY - dir2 * 8);
+      ctx.closePath(); ctx.fill();
+
+      // Transition label
+      ctx.fillStyle = seriesColor(); ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(seriesName(), arrowX - 15, (fromY + toY) / 2);
+      ctx.fillText(wavelength().toFixed(0) + ' nm', arrowX - 15, (fromY + toY) / 2 + 16);
+    }
+
+    // Title
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('氢原子能级图', W / 2, 24);
+
+    // Series legend
+    var legendX = W - pad - 20, legendY = pad + 40;
+    var seriesList = [
+      { name: '莱曼系 (n→1)', color: '#ff6666', nf: 1 },
+      { name: '巴尔末系 (n→2)', color: '#ffd93d', nf: 2 },
+      { name: '帕邢系 (n→3)', color: '#58C4DD', nf: 3 },
+      { name: '布拉开系 (n→4)', color: '#a78bfa', nf: 4 },
+    ];
+    ctx.textAlign = 'right'; ctx.font = '10px sans-serif';
+    seriesList.forEach(function(s, i) {
+      var isActive = (S.nf === s.nf);
+      ctx.fillStyle = isActive ? s.color : s.color + '88';
+      ctx.fillText(s.name, legendX, legendY + i * 16);
+    });
+  }
+
+  function drawChart(canvasId, drawFn) {
+    var c = document.getElementById(canvasId);
+    var c2 = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = c.width / dpr, H = c.height / dpr;
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c2.clearRect(0, 0, W, H);
+    c2.fillStyle = '#161625'; c2.fillRect(0, 0, W, H);
+    drawFn(c2, W, H);
+  }
+
+  function updateCharts() {
+    // Energy level chart
+    drawChart('chartLevels', function(c2, W, H) {
+      var pad = { top: 28, right: 10, bottom: 20, left: 10 };
+      var cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+      var barW = cw / 7;
+      for (var n = 1; n <= 6; n++) {
+        var e = energy(n);
+        var barH = Math.abs(e) / 13.6 * ch * 0.8;
+        var x = pad.left + n * barW;
+        var y = pad.top + ch - barH;
+        var isActive = (n === S.ni || n === S.nf);
+        c2.fillStyle = isActive ? '#ffd93d' : '#333355';
+        c2.fillRect(x, y, barW * 0.6, barH);
+        c2.fillStyle = isActive ? '#ffd93d' : '#666';
+        c2.font = '9px sans-serif'; c2.textAlign = 'center';
+        c2.fillText('n=' + n, x + barW * 0.3, pad.top + ch + 12);
+        c2.fillText(e.toFixed(1) + 'eV', x + barW * 0.3, y - 4);
+      }
+      // Transition arrow
+      var fromX = pad.left + S.ni * barW + barW * 0.3;
+      var toX = pad.left + S.nf * barW + barW * 0.3;
+      var fromE = energy(S.ni), toE = energy(S.nf);
+      var fromBarH = Math.abs(fromE) / 13.6 * ch * 0.8;
+      var toBarH = Math.abs(toE) / 13.6 * ch * 0.8;
+      c2.strokeStyle = '#00ff88'; c2.lineWidth = 2;
+      c2.beginPath();
+      c2.moveTo(fromX, pad.top + ch - fromBarH);
+      c2.lineTo(toX, pad.top + ch - toBarH);
+      c2.stroke();
+    });
+
+    // Spectrum chart
+    drawChart('chartSpectrum', function(c2, W, H) {
+      var pad = { top: 28, right: 10, bottom: 22, left: 40 };
+      var cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+      // Draw visible spectrum
+      var specLeft = pad.left, specRight = pad.left + cw;
+      var specTop = pad.top + 10;
+      var specH = 16;
+      for (var px = specLeft; px < specRight; px++) {
+        var lam = 380 + (px - specLeft) / (specRight - specLeft) * 370;
+        c2.fillStyle = wavelengthToRGB(lam);
+        c2.fillRect(px, specTop, 1, specH);
+      }
+      // Mark current wavelength
+      var curLam = wavelength();
+      if (curLam >= 380 && curLam <= 750) {
+        var markX = specLeft + (curLam - 380) / 370 * cw;
+        c2.strokeStyle = '#ffffff'; c2.lineWidth = 2;
+        c2.beginPath(); c2.moveTo(markX, specTop - 5); c2.lineTo(markX, specTop + specH + 5); c2.stroke();
+        c2.fillStyle = '#ffffff'; c2.font = 'bold 10px sans-serif'; c2.textAlign = 'center';
+        c2.fillText(curLam.toFixed(0) + ' nm', markX, specTop - 8);
+      } else {
+        c2.fillStyle = '#ff6666'; c2.font = '10px sans-serif'; c2.textAlign = 'center';
+        c2.fillText('λ=' + curLam.toFixed(0) + 'nm (非可见光)', specLeft + cw / 2, specTop - 8);
+      }
+      // Labels
+      c2.fillStyle = '#555'; c2.font = '9px sans-serif'; c2.textAlign = 'left';
+      c2.fillText('380nm', specLeft, specTop + specH + 14);
+      c2.textAlign = 'right';
+      c2.fillText('750nm', specRight, specTop + specH + 14);
+      c2.textAlign = 'center';
+      c2.fillText('可见光光谱', specLeft + cw / 2, specTop + specH + 14);
+    });
+
+    // Series classification
+    drawChart('chartSeries', function(c2, W, H) {
+      var pad = { top: 28, right: 10, bottom: 16, left: 10 };
+      var series = [
+        { name: '莱曼系', nf: 1, color: '#ff6666', range: 'UV (12.1-91.2nm)' },
+        { name: '巴尔末系', nf: 2, color: '#ffd93d', range: '可见光 (365-656nm)' },
+        { name: '帕邢系', nf: 3, color: '#58C4DD', range: 'IR (820-1875nm)' },
+        { name: '布拉开系', nf: 4, color: '#a78bfa', range: 'IR (1458-4051nm)' }
+      ];
+      var rowH = (H - pad.top - pad.bottom) / series.length;
+      series.forEach(function(s, i) {
+        var ry = pad.top + i * rowH;
+        var isActive = (S.nf === s.nf);
+        c2.fillStyle = isActive ? s.color + '33' : 'transparent';
+        c2.fillRect(pad.left, ry, W - pad.left - pad.right, rowH);
+        c2.strokeStyle = isActive ? s.color : '#333';
+        c2.lineWidth = isActive ? 2 : 1;
+        c2.strokeRect(pad.left, ry, W - pad.left - pad.right, rowH);
+        c2.fillStyle = isActive ? s.color : '#666';
+        c2.font = (isActive ? 'bold ' : '') + '11px sans-serif';
+        c2.textAlign = 'left';
+        c2.fillText(s.name + ' (n→' + s.nf + ')', pad.left + 8, ry + rowH * 0.4);
+        c2.font = '9px sans-serif'; c2.fillStyle = isActive ? '#aaa' : '#555';
+        c2.fillText(s.range, pad.left + 8, ry + rowH * 0.75);
+      });
+    });
+  }
+
+  function wavelengthToRGB(lam) {
+    var r = 0, g = 0, b = 0;
+    if (lam >= 380 && lam < 440) { r = -(lam - 440) / 60; b = 1; }
+    else if (lam >= 440 && lam < 490) { g = (lam - 440) / 50; b = 1; }
+    else if (lam >= 490 && lam < 510) { g = 1; b = -(lam - 510) / 20; }
+    else if (lam >= 510 && lam < 580) { r = (lam - 510) / 70; g = 1; }
+    else if (lam >= 580 && lam < 645) { r = 1; g = -(lam - 645) / 65; }
+    else if (lam >= 645 && lam <= 750) { r = 1; }
+    var factor = 1;
+    if (lam >= 380 && lam < 420) factor = 0.3 + 0.7 * (lam - 380) / 40;
+    else if (lam > 700 && lam <= 750) factor = 0.3 + 0.7 * (750 - lam) / 50;
+    return 'rgb(' + Math.round(r * factor * 255) + ',' + Math.round(g * factor * 255) + ',' + Math.round(b * factor * 255) + ')';
+  }
+
+  function updateData() {
+    var ei = energy(S.ni), ef = energy(S.nf), de = deltaE();
+    var lam = wavelength(), nu = frequency();
+    document.getElementById('dataEi').textContent = ei.toFixed(2) + ' eV';
+    document.getElementById('dataEf').textContent = ef.toFixed(2) + ' eV';
+    document.getElementById('dataDE').textContent = de.toFixed(2) + ' eV';
+    document.getElementById('dataNu').textContent = nu.toExponential(2) + ' Hz';
+    document.getElementById('dataLam').textContent = lam.toFixed(1) + ' nm';
+    document.getElementById('dataSeries').textContent = seriesName();
+    document.getElementById('dataSeries').className = 'value ' + (S.nf === 1 ? 'series-lyman' : S.nf === 2 ? 'series-balmer' : S.nf === 3 ? 'series-paschen' : 'series-brackett');
+    document.getElementById('fmEi').textContent = ei.toFixed(2);
+    document.getElementById('fmEf').textContent = ef.toFixed(2);
+    document.getElementById('fmDE').textContent = de.toFixed(2);
+    document.getElementById('fmLam').textContent = lam.toFixed(1);
+  }
+
+  var lastTime = 0;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+    S.progress += dt * 0.8;
+    if (S.progress >= 1.5) {
+      S.playing = false;
+      document.getElementById('btnPlay').textContent = '▶ 跃迁';
+    }
+    drawSim(); updateCharts();
+    if (S.playing) S.animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false; S.progress = 0; lastTime = 0;
+    if (S.animId) cancelAnimationFrame(S.animId);
+    document.getElementById('btnPlay').textContent = '▶ 跃迁';
+    drawSim(); updateData(); updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    if (S.ni === S.nf) return;
+    S.playing = true; S.progress = 0; lastTime = 0;
+    document.getElementById('btnPlay').textContent = '跃迁中...';
+    S.animId = requestAnimationFrame(animate);
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.getElementById('sliderNi').addEventListener('input', function() {
+    S.ni = parseInt(this.value);
+    document.getElementById('valNi').textContent = S.ni;
+    reset();
+  });
+  document.getElementById('sliderNf').addEventListener('input', function() {
+    S.nf = parseInt(this.value);
+    document.getElementById('valNf').textContent = S.nf;
+    reset();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function() { if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeAll, 100); });
+  resizeAll(); updateData();
+})();
+</script>
+{% endblock %}

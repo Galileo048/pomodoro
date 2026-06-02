@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}交流电 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-emf{color:var(--cyan)}.c-cur{color:#ffd93d}.c-power{color:#66bb6a}.c-rms{color:#ce93d8}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#ffd93d;">〰️ 交流电</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Alternating Current — e = E_m·sin(ωt), E_rms = E_m/√2</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">e-t 电压波形</span><canvas id="chartE"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">i-t 电流波形</span><canvas id="chartI"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">p-t 瞬时功率</span><canvas id="chartP"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">矢量圆</span><canvas id="chartPhasor"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">峰值 E_m</span><span class="exp-slider-value" id="valEm">310 V</span></div>
+          <input type="range" id="sliderEm" min="1" max="310" step="1" value="310">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">频率 f</span><span class="exp-slider-value" id="valF">50 Hz</span></div>
+          <input type="range" id="sliderF" min="1" max="100" step="1" value="50">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">初相位 φ</span><span class="exp-slider-value" id="valPhi">0°</span></div>
+          <input type="range" id="sliderPhi" min="0" max="360" step="5" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电阻 R</span><span class="exp-slider-value" id="valR">10 Ω</span></div>
+          <input type="range" id="sliderR" min="1" max="100" step="1" value="10">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value" id="dataT" style="color:var(--accent,#e94560)">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">周期 T</div><div class="value" id="dataPeriod" style="color:#a78bfa">0.02 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">瞬时电压 e</div><div class="value c-emf" id="dataE">0.00 <span class="unit">V</span></div></div>
+          <div class="exp-data-item"><div class="label">瞬时电流 i</div><div class="value c-cur" id="dataI">0.00 <span class="unit">A</span></div></div>
+          <div class="exp-data-item"><div class="label">有效值 E_rms</div><div class="value c-rms" id="dataErms">219.2 <span class="unit">V</span></div></div>
+          <div class="exp-data-item"><div class="label">有效值 I_rms</div><div class="value c-rms" id="dataIrms">21.92 <span class="unit">A</span></div></div>
+          <div class="exp-data-item"><div class="label">瞬时功率 p</div><div class="value c-power" id="dataP">0.00 <span class="unit">W</span></div></div>
+          <div class="exp-data-item"><div class="label">平均功率 P</div><div class="value c-power" id="dataPavg">4803 <span class="unit">W</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>e = E_m sin(ωt + φ)</div>
+          <div>ω = 2πf = <span class="formula" id="fmOmega">314.2</span> rad/s</div>
+          <div>T = 1/f = <span class="formula" id="fmT">0.020</span> s</div>
+          <div>E_rms = E_m/√2 = <span class="formula" id="fmErms">219.2</span> V</div>
+          <div>P_avg = E_rms²/R = <span class="formula" id="fmPavg">4803</span> W</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG={Em:310,f:50,phi:0,R:10,timeScale:1};
+  var S={t:0,playing:false};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+
+  function omega(){return 2*Math.PI*CFG.f;}
+  function period(){return 1/CFG.f;}
+  function eInst(t){return CFG.Em*Math.sin(omega()*t+CFG.phi*Math.PI/180);}
+  function iInst(t){return eInst(t)/CFG.R;}
+  function pInst(t){return eInst(t)*iInst(t);}
+  function eRms(){return CFG.Em/Math.SQRT2;}
+  function iRms(){return eRms()/CFG.R;}
+  function pAvg(){return eRms()*eRms()/CFG.R;}
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    /* 网格 */
+    ctx.strokeStyle='#1a1a30';ctx.lineWidth=1;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    /* ---- 左侧: 正弦波形 ---- */
+    var waveLeft=30,waveRight=W*0.52;
+    var waveTop=H*0.1,waveBot=H*0.9;
+    var waveH=waveBot-waveTop,waveMidY=(waveTop+waveBot)/2;
+    var waveW=waveRight-waveLeft;
+
+    /* 坐标轴 */
+    ctx.strokeStyle='#333355';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(waveLeft,waveMidY);ctx.lineTo(waveRight+10,waveMidY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(waveLeft,waveTop);ctx.lineTo(waveLeft,waveBot);ctx.stroke();
+
+    /* 刻度 */
+    ctx.fillStyle='#666688';ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText('+'+CFG.Em.toFixed(0)+'V',waveLeft-4,waveTop+10);
+    ctx.fillText('-'+CFG.Em.toFixed(0)+'V',waveLeft-4,waveBot-2);
+    ctx.fillText('0',waveLeft-4,waveMidY+3);
+    ctx.textAlign='center';
+    ctx.fillText('t',waveRight+15,waveMidY+3);
+
+    /* 有效值虚线 */
+    var erms=eRms();
+    var rmsYup=waveMidY-(erms/CFG.Em)*(waveH/2);
+    var rmsYdn=waveMidY+(erms/CFG.Em)*(waveH/2);
+    ctx.strokeStyle='#ce93d866';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(waveLeft,rmsYup);ctx.lineTo(waveRight,rmsYup);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(waveLeft,rmsYdn);ctx.lineTo(waveRight,rmsYdn);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#ce93d8';ctx.font='10px sans-serif';ctx.textAlign='left';
+    ctx.fillText('E_rms='+erms.toFixed(1)+'V',waveRight-80,rmsYup-5);
+
+    /* 正弦波 (历史 + 预览) */
+    var T=period();
+    var tVisible=T*3; /* 显示3个周期 */
+    var tStart=S.t-tVisible*0.3;
+    if(tStart<0)tStart=0;
+
+    /* 预览 (半透明) */
+    ctx.strokeStyle='#ffd93d33';ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(var i=0;i<=200;i++){
+      var tt=tStart+tVisible*i/200;
+      var val=eInst(tt);
+      var px=waveLeft+(tt-tStart)/tVisible*waveW;
+      var py=waveMidY-(val/CFG.Em)*(waveH/2);
+      if(px<waveLeft||px>waveRight)continue;
+      if(i===0||px===waveLeft)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+
+    /* 实际波形 (亮色) */
+    ctx.strokeStyle='#ffd93d';ctx.lineWidth=2.5;
+    ctx.beginPath();
+    var started=false;
+    for(var i2=0;i2<=200;i2++){
+      var tt2=tStart+tVisible*i2/200;
+      var val2=eInst(tt2);
+      var px2=waveLeft+(tt2-tStart)/tVisible*waveW;
+      var py2=waveMidY-(val2/CFG.Em)*(waveH/2);
+      if(px2<waveLeft||px2>waveRight)continue;
+      if(!started){ctx.moveTo(px2,py2);started=true;}else ctx.lineTo(px2,py2);
+    }
+    ctx.stroke();
+
+    /* 当前点 */
+    var curPx=waveLeft+(S.t-tStart)/tVisible*waveW;
+    var curVal=eInst(S.t);
+    var curPy=waveMidY-(curVal/CFG.Em)*(waveH/2);
+    if(curPx>=waveLeft&&curPx<=waveRight){
+      ctx.fillStyle='#ffd93d';ctx.beginPath();ctx.arc(curPx,curPy,5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
+      ctx.fillText(curVal.toFixed(1)+' V',curPx+8,curPy-8);
+    }
+
+    /* ---- 右侧: 矢量圆 (旋转相量) ---- */
+    var phasorCx=W*0.76,phasorCy=H*0.45;
+    var phasorR=Math.min(W*0.18,H*0.3);
+
+    /* 圆 */
+    ctx.strokeStyle='#333355';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(phasorCx,phasorCy,phasorR,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(phasorCx,phasorCy,phasorR*erms/CFG.Em,0,Math.PI*2);ctx.strokeStyle='#ce93d855';ctx.stroke();
+
+    /* 坐标轴 */
+    ctx.strokeStyle='#33335588';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(phasorCx-phasorR-10,phasorCy);ctx.lineTo(phasorCx+phasorR+10,phasorCy);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(phasorCx,phasorCy-phasorR-10);ctx.lineTo(phasorCx,phasorCy+phasorR+10);ctx.stroke();
+
+    /* 旋转矢量 */
+    var phaseAngle=omega()*S.t+CFG.phi*Math.PI/180;
+    var vx=phasorCx+phasorR*Math.cos(phaseAngle);
+    var vy=phasorCy-phasorR*Math.sin(phaseAngle);
+
+    /* 矢量线 */
+    ctx.strokeStyle='#e94560';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(phasorCx,phasorCy);ctx.lineTo(vx,vy);ctx.stroke();
+    /* 箭头 */
+    var aLen=10;
+    var aAngle=Math.atan2(phasorCy-vy,vx-phasorCx);
+    ctx.fillStyle='#e94560';ctx.beginPath();ctx.moveTo(vx,vy);
+    ctx.lineTo(vx-aLen*Math.cos(aAngle-0.3),vy+aLen*Math.sin(aAngle-0.3));
+    ctx.lineTo(vx-aLen*Math.cos(aAngle+0.3),vy+aLen*Math.sin(aAngle+0.3));
+    ctx.closePath();ctx.fill();
+
+    /* 投影线 (到 x 轴) */
+    ctx.strokeStyle='#ffd93d88';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(vx,vy);ctx.lineTo(vx,phasorCy);ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* 有效值圆上的投影点 */
+    var ermsPx=phasorCx+phasorR*erms/CFG.Em*Math.cos(phaseAngle);
+    var ermsPy=phasorCy-phasorR*erms/CFG.Em*Math.sin(phaseAngle);
+    ctx.fillStyle='#ce93d8';ctx.beginPath();ctx.arc(ermsPx,ermsPy,3,0,Math.PI*2);ctx.fill();
+
+    /* 标签 */
+    ctx.fillStyle='#e94560';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('E_m',vx+10,vy-10);
+    ctx.fillStyle='#ce93d8';ctx.font='10px sans-serif';
+    ctx.fillText('E_rms',ermsPx+8,ermsPy-8);
+
+    /* 角度弧 */
+    if(phaseAngle%(2*Math.PI)>0.05){
+      var arcR2=phasorR*0.3;
+      ctx.strokeStyle='#ff980088';ctx.lineWidth=1.5;
+      ctx.beginPath();
+      var startA=0;
+      ctx.arc(phasorCx,phasorCy,arcR2,-phaseAngle,0);
+      ctx.stroke();
+      ctx.fillStyle='#ff9800';ctx.font='10px sans-serif';ctx.textAlign='left';
+      ctx.fillText('ωt='+(phaseAngle*180/Math.PI%360).toFixed(0)+'°',phasorCx+arcR2+5,phasorCy-5);
+    }
+
+    ctx.fillStyle='#8888a0';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('旋转矢量 (相量图)',phasorCx,phasorCy+phasorR+25);
+    ctx.fillText('正弦波形',waveLeft+waveW/2,waveTop-5);
+  }
+
+  function drawGenericChart(canvasId,data,opts){
+    var c=document.getElementById(canvasId);
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:10,bottom:22,left:45};
+    var cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var xMin=data[0].x,xMax=data[data.length-1].x;
+    var yMin=Infinity,yMax=-Infinity;
+    data.forEach(function(d){if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});
+    if(yMax<=yMin)yMax=yMin+1;
+    var ySpan=yMax-yMin;
+    if(yMin>=0)yMin=0;
+
+    c2.strokeStyle='#1e1e35';c2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;c2.beginPath();c2.moveTo(pad.left,gy);c2.lineTo(pad.left+cw,gy);c2.stroke();}
+    c2.fillStyle='#555570';c2.font='9px sans-serif';c2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);c2.fillText(val.toFixed(3),pad.left+(k/4)*cw,pad.top+ch+14);}
+    c2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);c2.fillText(Math.abs(val2)>100?val2.toFixed(0):val2.toFixed(1),pad.left-5,pad.top+(1-l/4)*ch+3);}
+
+    c2.strokeStyle=opts.color||'#00d4ff';c2.lineWidth=2;c2.beginPath();
+    data.forEach(function(d,i){
+      var px=pad.left+(d.x-xMin)/(xMax-xMin)*cw;
+      var py=pad.top+(1-(d.y-yMin)/(yMax-yMin))*ch;
+      if(i===0)c2.moveTo(px,py);else c2.lineTo(px,py);
+    });c2.stroke();
+
+    c2.fillStyle='#666';c2.font='9px sans-serif';c2.textAlign='center';
+    if(opts.xLabel)c2.fillText(opts.xLabel,pad.left+cw/2,pad.top+ch+20);
+  }
+
+  function updateCharts(){
+    var T=period();
+    var tMax=T*3;
+    var dt=tMax/120;
+
+    /* e-t */
+    var eData=[];for(var t=0;t<=tMax;t+=dt)eData.push({x:t,y:eInst(t)});
+    drawGenericChart('chartE',eData,{color:'#ffd93d',xLabel:'t (s)'});
+
+    /* i-t */
+    var iData=[];for(var t2=0;t2<=tMax;t2+=dt)iData.push({x:t2,y:iInst(t2)});
+    drawGenericChart('chartI',iData,{color:'#00d4ff',xLabel:'t (s)'});
+
+    /* p-t */
+    var pData=[];for(var t3=0;t3<=tMax;t3+=dt)pData.push({x:t3,y:pInst(t3)});
+    drawGenericChart('chartP',pData,{color:'#66bb6a',xLabel:'t (s)'});
+
+    /* 矢量圆 (在 chartPhasor canvas 上绘制) */
+    var c=document.getElementById('chartPhasor');
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    var pcx=W/2,pcy=H/2;
+    var pr=Math.min(W,H)*0.35;
+    c2.strokeStyle='#333355';c2.lineWidth=1;
+    c2.beginPath();c2.arc(pcx,pcy,pr,0,Math.PI*2);c2.stroke();
+    c2.beginPath();c2.arc(pcx,pcy,pr*eRms()/CFG.Em,0,Math.PI*2);c2.strokeStyle='#ce93d855';c2.stroke();
+    c2.strokeStyle='#33335588';c2.lineWidth=1;
+    c2.beginPath();c2.moveTo(pcx-pr-5,pcy);c2.lineTo(pcx+pr+5,pcy);c2.stroke();
+    c2.beginPath();c2.moveTo(pcx,pcy-pr-5);c2.lineTo(pcx,pcy+pr+5);c2.stroke();
+
+    /* 画几个历史位置 */
+    for(var k=-2;k<=0;k++){
+      var a=omega()*(S.t+k*T/8)+CFG.phi*Math.PI/180;
+      var ax=pcx+pr*Math.cos(a),ay=pcy-pr*Math.sin(a);
+      c2.fillStyle='rgba(233,69,96,0.2)';c2.beginPath();c2.arc(ax,ay,3,0,Math.PI*2);c2.fill();
+    }
+
+    /* 当前矢量 */
+    var pa=omega()*S.t+CFG.phi*Math.PI/180;
+    var pvx=pcx+pr*Math.cos(pa),pvy=pcy-pr*Math.sin(pa);
+    c2.strokeStyle='#e94560';c2.lineWidth=2;
+    c2.beginPath();c2.moveTo(pcx,pcy);c2.lineTo(pvx,pvy);c2.stroke();
+    c2.fillStyle='#e94560';c2.beginPath();c2.arc(pvx,pvy,4,0,Math.PI*2);c2.fill();
+  }
+
+  function updateData(){
+    var e=eInst(S.t),I=iInst(S.t),P=pInst(S.t);
+    var er=eRms(),ir=iRms(),pa=pAvg();
+    document.getElementById('dataT').innerHTML=S.t.toFixed(4)+' <span class="unit">s</span>';
+    document.getElementById('dataPeriod').innerHTML=period().toFixed(4)+' <span class="unit">s</span>';
+    document.getElementById('dataE').innerHTML=e.toFixed(1)+' <span class="unit">V</span>';
+    document.getElementById('dataI').innerHTML=I.toFixed(2)+' <span class="unit">A</span>';
+    document.getElementById('dataErms').innerHTML=er.toFixed(1)+' <span class="unit">V</span>';
+    document.getElementById('dataIrms').innerHTML=ir.toFixed(2)+' <span class="unit">A</span>';
+    document.getElementById('dataP').innerHTML=P.toFixed(1)+' <span class="unit">W</span>';
+    document.getElementById('dataPavg').innerHTML=pa.toFixed(0)+' <span class="unit">W</span>';
+    document.getElementById('fmOmega').textContent=omega().toFixed(1);
+    document.getElementById('fmT').textContent=period().toFixed(4);
+    document.getElementById('fmErms').textContent=er.toFixed(1);
+    document.getElementById('fmPavg').textContent=pa.toFixed(0);
+  }
+
+  var lastTime=0,animId=null;
+
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var wallDt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    var simDt=wallDt*CFG.timeScale;
+    S.t+=simDt;
+
+    drawSim();updateData();updateCharts();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderEm').addEventListener('input',function(){
+    CFG.Em=parseFloat(this.value);document.getElementById('valEm').textContent=CFG.Em.toFixed(0)+' V';reset();
+  });
+  document.getElementById('sliderF').addEventListener('input',function(){
+    CFG.f=parseFloat(this.value);document.getElementById('valF').textContent=CFG.f+' Hz';reset();
+  });
+  document.getElementById('sliderPhi').addEventListener('input',function(){
+    CFG.phi=parseFloat(this.value);document.getElementById('valPhi').textContent=CFG.phi+'°';reset();
+  });
+  document.getElementById('sliderR').addEventListener('input',function(){
+    CFG.R=parseFloat(this.value);document.getElementById('valR').textContent=CFG.R+' Ω';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

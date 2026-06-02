@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block title %}机械波（横波）实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0a0a18;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#111125;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-chart-tabs{display:flex;gap:3px;margin-bottom:6px}
+  .exp-chart-tab{flex:1;padding:4px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-chart-tab.active{background:var(--cyan);color:#0a0a18;border-color:var(--cyan)}
+  .chart-canvas-wrap{width:100%;height:140px;position:relative;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  .chart-canvas-wrap canvas{display:block;width:100%;height:100%}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0a0a18;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0a0a18);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🌊 机械波（横波）实验</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Transverse Wave — y = A·sin(ωt - kx), v = λf</div>
+  </div>
+  <div style="padding:6px 20px;background:#0a0a18;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">振幅 A</span><span class="exp-slider-value" id="valA">1.5 cm</span></div>
+          <input type="range" id="sliderA" min="0.5" max="3.0" step="0.1" value="1.5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">波长 λ</span><span class="exp-slider-value" id="valLambda">2.0 cm</span></div>
+          <input type="range" id="sliderLambda" min="0.5" max="5.0" step="0.1" value="2.0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">频率 f</span><span class="exp-slider-value" id="valFreq">2.0 Hz</span></div>
+          <input type="range" id="sliderFreq" min="0.5" max="5.0" step="0.1" value="2.0">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">振幅 A</div><div class="value c-cyan" id="dataAmp">1.5 <span class="unit">cm</span></div></div>
+          <div class="exp-data-item"><div class="label">波长 λ</div><div class="value c-amber" id="dataLam">2.0 <span class="unit">cm</span></div></div>
+          <div class="exp-data-item"><div class="label">频率 f</div><div class="value c-green" id="dataFreq">2.0 <span class="unit">Hz</span></div></div>
+          <div class="exp-data-item"><div class="label">波速 v</div><div class="value c-purple" id="dataVel">4.0 <span class="unit">cm/s</span></div></div>
+          <div class="exp-data-item"><div class="label">周期 T</div><div class="value c-accent" id="dataPeriod">0.50 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-cyan" id="dataTime">0.00 <span class="unit">s</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y = A·sin(ωt - kx)</div>
+          <div>ω = 2πf = <span class="formula" id="fmOmega">12.57</span> rad/s</div>
+          <div>k = 2π/λ = <span class="formula" id="fmK">3.14</span> rad/cm</div>
+          <div>v = λf = <span class="formula" id="fmV">4.0</span> cm/s</div>
+          <div>T = 1/f = <span class="formula" id="fmT">0.50</span> s</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📈 图表</h3>
+        <div class="exp-chart-tabs">
+          <button class="exp-chart-tab active" data-chart="yx">y-x 快照</button>
+          <button class="exp-chart-tab" data-chart="yt">y-t 质点</button>
+          <button class="exp-chart-tab" data-chart="vt">v-t 质点</button>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ============ 配置 ============ */
+  var CFG={A:1.5, lambda:2.0, freq:2.0, timeScale:1};
+  var S={playing:false, t:0, trackParticle:1.0}; // 跟踪x=1.0cm处的质点
+  var activeChart='yx';
+
+  var canvas=document.getElementById('simCanvas'), ctx=canvas.getContext('2d');
+  var chartCanvas=document.getElementById('chartCanvas'), chartCtx=chartCanvas.getContext('2d');
+
+  /* ============ 物理量 ============ */
+  function omega(){ return 2*Math.PI*CFG.freq; }
+  function k(){ return 2*Math.PI/CFG.lambda; }
+  function waveV(){ return CFG.lambda*CFG.freq; }
+  function period(){ return 1/CFG.freq; }
+
+  /* 波函数 y(x,t) = A sin(ωt - kx) */
+  function waveY(x,t){
+    return CFG.A*Math.sin(omega()*t-k()*x);
+  }
+  /* 质点速度 vy = ∂y/∂t = Aω cos(ωt - kx) */
+  function particleVy(x,t){
+    return CFG.A*omega()*Math.cos(omega()*t-k()*x);
+  }
+
+  /* ============ 主场景绘制 ============ */
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1), H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#0a0a18'; ctx.fillRect(0,0,W,H);
+
+    var cy=H*0.38; // 波的平衡位置
+    var scaleX=W/14; // 1cm → 像素
+    var scaleY=H*0.22/CFG.A; // 振幅映射
+    var numDots=30; // 质点数
+    var totalX=14; // 总长度cm
+
+    /* --- 网格 --- */
+    ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    /* --- 平衡位置线 --- */
+    ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(20,cy);ctx.lineTo(W-20,cy);ctx.stroke();ctx.setLineDash([]);
+
+    /* --- 波形曲线（蓝色半透明） --- */
+    ctx.strokeStyle='rgba(0,212,255,0.2)';ctx.lineWidth=1.5;ctx.beginPath();
+    for(var px=0;px<W;px++){
+      var x=px/scaleX;
+      var y=waveY(x,S.t);
+      var py=cy-y*scaleY;
+      if(px===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+
+    /* --- 质点（圆点） --- */
+    var trackIdx=-1;
+    for(var i=0;i<numDots;i++){
+      var x=i*totalX/(numDots-1);
+      var y=waveY(x,S.t);
+      var px=x*scaleX;
+      var py=cy-y*scaleY;
+
+      // 是否为跟踪的质点
+      var isTracked=Math.abs(x-S.trackParticle)<totalX/(numDots-1)/2;
+
+      // 质点发光
+      if(isTracked){
+        var glow=ctx.createRadialGradient(px,py,0,px,py,12);
+        glow.addColorStop(0,'rgba(255,180,0,0.4)');glow.addColorStop(1,'rgba(255,180,0,0)');
+        ctx.fillStyle=glow;ctx.beginPath();ctx.arc(px,py,12,0,Math.PI*2);ctx.fill();
+      }
+
+      // 质点颜色
+      var dotColor=isTracked?'#ffb800':'#00d4ff';
+      var dotR=isTracked?5:3;
+      ctx.fillStyle=dotColor;ctx.beginPath();ctx.arc(px,py,dotR,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=isTracked?'#ff8800':'rgba(0,212,255,0.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(px,py,dotR,0,Math.PI*2);ctx.stroke();
+
+      // 竖直振动线（显示质点只上下振动）
+      ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.moveTo(px,cy-scaleY*CFG.A*1.2);ctx.lineTo(px,cy+scaleY*CFG.A*1.2);ctx.stroke();
+
+      if(isTracked) trackIdx=i;
+    }
+
+    /* --- 波长标注 --- */
+    var lamPx=CFG.lambda*scaleX;
+    if(lamPx>30){
+      var标注Y=cy+scaleY*CFG.A+30;
+      ctx.strokeStyle='rgba(255,180,0,0.5)';ctx.lineWidth=1.5;
+      // 标注线
+      ctx.beginPath();ctx.moveTo(0,标注Y);ctx.lineTo(lamPx,标注Y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,标注Y-5);ctx.lineTo(0,标注Y+5);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(lamPx,标注Y-5);ctx.lineTo(lamPx,标注Y+5);ctx.stroke();
+      // λ标签
+      ctx.fillStyle='#ffb800';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+      ctx.fillText('λ = '+CFG.lambda.toFixed(1)+' cm',lamPx/2,标注Y-8);
+    }
+
+    /* --- 振幅标注 --- */
+    var ampPx=CFG.A*scaleY;
+    if(ampPx>20){
+      ctx.strokeStyle='rgba(0,255,136,0.4)';ctx.lineWidth=1;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(W*0.08,cy);ctx.lineTo(W*0.08,cy-ampPx);ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle='#00ff88';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+      ctx.fillText('A='+CFG.A.toFixed(1),W*0.08-25,cy-ampPx/2);
+    }
+
+    /* --- 质点标注 --- */
+    ctx.fillStyle='rgba(255,180,0,0.7)';ctx.font='11px sans-serif';ctx.textAlign='center';
+    if(trackIdx>=0){
+      var tx=S.trackParticle*scaleX;
+      var ty=waveY(S.trackParticle,S.t);
+      var tpy=cy-ty*scaleY;
+      ctx.fillText('跟踪质点',tx,tpy-15);
+      ctx.fillText('x='+S.trackParticle.toFixed(1)+'cm',tx,tpy-28);
+    }
+
+    /* --- 波传播方向箭头 --- */
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='12px sans-serif';ctx.textAlign='left';
+    ctx.fillText('波传播方向 →',W*0.4,25);
+
+    /* --- "质点不随波迁移" 提示 --- */
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('质点只在平衡位置附近上下振动，不随波迁移',W/2,H-15);
+
+    /* --- y-t 质点历史轨迹区域（下半部分） --- */
+    var chartY=H*0.62;
+    var chartH=H*0.35;
+    ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(30,chartY,W-60,chartH);
+    ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
+    ctx.strokeRect(30,chartY,W-60,chartH);
+    // 平衡线
+    ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(30,chartY+chartH/2);ctx.lineTo(W-30,chartY+chartH/2);ctx.stroke();
+    ctx.setLineDash([]);
+    // 标题
+    ctx.fillStyle='rgba(255,180,0,0.5)';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
+    ctx.fillText('y-t 质点振动（底部面板）',35,chartY+15);
+  }
+
+  /* ============ 图表绘制 ============ */
+  function drawChart(){
+    var W=chartCanvas.width/(window.devicePixelRatio||1), H=chartCanvas.height/(window.devicePixelRatio||1);
+    chartCtx.clearRect(0,0,W,H);chartCtx.fillStyle='rgba(0,0,0,0.2)';chartCtx.fillRect(0,0,W,H);
+    var m={l:40,r:10,t:15,b:25}, pw=W-m.l-m.r, ph=H-m.t-m.b;
+
+    if(activeChart==='yx'){
+      /* y-x 快照图 */
+      drawAxes(chartCtx,m,pw,ph,'x (cm)','y (cm)');
+      // 波形
+      chartCtx.strokeStyle='#00d4ff';chartCtx.lineWidth=2;chartCtx.beginPath();
+      for(var i=0;i<=200;i++){
+        var x=i*14/200;
+        var y=waveY(x,S.t);
+        var px=m.l+(x/14)*pw;
+        var py=m.t+ph/2-(y/CFG.A)*ph*0.4;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 上一时刻快照（虚线）
+      var prevT=Math.max(0,S.t-period()*0.25);
+      chartCtx.strokeStyle='rgba(0,212,255,0.2)';chartCtx.lineWidth=1;chartCtx.setLineDash([4,3]);chartCtx.beginPath();
+      for(var i=0;i<=200;i++){
+        var x=i*14/200;
+        var y=waveY(x,prevT);
+        var px=m.l+(x/14)*pw;
+        var py=m.t+ph/2-(y/CFG.A)*ph*0.4;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();chartCtx.setLineDash([]);
+      // 跟踪质点
+      var tpX=m.l+(S.trackParticle/14)*pw;
+      var tpY=m.t+ph/2-(waveY(S.trackParticle,S.t)/CFG.A)*ph*0.4;
+      chartCtx.fillStyle='#ffb800';chartCtx.beginPath();chartCtx.arc(tpX,tpY,4,0,Math.PI*2);chartCtx.fill();
+      chartCtx.fillStyle='#00d4ff';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ y(x,t) 快照',m.l+5,m.t+12);
+      chartCtx.fillStyle='#ffb800';
+      chartCtx.fillText('● 跟踪质点',m.l+5,m.t+24);
+    } else if(activeChart==='yt'){
+      /* y-t 质点振动图 */
+      drawAxes(chartCtx,m,pw,ph,'t (s)','y (cm)');
+      var tRange=period()*4; // 显示4个周期
+      chartCtx.strokeStyle='#ffb800';chartCtx.lineWidth=2;chartCtx.beginPath();
+      var startTime=Math.max(0,S.t-tRange);
+      for(var i=0;i<=200;i++){
+        var t=startTime+i*tRange/200;
+        var y=waveY(S.trackParticle,t);
+        var px=m.l+(i/200)*pw;
+        var py=m.t+ph/2-(y/CFG.A)*ph*0.4;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 当前时间标记
+      var curY=waveY(S.trackParticle,S.t);
+      var curPx=m.l+pw;
+      var curPy=m.t+ph/2-(curY/CFG.A)*ph*0.4;
+      chartCtx.fillStyle='#ff4466';chartCtx.beginPath();chartCtx.arc(curPx,curPy,4,0,Math.PI*2);chartCtx.fill();
+      chartCtx.fillStyle='#ffb800';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ y(t) 质点 x='+S.trackParticle.toFixed(1)+'cm',m.l+5,m.t+12);
+    } else if(activeChart==='vt'){
+      /* v-t 质点速度图 */
+      drawAxes(chartCtx,m,pw,ph,'t (s)','vy (cm/s)');
+      var tRange=period()*4;
+      var maxVy=CFG.A*omega()*1.2;
+      chartCtx.strokeStyle='#ff6699';chartCtx.lineWidth=2;chartCtx.beginPath();
+      var startTime=Math.max(0,S.t-tRange);
+      for(var i=0;i<=200;i++){
+        var t=startTime+i*tRange/200;
+        var vy=particleVy(S.trackParticle,t);
+        var px=m.l+(i/200)*pw;
+        var py=m.t+ph/2-(vy/maxVy)*ph*0.4;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 当前速度
+      var curVy=particleVy(S.trackParticle,S.t);
+      var curPy=m.t+ph/2-(curVy/maxVy)*ph*0.4;
+      chartCtx.fillStyle='#ff4466';chartCtx.beginPath();chartCtx.arc(m.l+pw,curPy,4,0,Math.PI*2);chartCtx.fill();
+      // 速度为零的位置
+      chartCtx.strokeStyle='rgba(255,255,255,0.1)';chartCtx.lineWidth=1;chartCtx.setLineDash([3,3]);
+      chartCtx.beginPath();chartCtx.moveTo(m.l,m.t+ph/2);chartCtx.lineTo(m.l+pw,m.t+ph/2);chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      chartCtx.fillStyle='#ff6699';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ vy(t) 质点速度',m.l+5,m.t+12);
+    }
+  }
+
+  function drawAxes(c,m,pw,ph,xLabel,yLabel){
+    c.strokeStyle='#5a6480';c.lineWidth=1;
+    c.beginPath();c.moveTo(m.l,m.t);c.lineTo(m.l,m.t+ph);c.lineTo(m.l+pw,m.t+ph);c.stroke();
+    c.fillStyle='#5a6480';c.font='10px sans-serif';c.textAlign='center';
+    c.fillText(xLabel,m.l+pw/2,m.t+ph+18);
+    c.save();c.translate(12,m.t+ph/2);c.rotate(-Math.PI/2);c.fillText(yLabel,0,0);c.restore();
+  }
+
+  /* ============ 数据更新 ============ */
+  function updateData(){
+    var v=waveV();
+    var T=period();
+    var om=omega();
+    var kk=k();
+    document.getElementById('dataAmp').innerHTML=CFG.A.toFixed(1)+' <span class="unit">cm</span>';
+    document.getElementById('dataLam').innerHTML=CFG.lambda.toFixed(1)+' <span class="unit">cm</span>';
+    document.getElementById('dataFreq').innerHTML=CFG.freq.toFixed(1)+' <span class="unit">Hz</span>';
+    document.getElementById('dataVel').innerHTML=v.toFixed(1)+' <span class="unit">cm/s</span>';
+    document.getElementById('dataPeriod').innerHTML=T.toFixed(3)+' <span class="unit">s</span>';
+    document.getElementById('dataTime').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('fmOmega').textContent=om.toFixed(2);
+    document.getElementById('fmK').textContent=kk.toFixed(2);
+    document.getElementById('fmV').textContent=v.toFixed(1);
+    document.getElementById('fmT').textContent=T.toFixed(3);
+  }
+
+  /* ============ 动画 ============ */
+  var lastTime=0,animId=null;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;
+    draw();updateData();drawChart();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    draw();updateData();drawChart();
+  }
+
+  /* ============ 事件 ============ */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn').forEach(function(x){x.classList.remove('active')});b.classList.add('active');
+      CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.getElementById('sliderA').addEventListener('input',function(){
+    CFG.A=parseFloat(this.value);document.getElementById('valA').textContent=CFG.A.toFixed(1)+' cm';
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderLambda').addEventListener('input',function(){
+    CFG.lambda=parseFloat(this.value);document.getElementById('valLambda').textContent=CFG.lambda.toFixed(1)+' cm';
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderFreq').addEventListener('input',function(){
+    CFG.freq=parseFloat(this.value);document.getElementById('valFreq').textContent=CFG.freq.toFixed(1)+' Hz';
+    draw();updateData();drawChart();
+  });
+  document.querySelectorAll('.exp-chart-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.exp-chart-tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');
+      activeChart=tab.dataset.chart;drawChart();
+    });
+  });
+
+  function resize(){
+    var dpr=window.devicePixelRatio||1;
+    var rect=canvas.parentElement.getBoundingClientRect();
+    canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var cr=chartCanvas.parentElement.getBoundingClientRect();
+    chartCanvas.width=Math.round(cr.width*dpr);chartCanvas.height=Math.round(cr.height*dpr);
+    chartCtx.setTransform(dpr,0,0,dpr,0,0);
+    draw();drawChart();
+  }
+  window.addEventListener('resize',resize);
+  resize();updateData();
+})();
+</script>
+{% endblock %}

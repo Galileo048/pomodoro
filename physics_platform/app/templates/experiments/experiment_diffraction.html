@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% block title %}双缝干涉实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0a0a18;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#111125;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-chart-tabs{display:flex;gap:3px;margin-bottom:6px}
+  .exp-chart-tab{flex:1;padding:4px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-chart-tab.active{background:var(--cyan);color:#0a0a18;border-color:var(--cyan)}
+  .chart-canvas-wrap{width:100%;height:140px;position:relative;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  .chart-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .color-preview{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;border:1px solid rgba(255,255,255,0.3);margin-right:4px}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0a0a18;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0a0a18);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🌈 双缝干涉实验</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Double Slit Interference — Δx = λL/d</div>
+  </div>
+  <div style="padding:6px 20px;background:#0a0a18;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">波长 λ</span><span class="exp-slider-value" id="valLambda"><span class="color-preview" id="colorDot"></span>550 nm</span></div>
+          <input type="range" id="sliderLambda" min="380" max="780" step="5" value="550">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">缝距 d</span><span class="exp-slider-value" id="valD">0.20 mm</span></div>
+          <input type="range" id="sliderD" min="0.05" max="0.8" step="0.01" value="0.20">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">屏距 L</span><span class="exp-slider-value" id="valL">1.5 m</span></div>
+          <input type="range" id="sliderL" min="0.5" max="3.0" step="0.1" value="1.5">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 波动演示</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+          <button class="exp-speed-btn" data-speed="4">4x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">波长 λ</div><div class="value c-amber" id="dataLambda">550 <span class="unit">nm</span></div></div>
+          <div class="exp-data-item"><div class="label">缝距 d</div><div class="value c-cyan" id="dataD">0.20 <span class="unit">mm</span></div></div>
+          <div class="exp-data-item"><div class="label">屏距 L</div><div class="value c-green" id="dataL">1.5 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">条纹间距 Δx</div><div class="value c-purple" id="dataDx">4.13 <span class="unit">mm</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>Δx = λL/d</div>
+          <div>Δx = <span class="formula" id="fmDx">4.13</span> mm</div>
+          <div>d sinθ = kλ (明纹)</div>
+          <div style="margin-top:4px;color:var(--green)">光程差 = kλ → 相长干涉(明)</div>
+          <div style="color:var(--accent,#e94560)">光程差 = (k+½)λ → 相消干涉(暗)</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📈 图表</h3>
+        <div class="exp-chart-tabs">
+          <button class="exp-chart-tab active" data-chart="iy">I-y 强度</button>
+          <button class="exp-chart-tab" data-chart="itheta">I-θ 角度</button>
+          <button class="exp-chart-tab" data-chart="pattern">条纹图样</button>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ============ 配置 ============ */
+  var CFG={lambda:550, d:0.20, L:1.5, timeScale:1};
+  var S={playing:false, t:0};
+  var activeChart='iy';
+
+  var canvas=document.getElementById('simCanvas'), ctx=canvas.getContext('2d');
+  var chartCanvas=document.getElementById('chartCanvas'), chartCtx=chartCanvas.getContext('2d');
+
+  /* ============ 波长→颜色 ============ */
+  function wavelengthToRGB(nm){
+    var r=0,g=0,b=0;
+    if(nm>=380&&nm<440){r=-(nm-440)/(440-380);b=1;}
+    else if(nm>=440&&nm<490){g=(nm-440)/(490-440);b=1;}
+    else if(nm>=490&&nm<510){g=1;b=-(nm-510)/(510-490);}
+    else if(nm>=510&&nm<580){r=(nm-510)/(580-510);g=1;}
+    else if(nm>=580&&nm<645){r=1;g=-(nm-645)/(645-580);}
+    else if(nm>=645&&nm<=780){r=1;}
+    // 强度修正
+    var f=1;
+    if(nm>=380&&nm<420)f=0.3+0.7*(nm-380)/(420-380);
+    else if(nm>700&&nm<=780)f=0.3+0.7*(780-nm)/(780-700);
+    return 'rgb('+Math.round(r*f*255)+','+Math.round(g*f*255)+','+Math.round(b*f*255)+')';
+  }
+
+  /* ============ 干涉强度 ============ */
+  function intensity(y){
+    // y: 距屏幕中心的距离 (m)
+    var lam=CFG.lambda*1e-9; // m
+    var d=CFG.d*1e-3; // m
+    var L=CFG.L;
+    var sinTheta=y/Math.sqrt(y*y+L*L);
+    var phase=Math.PI*d*sinTheta/lam;
+    return Math.pow(Math.cos(phase),2); // 归一化强度 [0,1]
+  }
+
+  /* ============ 主场景绘制 ============ */
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1), H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#0a0a18'; ctx.fillRect(0,0,W,H);
+
+    var slitX=W*0.3; // 双缝位置
+    var screenX=W*0.85; // 屏幕位置
+    var cy=H/2;
+    var lam=wavelengthToRGB(CFG.lambda);
+
+    /* --- 网格 --- */
+    ctx.strokeStyle='rgba(0,212,255,0.03)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    /* --- 波源区域 --- */
+    // 入射平面波
+    var wavePhase=S.t*3;
+    ctx.strokeStyle=lam.replace('rgb','rgba').replace(')',',0.15)');ctx.lineWidth=1;
+    for(var i=0;i<8;i++){
+      var wx=slitX-80+i*10+((wavePhase*5)%10);
+      ctx.beginPath();ctx.moveTo(wx,cy-80);ctx.lineTo(wx,cy+80);ctx.stroke();
+    }
+
+    /* --- 双缝挡板 --- */
+    ctx.fillStyle='#1a1a2e';ctx.fillRect(slitX-3,0,6,H);
+    // 缝隙
+    var slitGap=15; // 两缝间距（像素）
+    var slitWidth=6; // 缝宽
+    ctx.clearRect(slitX-3,cy-slitGap/2-slitWidth,6,slitWidth);
+    ctx.clearRect(slitX-3,cy+slitGap/2,6,slitWidth);
+    // 缝隙发光
+    ctx.fillStyle=lam.replace('rgb','rgba').replace(')',',0.6)');
+    ctx.fillRect(slitX-2,cy-slitGap/2-slitWidth+1,4,slitWidth-1);
+    ctx.fillRect(slitX-2,cy+slitGap/2+1,4,slitWidth-1);
+
+    // 缝标签
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='10px sans-serif';ctx.textAlign='right';
+    ctx.fillText('S₁',slitX-10,cy-slitGap/2-1);
+    ctx.fillText('S₂',slitX-10,cy+slitGap/2+slitWidth+2);
+    ctx.fillText('双缝',slitX-10,cy-35);
+
+    /* --- 波传播（从双缝到屏幕） --- */
+    var numRays=40;
+    for(var i=0;i<numRays;i++){
+      var yPos=cy-120+i*240/numRays;
+      var dy=(yPos-cy)/(screenX-slitX);
+      // 从S1和S2发出的波
+      for(var s=0;s<2;s++){
+        var sy=s===0?(cy-slitGap/2-1):(cy+slitGap/2+3);
+        var phaseOffset=s===0?0:Math.PI*d*0.0015/(CFG.lambda*1e-9)*0.5; // 简化
+        var waveAmp=0.08+0.05*Math.cos(8*(screenX-slitX)*0.01+S.t*4+phaseOffset);
+        ctx.strokeStyle=lam.replace('rgb','rgba').replace(')',','+waveAmp.toFixed(2)+')');
+        ctx.lineWidth=0.8;
+        ctx.beginPath();ctx.moveTo(slitX,sy);ctx.lineTo(screenX,yPos);ctx.stroke();
+      }
+    }
+
+    /* --- 屏幕（干涉条纹） --- */
+    var screenH=H*0.8;
+    var screenTop=cy-screenH/2;
+    // 屏幕背景
+    ctx.fillStyle='#0a0a12';ctx.fillRect(screenX-5,screenTop,15,screenH);
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.strokeRect(screenX-5,screenTop,15,screenH);
+
+    // 绘制干涉条纹
+    var lamM=CFG.lambda*1e-9;
+    var dM=CFG.d*1e-3;
+    for(var py=0;py<screenH;py++){
+      var y=(py-screenH/2)/screenH*0.02; // 物理距离(m)，映射到约±1cm
+      var I=intensity(y);
+      ctx.fillStyle=lam.replace('rgb','rgba').replace(')',','+(I*0.9).toFixed(2)+')');
+      ctx.fillRect(screenX-4,screenTop+py,13,1);
+    }
+    // 屏幕标签
+    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('观察屏',screenX+3,screenTop-8);
+
+    /* --- 条纹间距标注 --- */
+    var dx_m=CFG.lambda*1e-9*CFG.L/(CFG.d*1e-3); // m
+    var dx_mm=dx_m*1000;
+    var dx_px=dx_m/0.02*screenH; // 像素
+    if(dx_px>5&&dx_px<screenH/2){
+      var midY=cy;
+      ctx.strokeStyle='rgba(0,255,136,0.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(screenX+20,midY-dx_px/2);ctx.lineTo(screenX+30,midY-dx_px/2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(screenX+20,midY+dx_px/2);ctx.lineTo(screenX+30,midY+dx_px/2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(screenX+25,midY-dx_px/2);ctx.lineTo(screenX+25,midY+dx_px/2);ctx.stroke();
+      ctx.fillStyle='#00ff88';ctx.font='10px sans-serif';ctx.textAlign='left';
+      ctx.fillText('Δx='+dx_mm.toFixed(2)+'mm',screenX+32,midY+4);
+    }
+
+    /* --- 左侧标注 --- */
+    ctx.fillStyle='rgba(255,255,255,0.3)';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('平面波',slitX-50,cy-50);
+    // 波前进箭头
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(slitX-80,cy+50);ctx.lineTo(slitX-20,cy+50);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.2)';ctx.beginPath();
+    ctx.moveTo(slitX-20,cy+50);ctx.lineTo(slitX-28,cy+46);ctx.lineTo(slitX-28,cy+54);ctx.closePath();ctx.fill();
+  }
+
+  /* ============ 图表绘制 ============ */
+  function drawChart(){
+    var W=chartCanvas.width/(window.devicePixelRatio||1), H=chartCanvas.height/(window.devicePixelRatio||1);
+    chartCtx.clearRect(0,0,W,H);chartCtx.fillStyle='rgba(0,0,0,0.2)';chartCtx.fillRect(0,0,W,H);
+    var m={l:40,r:10,t:15,b:25}, pw=W-m.l-m.r, ph=H-m.t-m.b;
+    var lam=wavelengthToRGB(CFG.lambda);
+
+    if(activeChart==='iy'){
+      /* I-y 强度分布 */
+      drawAxes(chartCtx,m,pw,ph,'y (mm)','I/I₀');
+      chartCtx.strokeStyle=lam;chartCtx.lineWidth=2;chartCtx.beginPath();
+      var yRange=0.01; // ±1cm
+      for(var i=0;i<=200;i++){
+        var y=-yRange+i*2*yRange/200;
+        var I=intensity(y);
+        var px=m.l+(i/200)*pw, py=m.t+ph-I*ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 填充
+      chartCtx.globalAlpha=0.15;chartCtx.fillStyle=lam;
+      chartCtx.lineTo(m.l+pw,m.t+ph);chartCtx.lineTo(m.l,m.t+ph);chartCtx.closePath();chartCtx.fill();
+      chartCtx.globalAlpha=1;
+      chartCtx.fillStyle='rgba(255,255,255,0.5)';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ I(y) = I₀cos²(πdy/λL)',m.l+5,m.t+12);
+    } else if(activeChart==='itheta'){
+      /* I-θ 角度分布 */
+      drawAxes(chartCtx,m,pw,ph,'θ (°)','I/I₀');
+      chartCtx.strokeStyle=lam;chartCtx.lineWidth=2;chartCtx.beginPath();
+      for(var i=0;i<=200;i++){
+        var theta=-15+i*30/200; // -15° to 15°
+        var thetaR=theta*Math.PI/180;
+        var lamM=CFG.lambda*1e-9, dM=CFG.d*1e-3;
+        var phase=Math.PI*dM*Math.sin(thetaR)/lamM;
+        var I=Math.pow(Math.cos(phase),2);
+        var px=m.l+(i/200)*pw, py=m.t+ph-I*ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      chartCtx.globalAlpha=0.15;chartCtx.fillStyle=lam;
+      chartCtx.lineTo(m.l+pw,m.t+ph);chartCtx.lineTo(m.l,m.t+ph);chartCtx.closePath();chartCtx.fill();
+      chartCtx.globalAlpha=1;
+      chartCtx.fillStyle='rgba(255,255,255,0.5)';chartCtx.font='10px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('━ I(θ) = I₀cos²(πd·sinθ/λ)',m.l+5,m.t+12);
+    } else if(activeChart==='pattern'){
+      /* 条纹图样可视化 */
+      var patternW=pw, patternH=ph;
+      for(var px=0;px<patternW;px++){
+        var y=(px-patternW/2)/patternW*0.015;
+        var I=intensity(y);
+        chartCtx.fillStyle=lam.replace('rgb','rgba').replace(')',','+(I*0.95).toFixed(2)+')');
+        chartCtx.fillRect(m.l+px,m.t,patternW/patternW,patternH);
+      }
+      // 坐标轴覆盖
+      chartCtx.strokeStyle='#5a6480';chartCtx.lineWidth=1;
+      chartCtx.strokeRect(m.l,m.t,patternW,patternH);
+      chartCtx.fillStyle='rgba(255,255,255,0.5)';chartCtx.font='10px sans-serif';chartCtx.textAlign='center';
+      chartCtx.fillText('干涉条纹图样（模拟屏幕效果）',m.l+pw/2,m.t+ph+18);
+    }
+  }
+
+  function drawAxes(c,m,pw,ph,xLabel,yLabel){
+    c.strokeStyle='#5a6480';c.lineWidth=1;
+    c.beginPath();c.moveTo(m.l,m.t);c.lineTo(m.l,m.t+ph);c.lineTo(m.l+pw,m.t+ph);c.stroke();
+    c.fillStyle='#5a6480';c.font='10px sans-serif';c.textAlign='center';
+    c.fillText(xLabel,m.l+pw/2,m.t+ph+18);
+    c.save();c.translate(12,m.t+ph/2);c.rotate(-Math.PI/2);c.fillText(yLabel,0,0);c.restore();
+  }
+
+  /* ============ 数据更新 ============ */
+  function updateData(){
+    var dx_m=CFG.lambda*1e-9*CFG.L/(CFG.d*1e-3);
+    var dx_mm=dx_m*1000;
+    document.getElementById('dataLambda').innerHTML=CFG.lambda+' <span class="unit">nm</span>';
+    document.getElementById('dataD').innerHTML=CFG.d.toFixed(2)+' <span class="unit">mm</span>';
+    document.getElementById('dataL').innerHTML=CFG.L.toFixed(1)+' <span class="unit">m</span>';
+    document.getElementById('dataDx').innerHTML=dx_mm.toFixed(2)+' <span class="unit">mm</span>';
+    document.getElementById('fmDx').textContent=dx_mm.toFixed(2);
+    document.getElementById('colorDot').style.background=wavelengthToRGB(CFG.lambda);
+  }
+
+  /* ============ 动画 ============ */
+  var lastTime=0,animId=null;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.t+=dt*CFG.timeScale;
+    draw();drawChart();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 波动演示';
+    draw();updateData();drawChart();
+  }
+
+  /* ============ 事件 ============ */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 波动演示';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn').forEach(function(x){x.classList.remove('active')});b.classList.add('active');
+      CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.getElementById('sliderLambda').addEventListener('input',function(){
+    CFG.lambda=parseInt(this.value);
+    document.getElementById('valLambda').innerHTML='<span class="color-preview" id="colorDot" style="background:'+wavelengthToRGB(CFG.lambda)+'"></span>'+CFG.lambda+' nm';
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderD').addEventListener('input',function(){
+    CFG.d=parseFloat(this.value);document.getElementById('valD').textContent=CFG.d.toFixed(2)+' mm';
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderL').addEventListener('input',function(){
+    CFG.L=parseFloat(this.value);document.getElementById('valL').textContent=CFG.L.toFixed(1)+' m';
+    draw();updateData();drawChart();
+  });
+  document.querySelectorAll('.exp-chart-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.exp-chart-tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');
+      activeChart=tab.dataset.chart;drawChart();
+    });
+  });
+
+  function resize(){
+    var dpr=window.devicePixelRatio||1;
+    var rect=canvas.parentElement.getBoundingClientRect();
+    canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var cr=chartCanvas.parentElement.getBoundingClientRect();
+    chartCanvas.width=Math.round(cr.width*dpr);chartCanvas.height=Math.round(cr.height*dpr);
+    chartCtx.setTransform(dpr,0,0,dpr,0,0);
+    draw();drawChart();
+  }
+  window.addEventListener('resize',resize);
+  resize();updateData();
+})();
+</script>
+{% endblock %}

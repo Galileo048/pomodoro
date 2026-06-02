@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}匀强电场中带电粒子运动 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-pos{color:var(--cyan)}.c-vel{color:#ffd93d}.c-defl{color:#e94560}.c-time{color:#66bb6a}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#00d4ff;">🔬 匀强电场中带电粒子运动</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Charged Particle in Uniform E-field — a = qE/m, 类平抛运动</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">x-t 水平位移</span><canvas id="chartXt"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">y-t 竖直位移</span><canvas id="chartYt"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">y-x 轨迹</span><canvas id="chartTraj"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">偏转角 vs E</span><canvas id="chartDefl"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电荷量 q</span><span class="exp-slider-value" id="valQ">1.6e-19 C</span></div>
+          <input type="range" id="sliderQ" min="0.5" max="5" step="0.1" value="1.6">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电场强度 E</span><span class="exp-slider-value" id="valE">1000 N/C</span></div>
+          <input type="range" id="sliderE" min="100" max="5000" step="50" value="1000">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">初速度 v₀</span><span class="exp-slider-value" id="valV0">5.0 m/s</span></div>
+          <input type="range" id="sliderV0" min="1" max="15" step="0.5" value="5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">质量 m</span><span class="exp-slider-value" id="valM">9.1e-31 kg</span></div>
+          <input type="range" id="sliderM" min="1" max="20" step="0.5" value="9.1">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">极板长度 L</span><span class="exp-slider-value" id="valL">2.0 m</span></div>
+          <input type="range" id="sliderL" min="0.5" max="5" step="0.1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-time" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">加速度 a</div><div class="value c-defl" id="dataA">— <span class="unit">m/s²</span></div></div>
+          <div class="exp-data-item"><div class="label">水平位移 x</div><div class="value c-pos" id="dataX">0.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">竖直位移 y</div><div class="value c-vel" id="dataY">0.00 <span class="unit">m</span></div></div>
+          <div class="exp-data-item"><div class="label">vₓ</div><div class="value c-pos" id="dataVx">5.00 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">v_y</div><div class="value c-vel" id="dataVy">0.00 <span class="unit">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">偏转角 θ</div><div class="value c-defl" id="dataTheta">0.0 <span class="unit">°</span></div></div>
+          <div class="exp-data-item"><div class="label">出射偏转</div><div class="value" id="dataDefl" style="color:#ce93d8">— <span class="unit">m</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>a = qE/m = <span class="formula" id="fmA">—</span> m/s²</div>
+          <div>x = v₀t, y = ½at²</div>
+          <div>偏转 y = qEL²/(2mv₀²)</div>
+          <div>tan θ = qEL/(mv₀²)</div>
+          <div>出射偏转: <span class="result" id="fmDefl">—</span> m</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var M_E=9.1e-31,Q_E=1.6e-19;
+  var CFG={q:1.6e-19,E:1000,v0:5,m:9.1e-31,L:2,timeScale:1};
+  var S={t:0,x:0,y:0,playing:false,trail:[],exited:false};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+
+  function acceleration(){return CFG.q*CFG.E/CFG.m;}
+  function exitTime(){return CFG.L/CFG.v0;}
+  function exitDeflection(){return 0.5*acceleration()*exitTime()*exitTime();}
+  function exitAngle(){return Math.atan2(acceleration()*exitTime(),CFG.v0);}
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    /* 网格 */
+    ctx.strokeStyle='#1a1a30';ctx.lineWidth=1;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    /* 极板区域 */
+    var plateLeft=W*0.15,plateRight=W*0.7;
+    var plateTop=H*0.25,plateBot=H*0.75;
+    var plateMidY=(plateTop+plateBot)/2;
+
+    /* 极板 */
+    ctx.fillStyle='#2a2a4a';
+    ctx.fillRect(plateLeft-5,plateTop-8,plateRight-plateLeft+10,8);
+    ctx.fillRect(plateLeft-5,plateBot,plateRight-plateLeft+10,8);
+
+    /* 极板标签 */
+    ctx.fillStyle='#e94560';ctx.font='12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('+  +  +  +  +  +  +  +  +',(plateLeft+plateRight)/2,plateTop-12);
+    ctx.fillStyle='#4ecdc4';
+    ctx.fillText('−  −  −  −  −  −  −  −  −',(plateLeft+plateRight)/2,plateBot+20);
+
+    /* E 场方向箭头 */
+    ctx.fillStyle='#00d4ff44';ctx.font='13px sans-serif';ctx.textAlign='center';
+    ctx.fillText('E ↓',(plateLeft+plateRight)/2,plateMidY);
+
+    /* 场线 */
+    ctx.strokeStyle='#00d4ff22';ctx.lineWidth=1;
+    for(var fx=plateLeft+20;fx<plateRight;fx+=30){
+      ctx.beginPath();ctx.moveTo(fx,plateTop+5);ctx.lineTo(fx,plateBot-5);ctx.stroke();
+    }
+
+    /* 坐标系 */
+    var originX=plateLeft,originY=plateMidY;
+    ctx.strokeStyle='#333355';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(originX-20,originY);ctx.lineTo(plateRight+30,originY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(originX,plateTop-20);ctx.lineTo(originX,plateBot+20);ctx.stroke();
+    ctx.fillStyle='#8888a0';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('x',plateRight+40,originY+4);ctx.fillText('y',originX-2,plateTop-25);
+
+    /* 粒子轨迹 */
+    var scaleX=(plateRight-plateLeft)/CFG.L;
+    var scaleY=(plateBot-plateTop)*0.4/exitDeflection();
+    scaleY=Math.min(scaleY,100);
+
+    /* 理论轨迹 (虚线) */
+    ctx.strokeStyle='#4ecdc455';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+    ctx.beginPath();
+    for(var ti=0;ti<=100;ti++){
+      var tt=exitTime()*ti/100;
+      var tx=CFG.v0*tt;
+      var ty=0.5*acceleration()*tt*tt;
+      var px=originX+tx*scaleX;
+      var py=originY+ty*scaleY;
+      if(ti===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    }
+    ctx.stroke();ctx.setLineDash([]);
+
+    /* 已走过的轨迹 (实线) */
+    if(S.trail.length>1){
+      ctx.strokeStyle='#00d4ff';ctx.lineWidth=2.5;
+      ctx.beginPath();
+      for(var ti2=0;ti2<S.trail.length;ti2++){
+        var tp=S.trail[ti2];
+        var px2=originX+tp.x*scaleX;
+        var py2=originY+tp.y*scaleY;
+        if(ti2===0)ctx.moveTo(px2,py2);else ctx.lineTo(px2,py2);
+      }
+      ctx.stroke();
+    }
+
+    /* 粒子 */
+    var partX=originX+S.x*scaleX;
+    var partY=originY+S.y*scaleY;
+    var glow=ctx.createRadialGradient(partX,partY,0,partX,partY,20);
+    glow.addColorStop(0,'rgba(0,212,255,0.5)');glow.addColorStop(1,'rgba(0,212,255,0)');
+    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(partX,partY,20,0,Math.PI*2);ctx.fill();
+    var ballGrad=ctx.createRadialGradient(partX-2,partY-2,1,partX,partY,7);
+    ballGrad.addColorStop(0,'#fff');ballGrad.addColorStop(1,'#00d4ff');
+    ctx.fillStyle=ballGrad;ctx.beginPath();ctx.arc(partX,partY,7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('+',partX,partY);ctx.textBaseline='alphabetic';
+
+    /* 速度箭头 */
+    var vx=CFG.v0;
+    var vy=acceleration()*S.t;
+    var vmag=Math.sqrt(vx*vx+vy*vy);
+    if(vmag>0.1){
+      var vScale=15/vmag;
+      var vnx=vx/vmag,vny=vy/vmag;
+      ctx.strokeStyle='#ffd93d';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(partX,partY);
+      ctx.lineTo(partX+vnx*vmag*vScale,partY+vny*vmag*vScale);ctx.stroke();
+      var ahx=partX+vnx*vmag*vScale,ahy=partY+vny*vmag*vScale;
+      ctx.fillStyle='#ffd93d';ctx.beginPath();
+      ctx.moveTo(ahx,ahy);
+      ctx.lineTo(ahx-vnx*6+vny*3,ahy-vny*6-vnx*3);
+      ctx.lineTo(ahx-vnx*6-vny*3,ahy-vny*6+vnx*3);
+      ctx.closePath();ctx.fill();
+      ctx.fillStyle='#ffd93d';ctx.font='11px sans-serif';ctx.textAlign='left';
+      ctx.fillText('v',ahx+5,ahy-5);
+    }
+
+    /* 加速度箭头 (恒定向下) */
+    ctx.strokeStyle='#e94560';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(partX,partY+12);ctx.lineTo(partX,partY+35);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#e94560';ctx.beginPath();
+    ctx.moveTo(partX,partY+35);ctx.lineTo(partX-4,partY+28);ctx.lineTo(partX+4,partY+28);ctx.closePath();ctx.fill();
+    ctx.font='11px sans-serif';ctx.textAlign='left';ctx.fillText('a',partX+6,partY+35);
+
+    /* 偏转角弧线 */
+    if(S.t>0.01&&S.x>0.01){
+      var angle=Math.atan2(S.y*scaleY,S.x*scaleX);
+      if(angle>0.01){
+        var arcR=30;
+        ctx.strokeStyle='#ce93d888';ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.arc(originX,originY,arcR,0,angle);ctx.stroke();
+        ctx.fillStyle='#ce93d8';ctx.font='11px sans-serif';ctx.textAlign='left';
+        ctx.fillText('θ='+(angle*180/Math.PI).toFixed(1)+'°',originX+arcR+5,originY+12);
+      }
+    }
+
+    ctx.fillStyle='#8888a0';ctx.font='11px sans-serif';ctx.textAlign='left';
+    ctx.fillText('蓝色虚线: 理论轨迹 | 蓝色实线: 粒子路径',10,H-10);
+  }
+
+  function drawGenericChart(canvasId,data,opts){
+    var c=document.getElementById(canvasId);
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    if(!data||data.length<2)return;
+    var pad={top:28,right:10,bottom:22,left:45};
+    var cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var xMin=data[0].x,xMax=data[data.length-1].x;
+    var yMin=Infinity,yMax=-Infinity;
+    data.forEach(function(d){if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});
+    if(yMax<=yMin)yMax=yMin+1;
+    if(yMin>0&&opts.forceZero)yMin=0;
+
+    c2.strokeStyle='#1e1e35';c2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;c2.beginPath();c2.moveTo(pad.left,gy);c2.lineTo(pad.left+cw,gy);c2.stroke();}
+    c2.fillStyle='#555570';c2.font='9px sans-serif';c2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);c2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    c2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);c2.fillText(val2.toFixed(2),pad.left-5,pad.top+(1-l/4)*ch+3);}
+
+    c2.strokeStyle=opts.color||'#00d4ff';c2.lineWidth=2;c2.beginPath();
+    data.forEach(function(d,i){
+      var px=pad.left+(d.x-xMin)/(xMax-xMin)*cw;
+      var py=pad.top+(1-(d.y-yMin)/(yMax-yMin))*ch;
+      if(i===0)c2.moveTo(px,py);else c2.lineTo(px,py);
+    });c2.stroke();
+
+    if(opts.markX!==undefined&&opts.markY!==undefined){
+      var mx=pad.left+(opts.markX-xMin)/(xMax-xMin)*cw;
+      var my=pad.top+(1-(opts.markY-yMin)/(yMax-yMin))*ch;
+      c2.fillStyle='#e94560';c2.beginPath();c2.arc(mx,my,4,0,Math.PI*2);c2.fill();
+    }
+    c2.fillStyle='#666';c2.font='9px sans-serif';c2.textAlign='center';
+    if(opts.xLabel)c2.fillText(opts.xLabel,pad.left+cw/2,pad.top+ch+20);
+  }
+
+  function updateCharts(){
+    var a=acceleration();
+    var tE=exitTime();
+    /* x-t */
+    var xt=[];for(var t=0;t<=tE*1.2;t+=tE/40)xt.push({x:t,y:CFG.v0*t});
+    drawGenericChart('chartXt',xt,{color:'#00d4ff',forceZero:true,xLabel:'t (s)',markX:S.t,markY:S.x});
+
+    /* y-t */
+    var yt=[];for(var t2=0;t2<=tE*1.2;t2+=tE/40)yt.push({x:t2,y:0.5*a*t2*t2});
+    drawGenericChart('chartYt',yt,{color:'#ffd93d',forceZero:true,xLabel:'t (s)',markX:S.t,markY:S.y});
+
+    /* y-x trajectory */
+    var traj=[];for(var t3=0;t3<=tE*1.2;t3+=tE/40){var xx=CFG.v0*t3;var yy=0.5*a*t3*t3;traj.push({x:xx,y:yy});}
+    drawGenericChart('chartTraj',traj,{color:'#e94560',forceZero:true,xLabel:'x (m)',markX:S.x,markY:S.y});
+
+    /* 偏转角 vs E */
+    var defl=[];
+    for(var e=100;e<=5000;e+=100){
+      var aLocal=CFG.q*e/CFG.m;
+      var angle=Math.atan2(aLocal*tE,CFG.v0)*180/Math.PI;
+      defl.push({x:e,y:angle});
+    }
+    var curAngle=exitAngle()*180/Math.PI;
+    drawGenericChart('chartDefl',defl,{color:'#ce93d8',forceZero:true,xLabel:'E (N/C)',markX:CFG.E,markY:curAngle});
+  }
+
+  function updateData(){
+    var a=acceleration();
+    var vx=CFG.v0;
+    var vy=a*S.t;
+    var vMag=Math.sqrt(vx*vx+vy*vy);
+    var angle=S.t>0.01?Math.atan2(vy,vx)*180/Math.PI:0;
+    document.getElementById('dataT').innerHTML=S.t.toFixed(4)+' <span class="unit">s</span>';
+    document.getElementById('dataA').innerHTML=a.toExponential(2)+' <span class="unit">m/s²</span>';
+    document.getElementById('dataX').innerHTML=S.x.toFixed(3)+' <span class="unit">m</span>';
+    document.getElementById('dataY').innerHTML=S.y.toFixed(3)+' <span class="unit">m</span>';
+    document.getElementById('dataVx').innerHTML=vx.toFixed(2)+' <span class="unit">m/s</span>';
+    document.getElementById('dataVy').innerHTML=vy.toFixed(2)+' <span class="unit">m/s</span>';
+    document.getElementById('dataTheta').innerHTML=angle.toFixed(1)+' <span class="unit">°</span>';
+    document.getElementById('dataDefl').innerHTML=exitDeflection().toExponential(2)+' <span class="unit">m</span>';
+    document.getElementById('fmA').textContent=a.toExponential(2);
+    document.getElementById('fmDefl').textContent=exitDeflection().toExponential(2);
+  }
+
+  var lastTime=0,animId=null;
+
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var wallDt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    var simDt=wallDt*CFG.timeScale;
+    S.t+=simDt;
+
+    S.x=CFG.v0*S.t;
+    S.y=0.5*acceleration()*S.t*S.t;
+    S.trail.push({x:S.x,y:S.y});
+    if(S.trail.length>500)S.trail.shift();
+
+    /* 出射后停止增加时间但保持显示 */
+    if(S.x>=CFG.L){
+      S.x=CFG.L;S.y=exitDeflection();S.exited=true;
+      drawSim();updateData();
+      return;
+    }
+
+    drawSim();updateData();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.x=0;S.y=0;S.trail=[];S.exited=false;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    drawSim();updateData();updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.getElementById('sliderQ').addEventListener('input',function(){
+    CFG.q=parseFloat(this.value)*1e-19;
+    document.getElementById('valQ').textContent=(parseFloat(this.value)).toFixed(1)+'e-19 C';reset();
+  });
+  document.getElementById('sliderE').addEventListener('input',function(){
+    CFG.E=parseFloat(this.value);
+    document.getElementById('valE').textContent=CFG.E.toFixed(0)+' N/C';reset();
+  });
+  document.getElementById('sliderV0').addEventListener('input',function(){
+    CFG.v0=parseFloat(this.value);
+    document.getElementById('valV0').textContent=CFG.v0.toFixed(1)+' m/s';reset();
+  });
+  document.getElementById('sliderM').addEventListener('input',function(){
+    CFG.m=parseFloat(this.value)*1e-31;
+    document.getElementById('valM').textContent=(parseFloat(this.value)).toFixed(1)+'e-31 kg';reset();
+  });
+  document.getElementById('sliderL').addEventListener('input',function(){
+    CFG.L=parseFloat(this.value);
+    document.getElementById('valL').textContent=CFG.L.toFixed(1)+' m';reset();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  resizeAll();updateData();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+{% block title %}等比数列交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .convergence-note{color:var(--amber);font-size:11px;font-weight:600;margin-top:4px;padding:4px 8px;background:rgba(255,217,61,0.1);border-radius:4px;border:1px solid rgba(255,217,61,0.2)}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#a78bfa;">📊 等比数列</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">aₙ = a₁·q^(n-1), Sₙ = a₁(1-q^n)/(1-q)</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">数列柱状图 aₙ</span><canvas id="chartBars"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">前n项和 Sₙ</span><canvas id="chartSum"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">收敛分析</span><canvas id="chartConv"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">首项 a₁</span><span class="exp-slider-value" id="valA1">4.0</span></div>
+          <input type="range" id="sliderA1" min="-10" max="10" step="0.5" value="4">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">公比 q</span><span class="exp-slider-value" id="valQ">0.5</span></div>
+          <input type="range" id="sliderQ" min="-3" max="3" step="0.1" value="0.5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">项数 n</span><span class="exp-slider-value" id="valCount">10</span></div>
+          <input type="range" id="sliderCount" min="1" max="20" step="1" value="10">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 数列信息</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">首项 a₁</div><div class="value c-cyan" id="dataA1">4.00</div></div>
+          <div class="exp-data-item"><div class="label">公比 q</div><div class="value c-amber" id="dataQ">0.50</div></div>
+          <div class="exp-data-item"><div class="label">末项 aₙ</div><div class="value c-green" id="dataAn">0.01</div></div>
+          <div class="exp-data-item"><div class="label">项数 n</div><div class="value c-purple" id="dataCount">10</div></div>
+          <div class="exp-data-item"><div class="label">前n项和 Sₙ</div><div class="value c-accent" id="dataSn">7.99</div></div>
+          <div class="exp-data-item"><div class="label">无穷和 S∞</div><div class="value c-cyan" id="dataSinf">8.00</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>aₙ = a₁·q^(n-1) = <span class="result" id="fmAn">0.01</span></div>
+          <div>Sₙ = a₁(1-q^n)/(1-q) = <span class="result" id="fmSn">7.99</span></div>
+          <div id="convBox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG = {a1: 4, q: 0.5, count: 10};
+  var S = {progress: 0, playing: false, animId: null};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function getTerm(i) { return CFG.a1 * Math.pow(CFG.q, i - 1); }
+  function getSum(n) {
+    if (Math.abs(CFG.q - 1) < 0.001) return n * CFG.a1;
+    return CFG.a1 * (1 - Math.pow(CFG.q, n)) / (1 - CFG.q);
+  }
+  function getInfSum() {
+    if (Math.abs(CFG.q) >= 1) return null;
+    return CFG.a1 / (1 - CFG.q);
+  }
+
+  function resizeAll() {
+    var dpr = window.devicePixelRatio || 1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c) {
+      var rect = c.parentElement.getBoundingClientRect();
+      var w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
+    });
+    drawSim(); updateCharts();
+  }
+
+  function drawSim() {
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, W, H);
+
+    var pad = 50;
+    var visibleCount = Math.min(CFG.count, Math.max(1, Math.floor(S.progress * CFG.count)));
+    if (!S.playing || S.progress >= 1) visibleCount = CFG.count;
+
+    // Calculate ranges
+    var terms = [];
+    for (var i = 1; i <= CFG.count; i++) terms.push(getTerm(i));
+    var minVal = Math.min.apply(null, terms.concat([0]));
+    var maxVal = Math.max.apply(null, terms.concat([0]));
+    var rangeMin = minVal - 1;
+    var rangeMax = maxVal + 1;
+    if (rangeMax <= rangeMin) rangeMax = rangeMin + 2;
+
+    var ox = pad + 20;
+    var plotW = W - 2 * pad - 40;
+    var plotH = H - 2 * pad;
+    var xStep = plotW / (CFG.count + 1);
+
+    // Grid
+    ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+    for (var gx = 0; gx < CFG.count; gx++) {
+      var gxPx = ox + (gx + 1) * xStep;
+      ctx.beginPath(); ctx.moveTo(gxPx, pad); ctx.lineTo(gxPx, H - pad); ctx.stroke();
+    }
+
+    // Zero line
+    var zeroY = pad + (1 - (0 - rangeMin) / (rangeMax - rangeMin)) * plotH;
+    ctx.strokeStyle = '#333355'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, zeroY); ctx.lineTo(W - pad, zeroY); ctx.stroke();
+
+    // Convergence line (if |q| < 1)
+    var infSum = getInfSum();
+    if (infSum !== null) {
+      var convY = pad + (1 - (infSum - rangeMin) / (rangeMax - rangeMin)) * plotH;
+      ctx.strokeStyle = '#ffd93d44'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(pad, convY); ctx.lineTo(W - pad, convY); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffd93d'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText('S∞ = ' + infSum.toFixed(2), W - pad - 80, convY - 6);
+    }
+
+    // Draw terms
+    for (var j = 0; j < visibleCount; j++) {
+      var term = getTerm(j + 1);
+      var tx2 = ox + (j + 1) * xStep;
+      var ty2 = pad + (1 - (term - rangeMin) / (rangeMax - rangeMin)) * plotH;
+
+      // Bar
+      var barColor = term >= 0 ? 'rgba(167,139,250,0.3)' : 'rgba(233,69,96,0.3)';
+      ctx.fillStyle = barColor;
+      ctx.fillRect(tx2 - xStep * 0.3, Math.min(ty2, zeroY), xStep * 0.6, Math.abs(ty2 - zeroY));
+
+      // Dot with glow
+      var dotGrad = ctx.createRadialGradient(tx2, ty2, 0, tx2, ty2, 8);
+      dotGrad.addColorStop(0, '#a78bfa');
+      dotGrad.addColorStop(1, '#a78bfa00');
+      ctx.fillStyle = dotGrad;
+      ctx.beginPath(); ctx.arc(tx2, ty2, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#a78bfa';
+      ctx.beginPath(); ctx.arc(tx2, ty2, 4, 0, Math.PI * 2); ctx.fill();
+
+      // Value label
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      var label = Math.abs(term) >= 1000 ? term.toExponential(1) : term.toFixed(Math.abs(term) < 0.01 ? 3 : 1);
+      ctx.fillText(label, tx2, ty2 + (term >= 0 ? -12 : 16));
+
+      // Index label
+      ctx.fillStyle = '#8888a0'; ctx.font = '10px sans-serif';
+      ctx.fillText('a' + (j + 1), tx2, H - pad + 16);
+    }
+
+    // Connecting line
+    if (visibleCount > 1) {
+      ctx.strokeStyle = '#a78bfa88'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      for (var k = 0; k < visibleCount; k++) {
+        var lx = ox + (k + 1) * xStep;
+        var ly = pad + (1 - (getTerm(k + 1) - rangeMin) / (rangeMax - rangeMin)) * plotH;
+        if (k === 0) ctx.moveTo(lx, ly);
+        else ctx.lineTo(lx, ly);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Title
+    ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('aₙ = ' + CFG.a1.toFixed(1) + ' × ' + CFG.q.toFixed(1) + '^(n-1)', pad + 5, pad + 16);
+    var snVal = getSum(visibleCount);
+    ctx.fillStyle = '#ffd93d'; ctx.font = '11px sans-serif';
+    ctx.fillText('S' + visibleCount + ' = ' + (Math.abs(snVal) >= 1000 ? snVal.toExponential(2) : snVal.toFixed(2)), pad + 5, pad + 32);
+
+    // Convergence indicator
+    if (Math.abs(CFG.q) < 1) {
+      ctx.fillStyle = '#00ff88'; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('|q| = ' + Math.abs(CFG.q).toFixed(2) + ' < 1 → 收敛', pad + 5, pad + 48);
+    } else if (Math.abs(CFG.q) > 1) {
+      ctx.fillStyle = '#ff6666'; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('|q| = ' + Math.abs(CFG.q).toFixed(2) + ' > 1 → 发散', pad + 5, pad + 48);
+    } else {
+      ctx.fillStyle = '#ffd93d'; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('|q| = 1 → 常数数列', pad + 5, pad + 48);
+    }
+  }
+
+  function drawChart(canvasId, drawFn) {
+    var c = document.getElementById(canvasId);
+    var c2 = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = c.width / dpr, H = c.height / dpr;
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0); c2.clearRect(0, 0, W, H);
+    c2.fillStyle = '#161625'; c2.fillRect(0, 0, W, H);
+    drawFn(c2, W, H);
+  }
+
+  function updateCharts() {
+    // Bar chart
+    drawChart('chartBars', function(c2, W, H) {
+      var pad2 = { top: 28, right: 10, bottom: 20, left: 40 };
+      var cw = W - pad2.left - pad2.right, ch = H - pad2.top - pad2.bottom;
+      var terms = [];
+      for (var i = 1; i <= CFG.count; i++) terms.push(getTerm(i));
+      var minV = Math.min.apply(null, terms.concat([0]));
+      var maxV = Math.max.apply(null, terms.concat([0]));
+      var range = maxV - minV;
+      if (range === 0) range = 2;
+      var gap = cw / CFG.count;
+      var barW = gap * 0.7;
+
+      var zeroY = pad2.top + (1 - (0 - minV) / range) * ch;
+      c2.strokeStyle = '#444466'; c2.lineWidth = 1;
+      c2.beginPath(); c2.moveTo(pad2.left, zeroY); c2.lineTo(pad2.left + cw, zeroY); c2.stroke();
+
+      for (var j = 0; j < CFG.count; j++) {
+        var val = getTerm(j + 1);
+        var barH = Math.abs(val) / range * ch;
+        var bx = pad2.left + j * gap + gap * 0.15;
+        var by = val >= 0 ? zeroY - barH : zeroY;
+        c2.fillStyle = val >= 0 ? '#a78bfa' : '#e94560';
+        c2.fillRect(bx, by, barW, barH);
+        c2.fillStyle = '#8888a0'; c2.font = '8px sans-serif'; c2.textAlign = 'center';
+        c2.fillText((j + 1), bx + barW / 2, pad2.top + ch + 12);
+      }
+    });
+
+    // S_n line chart
+    drawChart('chartSum', function(c2, W, H) {
+      var pad2 = { top: 28, right: 10, bottom: 20, left: 40 };
+      var cw = W - pad2.left - pad2.right, ch = H - pad2.top - pad2.bottom;
+      var sums = [];
+      for (var i = 1; i <= CFG.count; i++) sums.push(getSum(i));
+      var minS = Math.min.apply(null, sums.concat([0]));
+      var maxS = Math.max.apply(null, sums.concat([0]));
+      var range = maxS - minS;
+      if (range === 0) range = 2;
+
+      function toX(n) { return pad2.left + (n - 1) / (CFG.count - 1 || 1) * cw; }
+      function toY(s) { return pad2.top + (1 - (s - minS) / range) * ch; }
+
+      // Grid
+      c2.strokeStyle = '#1e1e35'; c2.lineWidth = 1;
+      for (var gi = 0; gi <= 4; gi++) { var gy = pad2.top + gi * ch / 4; c2.beginPath(); c2.moveTo(pad2.left, gy); c2.lineTo(pad2.left + cw, gy); c2.stroke(); }
+
+      // Convergence line
+      var infSum = getInfSum();
+      if (infSum !== null && infSum >= minS && infSum <= maxS) {
+        var convY = toY(infSum);
+        c2.strokeStyle = '#ffd93d44'; c2.lineWidth = 1; c2.setLineDash([4, 3]);
+        c2.beginPath(); c2.moveTo(pad2.left, convY); c2.lineTo(pad2.left + cw, convY); c2.stroke();
+        c2.setLineDash([]);
+      }
+
+      // Line
+      c2.strokeStyle = '#a78bfa'; c2.lineWidth = 2; c2.beginPath();
+      for (var j = 0; j < CFG.count; j++) {
+        var sx = toX(j + 1), sy = toY(sums[j]);
+        if (j === 0) c2.moveTo(sx, sy);
+        else c2.lineTo(sx, sy);
+      }
+      c2.stroke();
+
+      // Dots
+      for (var k = 0; k < CFG.count; k++) {
+        c2.fillStyle = '#a78bfa';
+        c2.beginPath(); c2.arc(toX(k + 1), toY(sums[k]), 3, 0, Math.PI * 2); c2.fill();
+      }
+    });
+
+    // Convergence analysis
+    drawChart('chartConv', function(c2, W, H) {
+      var pad2 = { top: 28, right: 10, bottom: 16, left: 10 };
+      var cw = W - pad2.left - pad2.right;
+      var ch = H - pad2.top - pad2.bottom;
+      var absQ = Math.abs(CFG.q);
+
+      // Draw |q| meter
+      var meterY = pad2.top + 20;
+      var meterH = 20;
+      var meterW = cw - 20;
+
+      // Background gradient from green (converge) to red (diverge)
+      var grad = c2.createLinearGradient(pad2.left + 10, 0, pad2.left + 10 + meterW, 0);
+      grad.addColorStop(0, '#00ff8844');
+      grad.addColorStop(0.5, '#ffd93d44');
+      grad.addColorStop(1, '#ff446644');
+      c2.fillStyle = grad;
+      c2.fillRect(pad2.left + 10, meterY, meterW, meterH);
+
+      // |q| = 1 marker
+      var q1X = pad2.left + 10 + meterW * (1 / 3); // q ranges -3 to 3, 1 is at 1/3 from left if linear
+      // Actually: map q from [-3, 3] to [0, meterW]
+      function qToX(q) { return pad2.left + 10 + ((q + 3) / 6) * meterW; }
+      var q1Pos = qToX(1);
+      var qNeg1Pos = qToX(-1);
+      c2.strokeStyle = '#ffffff44'; c2.lineWidth = 1;
+      c2.setLineDash([3, 3]);
+      c2.beginPath(); c2.moveTo(q1Pos, meterY); c2.lineTo(q1Pos, meterY + meterH); c2.stroke();
+      c2.beginPath(); c2.moveTo(qNeg1Pos, meterY); c2.lineTo(qNeg1Pos, meterY + meterH); c2.stroke();
+      c2.setLineDash([]);
+
+      // Current q marker
+      var qPos = qToX(CFG.q);
+      c2.fillStyle = '#ffffff';
+      c2.beginPath(); c2.moveTo(qPos, meterY - 4); c2.lineTo(qPos - 4, meterY - 10); c2.lineTo(qPos + 4, meterY - 10); c2.closePath(); c2.fill();
+      c2.font = 'bold 11px sans-serif'; c2.textAlign = 'center';
+      c2.fillText('q = ' + CFG.q.toFixed(1), qPos, meterY - 14);
+
+      // Labels
+      c2.fillStyle = '#888'; c2.font = '9px sans-serif';
+      c2.textAlign = 'center';
+      c2.fillText('-3', qToX(-3), meterY + meterH + 12);
+      c2.fillText('-1', qNeg1Pos, meterY + meterH + 12);
+      c2.fillText('0', qToX(0), meterY + meterH + 12);
+      c2.fillText('1', q1Pos, meterY + meterH + 12);
+      c2.fillText('3', qToX(3), meterY + meterH + 12);
+
+      // Status text
+      var statusY = meterY + meterH + 28;
+      if (absQ < 1) {
+        c2.fillStyle = '#00ff88';
+        c2.font = 'bold 11px sans-serif'; c2.textAlign = 'center';
+        c2.fillText('|q| = ' + absQ.toFixed(2) + ' < 1  →  收敛', W / 2, statusY);
+        c2.font = '10px sans-serif'; c2.fillStyle = '#ffd93d';
+        c2.fillText('S∞ = a₁/(1-q) = ' + getInfSum().toFixed(2), W / 2, statusY + 16);
+      } else if (absQ > 1) {
+        c2.fillStyle = '#ff6666';
+        c2.font = 'bold 11px sans-serif'; c2.textAlign = 'center';
+        c2.fillText('|q| = ' + absQ.toFixed(2) + ' > 1  →  发散', W / 2, statusY);
+        c2.font = '10px sans-serif'; c2.fillStyle = '#888';
+        c2.fillText('Sₙ → ±∞', W / 2, statusY + 16);
+      } else {
+        c2.fillStyle = '#ffd93d';
+        c2.font = 'bold 11px sans-serif'; c2.textAlign = 'center';
+        c2.fillText('|q| = 1  →  常数数列 / 交替', W / 2, statusY);
+      }
+    });
+  }
+
+  function updateData() {
+    var an = getTerm(CFG.count);
+    var sn = getSum(CFG.count);
+    var sinf = getInfSum();
+    document.getElementById('dataA1').textContent = CFG.a1.toFixed(2);
+    document.getElementById('dataQ').textContent = CFG.q.toFixed(2);
+    document.getElementById('dataAn').textContent = Math.abs(an) >= 1000 ? an.toExponential(2) : an.toFixed(2);
+    document.getElementById('dataCount').textContent = CFG.count;
+    document.getElementById('dataSn').textContent = Math.abs(sn) >= 1000 ? sn.toExponential(2) : sn.toFixed(2);
+    document.getElementById('dataSinf').textContent = sinf !== null ? sinf.toFixed(2) : '∞ (发散)';
+
+    document.getElementById('fmAn').textContent = Math.abs(an) >= 1000 ? an.toExponential(2) : an.toFixed(2);
+    document.getElementById('fmSn').textContent = Math.abs(sn) >= 1000 ? sn.toExponential(2) : sn.toFixed(2);
+
+    var convBox = document.getElementById('convBox');
+    if (sinf !== null) {
+      convBox.innerHTML = '<div class="convergence-note">|q|=' + Math.abs(CFG.q).toFixed(2) + ' < 1, S∞ = a₁/(1-q) = ' + sinf.toFixed(2) + '</div>';
+    } else if (Math.abs(CFG.q) > 1) {
+      convBox.innerHTML = '<div style="color:#ff6666;font-size:11px;margin-top:4px;">|q|=' + Math.abs(CFG.q).toFixed(2) + ' > 1, 数列发散</div>';
+    } else {
+      convBox.innerHTML = '<div style="color:#ffd93d;font-size:11px;margin-top:4px;">|q|=1, 常数数列</div>';
+    }
+  }
+
+  var lastTime = 0;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+    S.progress += dt * 0.25;
+    if (S.progress >= 1.2) {
+      S.playing = false;
+      document.getElementById('btnPlay').textContent = '▶ 播放';
+      S.progress = 1;
+    }
+    drawSim();
+    if (S.playing) S.animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false; S.progress = 0; lastTime = 0;
+    if (S.animId) cancelAnimationFrame(S.animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    drawSim(); updateData(); updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = true; S.progress = 0; lastTime = 0;
+    document.getElementById('btnPlay').textContent = '播放中...';
+    S.animId = requestAnimationFrame(animate);
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.getElementById('sliderA1').addEventListener('input', function() {
+    CFG.a1 = parseFloat(this.value);
+    document.getElementById('valA1').textContent = CFG.a1.toFixed(1);
+    reset();
+  });
+  document.getElementById('sliderQ').addEventListener('input', function() {
+    var val = parseFloat(this.value);
+    // Exclude q=0 and q=1
+    if (Math.abs(val) < 0.1) val = 0.1;
+    if (Math.abs(val - 1) < 0.05) val = val > 1 ? 1.1 : 0.9;
+    CFG.q = val;
+    document.getElementById('valQ').textContent = CFG.q.toFixed(1);
+    document.getElementById('sliderQ').value = CFG.q;
+    reset();
+  });
+  document.getElementById('sliderCount').addEventListener('input', function() {
+    CFG.count = parseInt(this.value);
+    document.getElementById('valCount').textContent = CFG.count;
+    reset();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function() { if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeAll, 100); });
+  resizeAll(); updateData();
+})();
+</script>
+{% endblock %}

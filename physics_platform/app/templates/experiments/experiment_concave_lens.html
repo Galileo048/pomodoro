@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block title %}凹透镜成像实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0a0a18;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-side-panel{width:300px;min-width:260px;background:#111125;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  .exp-chart-tabs{display:flex;gap:3px;margin-bottom:6px}
+  .exp-chart-tab{flex:1;padding:4px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-chart-tab.active{background:var(--cyan);color:#0a0a18;border-color:var(--cyan)}
+  .chart-canvas-wrap{width:100%;height:140px;position:relative;background:rgba(0,0,0,0.2);border-radius:6px;border:1px solid var(--border);margin-top:4px}
+  .chart-canvas-wrap canvas{display:block;width:100%;height:100%}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0a0a18;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0a0a18);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🔍 凹透镜成像实验</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Concave Lens — 1/u + 1/v = 1/f (f<0)</div>
+  </div>
+  <div style="padding:6px 20px;background:#0a0a18;border-bottom:1px solid var(--border);"><a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">&larr; 返回实验列表</a></div>
+  <div class="exp-layout">
+    <div class="exp-sim-area"><div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div></div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">物距 u</span><span class="exp-slider-value" id="valU">6.0 cm</span></div>
+          <input type="range" id="sliderU" min="2" max="15" step="0.5" value="6">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">焦距 |f|</span><span class="exp-slider-value" id="valF">3.0 cm</span></div>
+          <input type="range" id="sliderF" min="1" max="8" step="0.5" value="3">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 动态演示</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+          <button class="exp-speed-btn" data-speed="4">4x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">物距 u</div><div class="value c-cyan" id="dataU">6.0 <span class="unit">cm</span></div></div>
+          <div class="exp-data-item"><div class="label">像距 v</div><div class="value c-green" id="dataV">-2.0 <span class="unit">cm</span></div></div>
+          <div class="exp-data-item"><div class="label">焦距 f</div><div class="value c-amber" id="dataF">-3.0 <span class="unit">cm</span></div></div>
+          <div class="exp-data-item"><div class="label">放大率 M</div><div class="value c-purple" id="dataM">0.33</div></div>
+          <div class="exp-data-item"><div class="label">像的性质</div><div class="value c-accent" id="dataNature">正立缩小虚像</div></div>
+          <div class="exp-data-item"><div class="label">物高</div><div class="value c-cyan" id="dataHo">2.0 <span class="unit">cm</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>1/u + 1/v = 1/f</div>
+          <div>f = <span class="formula" id="fmF">-3.0</span> cm (凹透镜)</div>
+          <div>1/v = 1/f - 1/u = <span class="formula" id="fmInvV">-0.167</span></div>
+          <div>v = <span class="formula" id="fmV">-2.0</span> cm</div>
+          <div>M = -v/u = <span class="result" id="fmM">0.33</span></div>
+          <div style="margin-top:4px;color:var(--green)" id="fmNote">凹透镜始终成正立缩小虚像</div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📈 图表</h3>
+        <div class="exp-chart-tabs">
+          <button class="exp-chart-tab active" data-chart="mag">放大率-物距</button>
+          <button class="exp-chart-tab" data-chart="size">像大小-物距</button>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chartCanvas"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  /* ============ 配置 ============ */
+  var CFG={u:6, f:3, timeScale:1}; // f取绝对值，物理上f<0
+  var S={playing:false, t:0, sweepU:6};
+  var activeChart='mag';
+  var HO=2; // 物高 cm
+
+  var canvas=document.getElementById('simCanvas'), ctx=canvas.getContext('2d');
+  var chartCanvas=document.getElementById('chartCanvas'), chartCtx=chartCanvas.getContext('2d');
+
+  /* ============ 物理计算 ============ */
+  function getImage(){
+    var f=-Math.abs(CFG.f); // 凹透镜焦距为负
+    var invV=1/f-1/CFG.u;
+    var v=1/invV;
+    var M=-v/CFG.u;
+    var hi=HO*M;
+    return {v:v, M:M, hi:hi, f:f};
+  }
+
+  /* ============ 主场景绘制 ============ */
+  function draw(){
+    var W=canvas.width/(window.devicePixelRatio||1), H=canvas.height/(window.devicePixelRatio||1);
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#0a0a18'; ctx.fillRect(0,0,W,H);
+
+    var img=getImage();
+    var lensX=W*0.5; // 透镜位置
+    var axisY=H*0.5; // 光轴
+    var scale=Math.min(W/25,H/8)*0.8; // cm到像素
+
+    /* --- 网格 --- */
+    ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    /* --- 光轴 --- */
+    ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(30,axisY);ctx.lineTo(W-30,axisY);ctx.stroke();ctx.setLineDash([]);
+
+    /* --- 凹透镜 --- */
+    var lensH=H*0.35;
+    ctx.strokeStyle='rgba(100,180,255,0.6)';ctx.lineWidth=3;
+    // 左凹弧
+    ctx.beginPath();
+    ctx.moveTo(lensX-4,axisY-lensH);
+    ctx.quadraticCurveTo(lensX-14,axisY,lensX-4,axisY+lensH);
+    ctx.stroke();
+    // 右凹弧
+    ctx.beginPath();
+    ctx.moveTo(lensX+4,axisY-lensH);
+    ctx.quadraticCurveTo(lensX+14,axisY,lensX+4,axisY+lensH);
+    ctx.stroke();
+    // 箭头标记（凹透镜两端外翻）
+    ctx.strokeStyle='rgba(100,180,255,0.4)';ctx.lineWidth=1.5;
+    // 上端
+    ctx.beginPath();ctx.moveTo(lensX-4,axisY-lensH);ctx.lineTo(lensX-10,axisY-lensH-6);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(lensX+4,axisY-lensH);ctx.lineTo(lensX+10,axisY-lensH-6);ctx.stroke();
+    // 下端
+    ctx.beginPath();ctx.moveTo(lensX-4,axisY+lensH);ctx.lineTo(lensX-10,axisY+lensH+6);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(lensX+4,axisY+lensH);ctx.lineTo(lensX+10,axisY+lensH+6);ctx.stroke();
+
+    // 透镜标签
+    ctx.fillStyle='rgba(100,180,255,0.6)';ctx.font='bold 12px sans-serif';ctx.textAlign='center';
+    ctx.fillText('凹透镜',lensX,axisY-lensH-15);
+    ctx.font='11px sans-serif';
+    ctx.fillText('f='+img.f.toFixed(1)+'cm',lensX,axisY-lensH-3);
+
+    /* --- 焦点标记 --- */
+    // F（左侧焦点，对于凹透镜，焦点在出射侧即右侧虚焦点）
+    var fPx=CFG.f*scale; // 焦距像素
+    // 右侧焦点（虚焦点）
+    ctx.fillStyle='rgba(255,180,0,0.6)';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.beginPath();ctx.arc(lensX+fPx,axisY,4,0,Math.PI*2);ctx.fill();
+    ctx.fillText('F',lensX+fPx,axisY+16);
+    // 左侧对称焦点
+    ctx.beginPath();ctx.arc(lensX-fPx,axisY,4,0,Math.PI*2);ctx.fill();
+    ctx.fillText('F\'',lensX-fPx,axisY+16);
+    // 2F 标记
+    ctx.beginPath();ctx.arc(lensX+2*fPx,axisY,3,0,Math.PI*2);ctx.fill();
+    ctx.fillText('2F',lensX+2*fPx,axisY+16);
+
+    /* --- 物体（箭头） --- */
+    var objX=lensX-CFG.u*scale;
+    var objH_px=HO*scale;
+    // 物体发光效果
+    ctx.strokeStyle='rgba(0,212,255,0.1)';ctx.lineWidth=6;
+    ctx.beginPath();ctx.moveTo(objX,axisY);ctx.lineTo(objX,axisY-objH_px);ctx.stroke();
+    ctx.strokeStyle='#00d4ff';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(objX,axisY);ctx.lineTo(objX,axisY-objH_px);ctx.stroke();
+    // 箭头
+    ctx.fillStyle='#00d4ff';ctx.beginPath();
+    ctx.moveTo(objX,axisY-objH_px);
+    ctx.lineTo(objX-5,axisY-objH_px+8);
+    ctx.lineTo(objX+5,axisY-objH_px+8);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='#00d4ff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('物体',objX,axisY-objH_px-10);
+    ctx.font='10px sans-serif';
+    ctx.fillText('u='+CFG.u.toFixed(1),objX,axisY+18);
+
+    /* --- 像（虚像，用虚线箭头） --- */
+    var imgX=lensX+img.v*scale; // v是负值，所以像在透镜左侧（物体同侧）
+    var imgH_px=img.hi*scale; // hi是正值(正立)
+    // 虚像（虚线）
+    ctx.strokeStyle='rgba(255,100,200,0.4)';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(imgX,axisY);ctx.lineTo(imgX,axisY-imgH_px);ctx.stroke();
+    ctx.setLineDash([]);
+    // 箭头（虚像方向相同，正立）
+    ctx.fillStyle='rgba(255,100,200,0.6)';ctx.beginPath();
+    ctx.moveTo(imgX,axisY-imgH_px);
+    ctx.lineTo(imgX-4,axisY-imgH_px+6);
+    ctx.lineTo(imgX+4,axisY-imgH_px+6);
+    ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(255,100,200,0.7)';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('(虚像)',imgX,axisY-imgH_px-10);
+    ctx.font='10px sans-serif';
+    ctx.fillText('v='+img.v.toFixed(1),imgX,axisY+18);
+
+    /* --- 光线追踪 --- */
+    // 光线1：平行光轴入射 → 通过透镜后发散，反向延长过焦点
+    ctx.strokeStyle='rgba(0,212,255,0.4)';ctx.lineWidth=1.2;
+    // 入射：物体顶部 → 透镜（平行光轴）
+    var topObjY=axisY-objH_px;
+    ctx.beginPath();ctx.moveTo(objX,topObjY);ctx.lineTo(lensX,topObjY);ctx.stroke();
+    // 出射：发散，反向延长过焦点F
+    // 斜率 = (topObjY - axisY) / (lensX - (lensX+fPx)) = (topObjY-axisY)/(-fPx)
+    var slope1=(topObjY-axisY)/(-fPx);
+    ctx.strokeStyle='rgba(0,212,255,0.35)';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(lensX,topObjY);ctx.lineTo(lensX+150,topObjY+slope1*150);ctx.stroke();
+    // 虚线反向延长
+    ctx.setLineDash([4,3]);ctx.strokeStyle='rgba(0,212,255,0.2)';
+    ctx.beginPath();ctx.moveTo(lensX,topObjY);ctx.lineTo(lensX-fPx*2,axisY+(topObjY-axisY)*2);ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 光线2：通过光心（直线传播）
+    ctx.strokeStyle='rgba(255,180,0,0.35)';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(objX,topObjY);ctx.lineTo(lensX+150,topObjY+(axisY-topObjY)*(-150/(lensX-objX)));ctx.stroke();
+    // 反向延长
+    ctx.setLineDash([4,3]);ctx.strokeStyle='rgba(255,180,0,0.2)';
+    ctx.beginPath();ctx.moveTo(objX,topObjY);ctx.lineTo(imgX,Math.min(topObjY,0)+axisY);ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* --- 虚像区域标注 --- */
+    ctx.fillStyle='rgba(255,100,200,0.06)';
+    ctx.fillRect(Math.min(imgX,objX)-10,axisY-Math.max(objH_px,Math.abs(imgH_px))-30,
+      Math.abs(imgX-objX)+20,Math.max(objH_px,Math.abs(imgH_px))+40);
+    ctx.fillStyle='rgba(255,100,200,0.3)';ctx.font='11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('像与物同侧 (虚像区域)',(objX+imgX)/2,axisY-Math.max(objH_px,Math.abs(imgH_px))-18);
+
+    /* --- 透镜公式标注 --- */
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='12px sans-serif';ctx.textAlign='left';
+    ctx.fillText('1/u + 1/v = 1/f',15,H-50);
+    ctx.fillStyle='rgba(255,180,0,0.7)';ctx.font='bold 12px sans-serif';
+    ctx.fillText('凹透镜: f<0 → 始终成正立缩小虚像',15,H-30);
+  }
+
+  /* ============ 图表绘制 ============ */
+  function drawChart(){
+    var W=chartCanvas.width/(window.devicePixelRatio||1), H=chartCanvas.height/(window.devicePixelRatio||1);
+    chartCtx.clearRect(0,0,W,H);chartCtx.fillStyle='rgba(0,0,0,0.2)';chartCtx.fillRect(0,0,W,H);
+    var m={l:40,r:10,t:15,b:25}, pw=W-m.l-m.r, ph=H-m.t-m.b;
+
+    if(activeChart==='mag'){
+      /* 放大率 vs 物距 */
+      drawAxes(chartCtx,m,pw,ph,'物距 u (cm)','放大率 |M|');
+      chartCtx.strokeStyle='#aa66ff';chartCtx.lineWidth=2;chartCtx.beginPath();
+      var maxU=15;
+      for(var i=0;i<=100;i++){
+        var u=2+i*(maxU-2)/100;
+        var v=1/(1/(-CFG.f)-1/u);
+        var M=Math.abs(-v/u);
+        var px=m.l+(u/maxU)*pw, py=m.t+ph-M*ph;
+        if(py<m.t)py=m.t;if(py>m.t+ph)py=m.t+ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 当前物距标记
+      var curImg=getImage();
+      var curPx=m.l+(CFG.u/maxU)*pw;
+      var curPy=m.t+ph-Math.abs(curImg.M)*ph;
+      if(curPy<m.t)curPy=m.t;
+      chartCtx.fillStyle='#ff4466';chartCtx.beginPath();chartCtx.arc(curPx,curPy,5,0,Math.PI*2);chartCtx.fill();
+      // M=1 参考线
+      var m1Y=m.t+ph-ph*1; // M=1 line
+      chartCtx.strokeStyle='rgba(255,255,255,0.15)';chartCtx.lineWidth=1;chartCtx.setLineDash([3,3]);
+      chartCtx.beginPath();chartCtx.moveTo(m.l,m1Y);chartCtx.lineTo(m.l+pw,m1Y);chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      chartCtx.fillStyle='rgba(255,255,255,0.3)';chartCtx.font='9px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('|M|=1',m.l+2,m1Y-3);
+      chartCtx.fillStyle='#aa66ff';chartCtx.font='10px sans-serif';
+      chartCtx.fillText('━ |M| 曲线 (凹透镜 |M|<1)',m.l+5,m.t+12);
+    } else if(activeChart==='size'){
+      /* 像大小 vs 物距 */
+      drawAxes(chartCtx,m,pw,ph,'物距 u (cm)','像高 |hi| (cm)');
+      chartCtx.strokeStyle='#ff6699';chartCtx.lineWidth=2;chartCtx.beginPath();
+      var maxU=15;
+      for(var i=0;i<=100;i++){
+        var u=2+i*(maxU-2)/100;
+        var v=1/(1/(-CFG.f)-1/u);
+        var M=Math.abs(-v/u);
+        var hi=HO*M;
+        var px=m.l+(u/maxU)*pw, py=m.t+ph-(hi/HO)*ph*0.8;
+        if(py<m.t)py=m.t;if(py>m.t+ph)py=m.t+ph;
+        if(i===0)chartCtx.moveTo(px,py);else chartCtx.lineTo(px,py);
+      }
+      chartCtx.stroke();
+      // 物高参考线
+      chartCtx.strokeStyle='rgba(0,212,255,0.3)';chartCtx.lineWidth=1;chartCtx.setLineDash([3,3]);
+      var hoY=m.t+ph-ph*0.8;
+      chartCtx.beginPath();chartCtx.moveTo(m.l,hoY);chartCtx.lineTo(m.l+pw,hoY);chartCtx.stroke();
+      chartCtx.setLineDash([]);
+      chartCtx.fillStyle='rgba(0,212,255,0.4)';chartCtx.font='9px sans-serif';chartCtx.textAlign='left';
+      chartCtx.fillText('物高 h₀',m.l+2,hoY-3);
+      // 当前点
+      var curImg=getImage();
+      var curHi=Math.abs(curImg.hi);
+      var curPx=m.l+(CFG.u/maxU)*pw;
+      var curPy=m.t+ph-(curHi/HO)*ph*0.8;
+      if(curPy<m.t)curPy=m.t;
+      chartCtx.fillStyle='#ff4466';chartCtx.beginPath();chartCtx.arc(curPx,curPy,5,0,Math.PI*2);chartCtx.fill();
+      chartCtx.fillStyle='#ff6699';chartCtx.font='10px sans-serif';
+      chartCtx.fillText('━ 像高曲线 (凹透镜始终缩小)',m.l+5,m.t+12);
+    }
+  }
+
+  function drawAxes(c,m,pw,ph,xLabel,yLabel){
+    c.strokeStyle='#5a6480';c.lineWidth=1;
+    c.beginPath();c.moveTo(m.l,m.t);c.lineTo(m.l,m.t+ph);c.lineTo(m.l+pw,m.t+ph);c.stroke();
+    c.fillStyle='#5a6480';c.font='10px sans-serif';c.textAlign='center';
+    c.fillText(xLabel,m.l+pw/2,m.t+ph+18);
+    c.save();c.translate(12,m.t+ph/2);c.rotate(-Math.PI/2);c.fillText(yLabel,0,0);c.restore();
+  }
+
+  /* ============ 数据更新 ============ */
+  function updateData(){
+    var img=getImage();
+    document.getElementById('dataU').innerHTML=CFG.u.toFixed(1)+' <span class="unit">cm</span>';
+    document.getElementById('dataV').innerHTML=img.v.toFixed(2)+' <span class="unit">cm</span>';
+    document.getElementById('dataF').innerHTML=img.f.toFixed(1)+' <span class="unit">cm</span>';
+    document.getElementById('dataM').textContent=Math.abs(img.M).toFixed(3);
+    document.getElementById('dataNature').textContent=img.M>0?'正立缩小虚像':'正立缩小虚像';
+    document.getElementById('dataHo').innerHTML=HO.toFixed(1)+' <span class="unit">cm</span>';
+
+    document.getElementById('fmF').textContent=img.f.toFixed(1);
+    document.getElementById('fmInvV').textContent=(1/img.f-1/CFG.u).toFixed(4);
+    document.getElementById('fmV').textContent=img.v.toFixed(2);
+    document.getElementById('fmM').textContent=Math.abs(img.M).toFixed(3);
+  }
+
+  /* ============ 动画 ============ */
+  var lastTime=0,animId=null;
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var dt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    S.sweepU+=dt*CFG.timeScale*1.5;
+    if(S.sweepU>15)S.sweepU=2;
+    CFG.u=Math.round(S.sweepU*10)/10;
+    document.getElementById('sliderU').value=CFG.u;
+    document.getElementById('valU').textContent=CFG.u.toFixed(1)+' cm';
+    draw();updateData();drawChart();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;S.sweepU=CFG.u;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 动态演示';
+    draw();updateData();drawChart();
+  }
+
+  /* ============ 事件 ============ */
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 动态演示';
+    if(S.playing){lastTime=0;S.sweepU=CFG.u;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn').forEach(function(x){x.classList.remove('active')});b.classList.add('active');
+      CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+  document.getElementById('sliderU').addEventListener('input',function(){
+    CFG.u=parseFloat(this.value);document.getElementById('valU').textContent=CFG.u.toFixed(1)+' cm';
+    draw();updateData();drawChart();
+  });
+  document.getElementById('sliderF').addEventListener('input',function(){
+    CFG.f=parseFloat(this.value);document.getElementById('valF').textContent=CFG.f.toFixed(1)+' cm';
+    draw();updateData();drawChart();
+  });
+  document.querySelectorAll('.exp-chart-tab').forEach(function(tab){
+    tab.addEventListener('click',function(){
+      document.querySelectorAll('.exp-chart-tab').forEach(function(t){t.classList.remove('active')});tab.classList.add('active');
+      activeChart=tab.dataset.chart;drawChart();
+    });
+  });
+
+  function resize(){
+    var dpr=window.devicePixelRatio||1;
+    var rect=canvas.parentElement.getBoundingClientRect();
+    canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var cr=chartCanvas.parentElement.getBoundingClientRect();
+    chartCanvas.width=Math.round(cr.width*dpr);chartCanvas.height=Math.round(cr.height*dpr);
+    chartCtx.setTransform(dpr,0,0,dpr,0,0);
+    draw();drawChart();
+  }
+  window.addEventListener('resize',resize);
+  resize();updateData();
+})();
+</script>
+{% endblock %}

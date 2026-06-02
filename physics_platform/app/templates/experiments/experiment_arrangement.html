@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+{% block title %}排列组合交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:#0f0f1a;min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-toggle-row{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-toggle-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-toggle-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.1)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:#0f0f1a;">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:#a78bfa;">🔢 排列组合</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">A(n,m) = n!/(n-m)!, C(n,m) = n!/[m!(n-m)!]</div>
+  </div>
+  <div style="padding:6px 20px;background:#0f0f1a;border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">树形图</span><canvas id="chartTree"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">杨辉三角</span><canvas id="chartYangHui"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">数量对比</span><canvas id="chartCompare"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">n (总数)</span><span class="exp-slider-value" id="valN">4</span></div>
+          <input type="range" id="sliderN" min="2" max="8" step="1" value="4">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">m (选取数)</span><span class="exp-slider-value" id="valM">2</span></div>
+          <input type="range" id="sliderM" min="1" max="4" step="1" value="2">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 生成</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-toggle-row" style="margin-top:6px;">
+          <button class="exp-toggle-btn active" data-mode="perm">排列 A(n,m)</button>
+          <button class="exp-toggle-btn" data-mode="comb">组合 C(n,m)</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 计算结果</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">排列 A(n,m)</div><div class="value c-cyan" id="dataA">12</div></div>
+          <div class="exp-data-item"><div class="label">组合 C(n,m)</div><div class="value c-amber" id="dataC">6</div></div>
+          <div class="exp-data-item"><div class="label">n!</div><div class="value c-green" id="dataFactN">24</div></div>
+          <div class="exp-data-item"><div class="label">(n-m)!</div><div class="value c-purple" id="dataFactNM">2</div></div>
+          <div class="exp-data-item"><div class="label">已生成</div><div class="value c-accent" id="dataCount">0</div></div>
+          <div class="exp-data-item"><div class="label">模式</div><div class="value c-cyan" id="dataMode">排列</div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式验证</h3>
+        <div class="exp-formula-box">
+          <div>A(n,m) = n!/(n-m)! = <span class="result" id="fmA">12</span></div>
+          <div>C(n,m) = n!/[m!(n-m)!] = <span class="result" id="fmC">6</span></div>
+          <div>验证: C(n,m) × m! = <span class="result" id="fmVerify">12</span> = A(n,m) ✓</div>
+          <div id="fmResults" style="margin-top:4px;font-size:10px;color:#8888a0;max-height:80px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var S = {n: 4, m: 2, mode: 'perm', results: [], progress: 0, playing: false, animId: null};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+  var COLORS = ['#ff4466','#00d4ff','#ffd93d','#66bb6a','#a78bfa','#ff8844','#44ddff','#ff66aa'];
+
+  function factorial(k) { var r = 1; for (var i = 2; i <= k; i++) r *= i; return r; }
+  function permA(n, m) { return factorial(n) / factorial(n - m); }
+  function combC(n, m) { return factorial(n) / (factorial(m) * factorial(n - m)); }
+
+  function generatePerms(n, m) {
+    var results = [];
+    var items = [];
+    for (var i = 0; i < n; i++) items.push(i);
+    function permute(arr, chosen) {
+      if (chosen.length === m) { results.push(chosen.slice()); return; }
+      for (var j = 0; j < arr.length; j++) {
+        chosen.push(arr[j]);
+        var rest = arr.slice(0, j).concat(arr.slice(j + 1));
+        permute(rest, chosen);
+        chosen.pop();
+      }
+    }
+    permute(items, []);
+    return results;
+  }
+
+  function generateCombs(n, m) {
+    var results = [];
+    function combine(start, chosen) {
+      if (chosen.length === m) { results.push(chosen.slice()); return; }
+      for (var j = start; j < n; j++) {
+        chosen.push(j);
+        combine(j + 1, chosen);
+        chosen.pop();
+      }
+    }
+    combine(0, []);
+    return results;
+  }
+
+  function generateResults() {
+    if (S.mode === 'perm') {
+      S.results = generatePerms(S.n, S.m);
+    } else {
+      S.results = generateCombs(S.n, S.m);
+    }
+  }
+
+  function resizeAll() {
+    var dpr = window.devicePixelRatio || 1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c) {
+      var rect = c.parentElement.getBoundingClientRect();
+      var w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
+    });
+    drawSim(); updateCharts();
+  }
+
+  function drawSim() {
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, W, H);
+
+    // Draw tree structure on main canvas
+    var visibleCount = Math.min(S.results.length, Math.floor(S.progress * S.results.length));
+    if (!S.playing) visibleCount = S.results.length;
+
+    var pad = 30;
+    var treeW = W - 2 * pad, treeH = H - 2 * pad;
+    var levelH = treeH / (S.m + 1);
+
+    // Build tree structure
+    function drawTreeNode(x, y, level, chosen, availIndices) {
+      if (level >= S.m) {
+        // Leaf - draw result
+        var text = chosen.map(function(idx) { return String.fromCharCode(65 + idx); }).join('');
+        ctx.fillStyle = '#00ff88'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(text, x, y + 4);
+        return;
+      }
+
+      var options = S.mode === 'perm' ? availIndices : availIndices.filter(function(idx) { return idx > (chosen.length > 0 ? chosen[chosen.length - 1] : -1); });
+
+      var optCount = options.length;
+      if (optCount === 0) return;
+
+      var segW = treeW / Math.pow(S.n, level + 1);
+      var startX = x - (optCount - 1) * segW / 2;
+
+      options.forEach(function(optIdx, i) {
+        var childX = startX + i * segW;
+        var childY = y + levelH;
+
+        // Draw connecting line
+        var lineAlpha = 0.3;
+        if (visibleCount > 0) lineAlpha = 0.8;
+        ctx.strokeStyle = COLORS[optIdx % COLORS.length] + (lineAlpha > 0.5 ? '' : '44');
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(childX, childY); ctx.stroke();
+
+        // Draw node
+        var nodeAlpha = 1;
+        ctx.globalAlpha = nodeAlpha;
+        var nGrad = ctx.createRadialGradient(childX, childY, 0, childX, childY, 10);
+        nGrad.addColorStop(0, COLORS[optIdx % COLORS.length]);
+        nGrad.addColorStop(1, COLORS[optIdx % COLORS.length] + '33');
+        ctx.fillStyle = nGrad;
+        ctx.beginPath(); ctx.arc(childX, childY, 8, 0, Math.PI * 2); ctx.fill();
+
+        // Label
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(String.fromCharCode(65 + optIdx), childX, childY + 4);
+        ctx.globalAlpha = 1;
+
+        // Recurse
+        var newChosen = chosen.concat([optIdx]);
+        var newAvail;
+        if (S.mode === 'perm') {
+          newAvail = availIndices.filter(function(idx) { return idx !== optIdx; });
+        } else {
+          newAvail = availIndices.filter(function(idx) { return idx > optIdx; });
+        }
+        drawTreeNode(childX, childY, level + 1, newChosen, newAvail);
+      });
+    }
+
+    // Root node
+    var rootX = W / 2, rootY = pad + 10;
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('开始', rootX, rootY + 5);
+
+    var rootAvail = [];
+    for (var i = 0; i < S.n; i++) rootAvail.push(i);
+    drawTreeNode(rootX, rootY, 0, [], rootAvail);
+
+    // Count display
+    ctx.fillStyle = '#a78bfa'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText((S.mode === 'perm' ? 'A' : 'C') + '(' + S.n + ',' + S.m + ') = ' + (S.mode === 'perm' ? permA(S.n, S.m) : combC(S.n, S.m)), pad, H - pad + 20);
+  }
+
+  function drawChart(canvasId, drawFn) {
+    var c = document.getElementById(canvasId);
+    var c2 = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = c.width / dpr, H = c.height / dpr;
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0); c2.clearRect(0, 0, W, H);
+    c2.fillStyle = '#161625'; c2.fillRect(0, 0, W, H);
+    drawFn(c2, W, H);
+  }
+
+  function updateCharts() {
+    // Yang Hui triangle
+    drawChart('chartYangHui', function(c2, W, H) {
+      var pad = { top: 28, right: 10, bottom: 10, left: 10 };
+      var maxRows = 9;
+      var rowH = (H - pad.top - pad.bottom) / maxRows;
+      for (var row = 0; row < maxRows; row++) {
+        var cols = row + 1;
+        var cellW = (W - pad.left - pad.right) / (maxRows + 1);
+        var startX = pad.left + (maxRows + 1 - cols) * cellW / 2;
+        for (var col = 0; col <= row; col++) {
+          var val = factorial(row) / (factorial(col) * factorial(row - col));
+          var cx = startX + col * cellW + cellW / 2;
+          var cy = pad.top + row * rowH + rowH / 2;
+          var isActive = (row === S.n && col === S.m);
+          c2.fillStyle = isActive ? '#ffd93d' : '#555570';
+          c2.font = (isActive ? 'bold ' : '') + '10px sans-serif';
+          c2.textAlign = 'center';
+          c2.fillText(val, cx, cy + 4);
+          if (isActive) {
+            c2.strokeStyle = '#ffd93d'; c2.lineWidth = 2;
+            c2.beginPath(); c2.arc(cx, cy, 12, 0, Math.PI * 2); c2.stroke();
+          }
+        }
+      }
+      c2.fillStyle = '#a78bfa'; c2.font = '10px sans-serif'; c2.textAlign = 'center';
+      c2.fillText('杨辉三角 (C(n,m)高亮)', W / 2, H - 4);
+    });
+
+    // Compare chart
+    drawChart('chartCompare', function(c2, W, H) {
+      var pad = { top: 28, right: 15, bottom: 22, left: 40 };
+      var cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+      var maxVal = Math.max(permA(S.n, S.m), combC(S.n, S.m), 1);
+      var barW = cw / 3;
+
+      // A(n,m) bar
+      var aH = permA(S.n, S.m) / maxVal * ch * 0.85;
+      c2.fillStyle = '#58C4DD';
+      c2.fillRect(pad.left + barW * 0.2, pad.top + ch - aH, barW * 0.3, aH);
+      c2.fillStyle = '#58C4DD'; c2.font = 'bold 10px sans-serif'; c2.textAlign = 'center';
+      c2.fillText(permA(S.n, S.m), pad.left + barW * 0.35, pad.top + ch - aH - 6);
+
+      // C(n,m) bar
+      var cH = combC(S.n, S.m) / maxVal * ch * 0.85;
+      c2.fillStyle = '#ffd93d';
+      c2.fillRect(pad.left + barW * 1.2, pad.top + ch - cH, barW * 0.3, cH);
+      c2.fillStyle = '#ffd93d'; c2.font = 'bold 10px sans-serif';
+      c2.fillText(combC(S.n, S.m), pad.left + barW * 1.35, pad.top + ch - cH - 6);
+
+      // m! bar
+      var mFactH = factorial(S.m) / maxVal * ch * 0.85;
+      c2.fillStyle = '#a78bfa';
+      c2.fillRect(pad.left + barW * 2.2, pad.top + ch - mFactH, barW * 0.3, mFactH);
+      c2.fillStyle = '#a78bfa'; c2.font = 'bold 10px sans-serif';
+      c2.fillText(factorial(S.m), pad.left + barW * 2.35, pad.top + ch - mFactH - 6);
+
+      // Labels
+      c2.fillStyle = '#8888a0'; c2.font = '10px sans-serif'; c2.textAlign = 'center';
+      c2.fillText('A(' + S.n + ',' + S.m + ')', pad.left + barW * 0.35, pad.top + ch + 14);
+      c2.fillText('C(' + S.n + ',' + S.m + ')', pad.left + barW * 1.35, pad.top + ch + 14);
+      c2.fillText(S.m + '!', pad.left + barW * 2.35, pad.top + ch + 14);
+
+      // Formula
+      c2.fillStyle = '#666'; c2.font = '9px sans-serif';
+      c2.fillText('A = C × m!', pad.left + cw / 2, pad.top + 14);
+    });
+  }
+
+  function updateData() {
+    var a = permA(S.n, S.m), c = combC(S.n, S.m);
+    document.getElementById('dataA').textContent = a;
+    document.getElementById('dataC').textContent = c;
+    document.getElementById('dataFactN').textContent = factorial(S.n);
+    document.getElementById('dataFactNM').textContent = factorial(S.n - S.m);
+    document.getElementById('dataCount').textContent = S.results.length;
+    document.getElementById('dataMode').textContent = S.mode === 'perm' ? '排列' : '组合';
+    document.getElementById('fmA').textContent = a;
+    document.getElementById('fmC').textContent = c;
+    document.getElementById('fmVerify').textContent = a;
+
+    // Show first few results
+    var resultsEl = document.getElementById('fmResults');
+    var showCount = Math.min(S.results.length, 12);
+    var html = '';
+    for (var i = 0; i < showCount; i++) {
+      var r = S.results[i].map(function(idx) { return String.fromCharCode(65 + idx); }).join('');
+      html += '<span style="color:' + COLORS[i % COLORS.length] + '">' + r + '</span> ';
+    }
+    if (S.results.length > 12) html += '... (共' + S.results.length + '个)';
+    resultsEl.innerHTML = html;
+  }
+
+  var lastTime = 0;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+    S.progress += dt * 0.3;
+    if (S.progress >= 1.2) {
+      S.playing = false;
+      document.getElementById('btnPlay').textContent = '▶ 生成';
+      S.progress = 1;
+    }
+    drawSim();
+    if (S.playing) S.animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false; S.progress = 0; lastTime = 0;
+    if (S.animId) cancelAnimationFrame(S.animId);
+    document.getElementById('btnPlay').textContent = '▶ 生成';
+    generateResults();
+    drawSim(); updateData(); updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    generateResults();
+    S.playing = true; S.progress = 0; lastTime = 0;
+    document.getElementById('btnPlay').textContent = '生成中...';
+    S.animId = requestAnimationFrame(animate);
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-toggle-btn[data-mode]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.exp-toggle-btn[data-mode]').forEach(function(x) { x.classList.remove('active'); });
+      btn.classList.add('active');
+      S.mode = btn.dataset.mode;
+      reset();
+    });
+  });
+
+  document.getElementById('sliderN').addEventListener('input', function() {
+    S.n = parseInt(this.value);
+    document.getElementById('valN').textContent = S.n;
+    // Ensure m <= n
+    if (S.m > S.n) { S.m = S.n; document.getElementById('sliderM').value = S.m; document.getElementById('valM').textContent = S.m; }
+    document.getElementById('sliderM').max = S.n;
+    reset();
+  });
+  document.getElementById('sliderM').addEventListener('input', function() {
+    S.m = parseInt(this.value);
+    if (S.m > S.n) S.m = S.n;
+    document.getElementById('valM').textContent = S.m;
+    reset();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function() { if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeAll, 100); });
+  generateResults();
+  resizeAll(); updateData();
+})();
+</script>
+{% endblock %}

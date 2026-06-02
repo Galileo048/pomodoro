@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}驻波交互实验 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:65px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-toggle-row{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-toggle-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-toggle-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.1)}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .c-cyan{color:var(--cyan)}.c-accent{color:var(--accent,#e94560)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}.c-purple{color:var(--purple)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-style:italic}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">🎵 驻波</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Standing Wave — y = 2A·sin(kx)·cos(ωt)，驻波的波腹与波节</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">y-x 驻波图样</span><canvas id="chartYX"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">y-t 单点振动</span><canvas id="chartYT"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">谐波频谱</span><canvas id="chartSpec"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">频率 f</span><span class="exp-slider-value" id="valFreq">2.0 Hz</span></div>
+          <input type="range" id="sliderFreq" min="0.5" max="5" step="0.1" value="2">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">弦长 L</span><span class="exp-slider-value" id="valL">6.0 m</span></div>
+          <input type="range" id="sliderL" min="2" max="12" step="0.5" value="6">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">振幅 A</span><span class="exp-slider-value" id="valAmp">1.0</span></div>
+          <input type="range" id="sliderAmp" min="0.2" max="2" step="0.1" value="1">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>🎵 谐波选择</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-n="1">n=1 基频</button>
+          <button class="exp-toggle-btn" data-n="2">n=2 二次</button>
+          <button class="exp-toggle-btn" data-n="3">n=3 三次</button>
+          <button class="exp-toggle-btn" data-n="4">n=4 四次</button>
+          <button class="exp-toggle-btn" data-n="5">n=5 五次</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-toggle="envelope">包络线</button>
+          <button class="exp-toggle-btn active" data-toggle="nodes">波节标注</button>
+          <button class="exp-toggle-btn active" data-toggle="grid">网格</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">谐波阶数 n</div><div class="value c-cyan" id="dataN">1</div></div>
+          <div class="exp-data-item"><div class="label">波腹数</div><div class="value c-amber" id="dataAN">1</div></div>
+          <div class="exp-data-item"><div class="label">波长 λ</div><div class="value c-purple" id="dataLam">12.00 <span style="font-size:10px;color:#8888a0">m</span></div></div>
+          <div class="exp-data-item"><div class="label">波速 v</div><div class="value c-green" id="dataV">24.00 <span style="font-size:10px;color:#8888a0">m/s</span></div></div>
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span style="font-size:10px;color:#8888a0">s</span></div></div>
+          <div class="exp-data-item"><div class="label">频率 f</div><div class="value c-cyan" id="dataF">2.00 <span style="font-size:10px;color:#8888a0">Hz</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>y = 2A·sin(kx)·cos(ωt)</div>
+          <div>λ = 2L/n = <span class="formula" id="fmLam">12.00</span> m</div>
+          <div>k = 2π/λ = <span class="formula" id="fmK">0.52</span> rad/m</div>
+          <div>ω = 2πf = <span class="formula" id="fmOmega">12.57</span> rad/s</div>
+          <div>波节: x = 0, L/n, 2L/n, ... , L</div>
+          <div>波腹: x = L/2n, 3L/2n, ...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var CFG = {freq: 2, L: 6, A: 1};
+  var SHOW = {envelope: true, nodes: true, grid: true};
+  var S = {t: 0, playing: false, n: 1, history: [], timeScale: 1};
+  var canvas = document.getElementById('simCanvas');
+  var ctx = canvas.getContext('2d');
+
+  function lambda() { return 2 * CFG.L / S.n; }
+  function k() { return 2 * Math.PI / lambda(); }
+  function omega() { return 2 * Math.PI * CFG.freq; }
+  function waveSpeed() { return lambda() * CFG.freq; }
+
+  function standingY(x, t) {
+    return 2 * CFG.A * Math.sin(k() * x) * Math.cos(omega() * t);
+  }
+
+  function resizeAll() {
+    var dpr = window.devicePixelRatio || 1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c) {
+      var rect = c.parentElement.getBoundingClientRect();
+      var w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
+    });
+    drawSim(); updateCharts();
+  }
+
+  function drawSim() {
+    var dpr = window.devicePixelRatio || 1;
+    var W = canvas.width / dpr, H = canvas.height / dpr;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0, 0, W, H);
+
+    var eqY = H * 0.5;
+    var ox = 60, endX = W - 60;
+    var stringLenPx = endX - ox;
+    var yScale = H * 0.22;
+    var lam = lambda();
+
+    if (SHOW.grid) {
+      ctx.strokeStyle = '#1a1a30'; ctx.lineWidth = 1;
+      for (var gx = 0; gx < W; gx += 40) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+      for (var gy = 0; gy < H; gy += 40) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+    }
+
+    // Equilibrium line
+    ctx.strokeStyle = '#333355'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ox - 10, eqY); ctx.lineTo(endX + 10, eqY); ctx.stroke();
+
+    // Fixed ends
+    ctx.fillStyle = '#ff4466';
+    ctx.fillRect(ox - 8, eqY - 20, 6, 40);
+    ctx.fillRect(endX + 2, eqY - 20, 6, 40);
+
+    // Envelope
+    if (SHOW.envelope) {
+      ctx.strokeStyle = '#ffd93d66'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+      // Upper envelope
+      ctx.beginPath();
+      for (var px = ox; px <= endX; px++) {
+        var x = (px - ox) / stringLenPx * CFG.L;
+        var envY = 2 * CFG.A * Math.abs(Math.sin(k() * x));
+        if (px === ox) ctx.moveTo(px, eqY - envY * yScale);
+        else ctx.lineTo(px, eqY - envY * yScale);
+      }
+      ctx.stroke();
+      // Lower envelope
+      ctx.beginPath();
+      for (var px2 = ox; px2 <= endX; px2++) {
+        var x2 = (px2 - ox) / stringLenPx * CFG.L;
+        var envY2 = 2 * CFG.A * Math.abs(Math.sin(k() * x2));
+        if (px2 === ox) ctx.moveTo(px2, eqY + envY2 * yScale);
+        else ctx.lineTo(px2, eqY + envY2 * yScale);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Standing wave curve
+    ctx.strokeStyle = '#58C4DD'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (var px3 = ox; px3 <= endX; px3++) {
+      var x3 = (px3 - ox) / stringLenPx * CFG.L;
+      var y3 = standingY(x3, S.t);
+      if (px3 === ox) ctx.moveTo(px3, eqY - y3 * yScale);
+      else ctx.lineTo(px3, eqY - y3 * yScale);
+    }
+    ctx.stroke();
+
+    // Nodes
+    if (SHOW.nodes) {
+      for (var ni = 0; ni <= S.n; ni++) {
+        var nodeX = ni * CFG.L / S.n;
+        var npx = ox + (nodeX / CFG.L) * stringLenPx;
+        ctx.fillStyle = '#ff4466';
+        ctx.beginPath(); ctx.arc(npx, eqY, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ff4466'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('节点', npx, eqY + 16);
+      }
+      // Antinodes
+      for (var ai = 0; ai < S.n; ai++) {
+        var antX = (2 * ai + 1) * CFG.L / (2 * S.n);
+        var apx = ox + (antX / CFG.L) * stringLenPx;
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath(); ctx.arc(apx, eqY - 2 * CFG.A * yScale - 14, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#00ff88'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('波腹', apx, eqY - 2 * CFG.A * yScale - 22);
+      }
+    }
+
+    // Draw particles on string
+    for (var pi = 0; pi <= 40; pi++) {
+      var xPos = pi * CFG.L / 40;
+      var ppx = ox + (xPos / CFG.L) * stringLenPx;
+      var pyVal = standingY(xPos, S.t);
+      var ppy = eqY - pyVal * yScale;
+      var pGrad = ctx.createRadialGradient(ppx, ppy, 0, ppx, ppy, 4);
+      pGrad.addColorStop(0, '#fff'); pGrad.addColorStop(1, '#58C4DD');
+      ctx.fillStyle = pGrad;
+      ctx.beginPath(); ctx.arc(ppx, ppy, 3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Title
+    ctx.fillStyle = '#58C4DD'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('n=' + S.n + ' | λ=' + lam.toFixed(2) + 'm | f=' + CFG.freq.toFixed(1) + 'Hz', 10, 20);
+    ctx.fillText('t = ' + S.t.toFixed(2) + 's', 10, 36);
+  }
+
+  function drawChart(canvasId, data, opts) {
+    var c = document.getElementById(canvasId);
+    var c2 = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+    var W = c.width / dpr, H = c.height / dpr;
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0); c2.clearRect(0, 0, W, H);
+    c2.fillStyle = '#161625'; c2.fillRect(0, 0, W, H);
+    if (!data || data.length < 2) return;
+    var pad = { top: 28, right: 15, bottom: 22, left: 45 };
+    var cw = W - pad.left - pad.right, ch = H - pad.top - pad.bottom;
+    if (cw <= 0 || ch <= 0) return;
+    var series = Array.isArray(data[0]) ? data : [data];
+    var xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+    series.forEach(function(s) { s.forEach(function(d) { if (d.x < xMin) xMin = d.x; if (d.x > xMax) xMax = d.x; if (d.y < yMin) yMin = d.y; if (d.y > yMax) yMax = d.y; }); });
+    if (xMax <= xMin) xMax = xMin + 1; if (yMax <= yMin) yMax = yMin + 1;
+    var xR = xMax - xMin, yR = yMax - yMin;
+    xMin -= xR * 0.05; xMax += xR * 0.05; yMin -= yR * 0.1; yMax += yR * 0.1;
+    function toC(px, py) { return { x: pad.left + (px - xMin) / (xMax - xMin) * cw, y: pad.top + (1 - (py - yMin) / (yMax - yMin)) * ch }; }
+    c2.strokeStyle = '#1e1e35'; c2.lineWidth = 1;
+    for (var i = 0; i <= 4; i++) { var gy = pad.top + (i / 4) * ch; c2.beginPath(); c2.moveTo(pad.left, gy); c2.lineTo(pad.left + cw, gy); c2.stroke(); }
+    var zeroY = toC(0, 0).y; if (zeroY >= pad.top && zeroY <= pad.top + ch) { c2.strokeStyle = '#444466'; c2.lineWidth = 1.5; c2.beginPath(); c2.moveTo(pad.left, zeroY); c2.lineTo(pad.left + cw, zeroY); c2.stroke(); }
+    c2.fillStyle = '#555570'; c2.font = '10px sans-serif'; c2.textAlign = 'center';
+    for (var ki = 0; ki <= 4; ki++) { var val = xMin + (ki / 4) * (xMax - xMin); c2.fillText(val.toFixed(1), pad.left + (ki / 4) * cw, pad.top + ch + 14); }
+    c2.textAlign = 'right';
+    for (var li = 0; li <= 4; li++) { var val2 = yMin + (li / 4) * (yMax - yMin); c2.fillText(val2.toFixed(1), pad.left - 5, pad.top + (1 - li / 4) * ch + 3); }
+    var colors = opts.colors || ['#00d4ff'];
+    series.forEach(function(s, si) { if (s.length < 2) return; c2.strokeStyle = colors[si % colors.length]; c2.lineWidth = 2; c2.beginPath();
+      s.forEach(function(d, idx) { var p = toC(d.x, d.y); if (idx === 0) c2.moveTo(p.x, p.y); else c2.lineTo(p.x, p.y); }); c2.stroke(); });
+  }
+
+  function updateCharts() {
+    var lam = lambda(), kVal = k(), omegaVal = omega();
+    // y-x snapshot
+    var snapData = [];
+    for (var x = 0; x <= CFG.L; x += CFG.L / 200) {
+      snapData.push({ x: x, y: 2 * CFG.A * Math.sin(kVal * x) * Math.cos(omegaVal * S.t) });
+    }
+    drawChart('chartYX', snapData, { colors: ['#58C4DD'] });
+
+    // y-t at midpoint
+    var midData = [];
+    var tStart = Math.max(0, S.t - 3);
+    for (var tt = tStart; tt <= S.t; tt += 0.02) {
+      midData.push({ x: tt, y: 2 * CFG.A * Math.sin(kVal * CFG.L / 2) * Math.cos(omegaVal * tt) });
+    }
+    drawChart('chartYT', midData, { colors: ['#ffd93d'] });
+
+    // Harmonic spectrum
+    var specData = [];
+    var maxN = 5;
+    for (var n = 1; n <= maxN; n++) {
+      var fn = CFG.freq * n / S.n;
+      var isActive = (n === S.n) ? 1 : 0;
+      specData.push({ x: fn, y: isActive });
+    }
+    // Draw as bars
+    var c = document.getElementById('chartSpec');
+    var c2 = c.getContext('2d'), dpr2 = window.devicePixelRatio || 1;
+    var W2 = c.width / dpr2, H2 = c.height / dpr2;
+    c2.setTransform(dpr2, 0, 0, dpr2, 0, 0); c2.clearRect(0, 0, W2, H2);
+    c2.fillStyle = '#161625'; c2.fillRect(0, 0, W2, H2);
+    var pad2 = { top: 28, right: 15, bottom: 22, left: 45 };
+    var cw2 = W2 - pad2.left - pad2.right, ch2 = H2 - pad2.top - pad2.bottom;
+    var maxFreq = CFG.freq * maxN / S.n + 1;
+    var barW = cw2 / (maxN + 1);
+    for (var bi = 1; bi <= maxN; bi++) {
+      var fn2 = CFG.freq * bi / S.n;
+      var bx = pad2.left + (fn2 / maxFreq) * cw2 - barW * 0.3;
+      var isActive2 = (bi === S.n);
+      var barH = isActive2 ? ch2 * 0.85 : ch2 * 0.1;
+      var barColor = isActive2 ? '#00d4ff' : '#333355';
+      c2.fillStyle = barColor;
+      c2.fillRect(bx, pad2.top + ch2 - barH, barW * 0.6, barH);
+      c2.fillStyle = isActive2 ? '#00d4ff' : '#666';
+      c2.font = '10px sans-serif'; c2.textAlign = 'center';
+      c2.fillText('n=' + bi, bx + barW * 0.3, pad2.top + ch2 + 14);
+    }
+    c2.fillStyle = '#555570'; c2.font = '10px sans-serif'; c2.textAlign = 'center';
+    c2.fillText('频率 (Hz)', pad2.left + cw2 / 2, H2 - 2);
+  }
+
+  function updateData() {
+    var lam = lambda(), kVal = k(), omegaVal = omega(), v = waveSpeed();
+    document.getElementById('dataN').textContent = S.n;
+    document.getElementById('dataAN').textContent = S.n;
+    document.getElementById('dataLam').innerHTML = lam.toFixed(2) + ' <span style="font-size:10px;color:#8888a0">m</span>';
+    document.getElementById('dataV').innerHTML = v.toFixed(2) + ' <span style="font-size:10px;color:#8888a0">m/s</span>';
+    document.getElementById('dataT').innerHTML = S.t.toFixed(2) + ' <span style="font-size:10px;color:#8888a0">s</span>';
+    document.getElementById('dataF').innerHTML = CFG.freq.toFixed(2) + ' <span style="font-size:10px;color:#8888a0">Hz</span>';
+    document.getElementById('fmLam').textContent = lam.toFixed(2);
+    document.getElementById('fmK').textContent = kVal.toFixed(2);
+    document.getElementById('fmOmega').textContent = omegaVal.toFixed(2);
+  }
+
+  var lastTime = 0, animId = null;
+
+  function animate(ts) {
+    if (!S.playing) return;
+    if (!lastTime) lastTime = ts;
+    var wallDt = Math.min((ts - lastTime) / 1000, 0.05);
+    lastTime = ts;
+    S.t += wallDt * CFG.timeScale;
+    drawSim(); updateData(); updateCharts();
+    if (S.playing) animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    S.playing = false; S.t = 0; lastTime = 0;
+    if (animId) cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent = '▶ 播放';
+    drawSim(); updateData(); updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click', function() {
+    S.playing = !S.playing;
+    document.getElementById('btnPlay').textContent = S.playing ? '⏸ 暂停' : '▶ 播放';
+    if (S.playing) { lastTime = 0; animId = requestAnimationFrame(animate); }
+  });
+  document.getElementById('btnReset').addEventListener('click', reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b) {
+    b.addEventListener('click', function() {
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x) { x.classList.remove('active'); });
+      b.classList.add('active'); CFG.timeScale = parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.querySelectorAll('.exp-toggle-btn[data-n]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.exp-toggle-btn[data-n]').forEach(function(x) { x.classList.remove('active'); });
+      btn.classList.add('active');
+      S.n = parseInt(btn.dataset.n);
+      reset();
+    });
+  });
+
+  document.querySelectorAll('.exp-toggle-btn[data-toggle]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var key = btn.dataset.toggle;
+      SHOW[key] = !SHOW[key]; btn.classList.toggle('active');
+      drawSim();
+    });
+  });
+
+  document.getElementById('sliderFreq').addEventListener('input', function() {
+    CFG.freq = parseFloat(this.value);
+    document.getElementById('valFreq').textContent = CFG.freq.toFixed(1) + ' Hz';
+    reset();
+  });
+  document.getElementById('sliderL').addEventListener('input', function() {
+    CFG.L = parseFloat(this.value);
+    document.getElementById('valL').textContent = CFG.L.toFixed(1) + ' m';
+    reset();
+  });
+  document.getElementById('sliderAmp').addEventListener('input', function() {
+    CFG.A = parseFloat(this.value);
+    document.getElementById('valAmp').textContent = CFG.A.toFixed(1);
+    drawSim();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function() { if (resizeTimer) clearTimeout(resizeTimer); resizeTimer = setTimeout(resizeAll, 100); });
+  resizeAll(); updateData();
+})();
+</script>
+{% endblock %}

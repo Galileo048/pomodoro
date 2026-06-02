@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+{% block title %}电场线与等势面 — 物理AI学习平台{% endblock %}
+{% block extra_head %}
+<style>
+  .exp-layout{display:flex;gap:0;height:calc(100vh - 120px);min-height:500px}
+  .exp-sim-area{flex:1;display:flex;flex-direction:column;min-width:0}
+  .exp-canvas-wrap{flex:1;position:relative;background:var(--bg,#0f0f1a);min-height:300px}
+  .exp-canvas-wrap canvas{display:block;width:100%;height:100%}
+  .exp-charts-area{height:180px;min-height:140px;display:flex;border-top:1px solid var(--border);background:var(--panel,#161625)}
+  .exp-chart-box{flex:1;position:relative;border-right:1px solid var(--border);min-width:0}
+  .exp-chart-box:last-child{border-right:none}
+  .exp-chart-box canvas{width:100%;height:100%}
+  .exp-chart-label{position:absolute;top:6px;left:10px;font-size:11px;font-weight:600;color:var(--text-muted);pointer-events:none;z-index:2}
+  .exp-side-panel{width:300px;min-width:260px;background:var(--panel,#161625);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+  .exp-panel-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+  .exp-panel-section h3{font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .exp-slider-group{margin-bottom:8px}
+  .exp-slider-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+  .exp-slider-label{font-size:12px;color:var(--text-primary)}
+  .exp-slider-value{font-size:12px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:5px;border-radius:3px;background:var(--border);outline:none;cursor:pointer}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent,#e94560);cursor:pointer;box-shadow:0 0 6px var(--accent,#e94560)}
+  .exp-btn-row{display:flex;gap:6px;margin-bottom:6px}
+  .exp-btn{flex:1;padding:8px 0;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .exp-btn-play{background:var(--accent,#e94560);color:#fff}
+  .exp-btn-play:hover{opacity:0.9}
+  .exp-btn-reset{background:var(--border);color:var(--text-primary)}
+  .exp-speed-btns{display:flex;gap:3px}
+  .exp-speed-btn{flex:1;padding:5px 0;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-speed-btn.active{background:var(--accent,#e94560);color:#fff;border-color:var(--accent,#e94560)}
+  .exp-toggle-row{display:flex;flex-wrap:wrap;gap:4px}
+  .exp-toggle-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-toggle-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.1)}
+  .exp-preset-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  .exp-preset-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--amber);background:transparent;color:var(--amber);font-size:11px;cursor:pointer;transition:all 0.2s}
+  .exp-preset-btn.active{background:var(--amber);color:#fff}
+  .exp-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .exp-data-item{background:rgba(255,255,255,0.03);border-radius:6px;padding:6px 8px;border:1px solid var(--border)}
+  .exp-data-item .label{font-size:10px;color:var(--text-muted);margin-bottom:1px}
+  .exp-data-item .value{font-size:14px;font-weight:700}
+  .exp-data-item .unit{font-size:10px;color:var(--text-muted);font-weight:400}
+  .c-efield{color:var(--cyan)}.c-pot{color:#ffd93d}.c-charge{color:#e94560}.c-accent{color:var(--accent,#e94560)}
+  .exp-formula-box{background:rgba(255,255,255,0.02);border-radius:6px;padding:8px 10px;border:1px solid var(--border);font-size:12px;line-height:1.8}
+  .exp-formula-box .formula{color:var(--amber);font-family:'Times New Roman',serif;font-style:italic}
+  .exp-formula-box .result{color:var(--green);font-weight:600}
+  @media(max-width:900px){.exp-layout{flex-direction:column;height:auto}.exp-side-panel{width:100%;border-left:none;border-top:1px solid var(--border)}.exp-canvas-wrap{height:50vh;min-height:250px}.exp-charts-area{height:160px}}
+  @media(max-width:600px){.exp-charts-area{flex-direction:column;height:auto}.exp-chart-box{height:100px;border-right:none;border-bottom:1px solid var(--border)}.exp-data-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block content %}
+<div style="padding:0;background:var(--bg,#0f0f1a);">
+  <div style="text-align:center;padding:10px 20px;background:linear-gradient(135deg,#1a1a30,#0f0f1a);border-bottom:1px solid var(--border);">
+    <div style="font-size:18px;font-weight:700;color:var(--cyan);">⚡ 电场线与等势面</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Electric Field Lines & Equipotential Surfaces — E = kQ/r², V = kQ/r</div>
+  </div>
+  <div style="padding:6px 20px;background:var(--bg,#0f0f1a);border-bottom:1px solid var(--border);">
+    <a href="/experiments" style="color:var(--cyan);text-decoration:none;font-size:13px;">← 返回实验列表</a>
+  </div>
+  <div class="exp-layout">
+    <div class="exp-sim-area">
+      <div class="exp-canvas-wrap"><canvas id="simCanvas"></canvas></div>
+      <div class="exp-charts-area">
+        <div class="exp-chart-box"><span class="exp-chart-label">E-r 平方反比</span><canvas id="chartEr"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">V-r 电势</span><canvas id="chartVr"></canvas></div>
+        <div class="exp-chart-box"><span class="exp-chart-label">场线密度</span><canvas id="chartDensity"></canvas></div>
+      </div>
+    </div>
+    <div class="exp-side-panel">
+      <div class="exp-panel-section">
+        <h3>⚙️ 预设场景</h3>
+        <div class="exp-preset-row">
+          <button class="exp-preset-btn active" data-preset="single-pos">正电荷</button>
+          <button class="exp-preset-btn" data-preset="single-neg">负电荷</button>
+          <button class="exp-preset-btn" data-preset="dipole">偶极子</button>
+          <button class="exp-preset-btn" data-preset="two-pos">两正电荷</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>⚙️ 参数设置</h3>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电荷量 Q₁</span><span class="exp-slider-value" id="valQ1">+5.0 μC</span></div>
+          <input type="range" id="sliderQ1" min="-10" max="10" step="0.5" value="5">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">电荷量 Q₂</span><span class="exp-slider-value" id="valQ2">0 μC</span></div>
+          <input type="range" id="sliderQ2" min="-10" max="10" step="0.5" value="0">
+        </div>
+        <div class="exp-slider-group">
+          <div class="exp-slider-header"><span class="exp-slider-label">场线密度</span><span class="exp-slider-value" id="valDensity">16</span></div>
+          <input type="range" id="sliderDensity" min="6" max="32" step="2" value="16">
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>▶️ 控制</h3>
+        <div class="exp-btn-row">
+          <button class="exp-btn exp-btn-play" id="btnPlay">▶ 播放</button>
+          <button class="exp-btn exp-btn-reset" id="btnReset">↺ 重置</button>
+        </div>
+        <div class="exp-speed-btns">
+          <button class="exp-speed-btn" data-speed="0.25">0.25x</button>
+          <button class="exp-speed-btn" data-speed="0.5">0.5x</button>
+          <button class="exp-speed-btn active" data-speed="1">1x</button>
+          <button class="exp-speed-btn" data-speed="2">2x</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>👁️ 显示选项</h3>
+        <div class="exp-toggle-row">
+          <button class="exp-toggle-btn active" data-toggle="fieldlines">电场线</button>
+          <button class="exp-toggle-btn active" data-toggle="equipotential">等势面</button>
+          <button class="exp-toggle-btn active" data-toggle="vectors">场强矢量</button>
+          <button class="exp-toggle-btn active" data-toggle="particles">场线粒子</button>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📊 实时数据</h3>
+        <div class="exp-data-grid">
+          <div class="exp-data-item"><div class="label">时间 t</div><div class="value c-accent" id="dataT">0.00 <span class="unit">s</span></div></div>
+          <div class="exp-data-item"><div class="label">最大场强</div><div class="value c-efield" id="dataEmax">— <span class="unit">N/C</span></div></div>
+          <div class="exp-data-item"><div class="label">Q₁ 电荷</div><div class="value c-charge" id="dataQ1">+5.0 <span class="unit">μC</span></div></div>
+          <div class="exp-data-item"><div class="label">Q₂ 电荷</div><div class="value" id="dataQ2" style="color:#4ecdc4">0 <span class="unit">μC</span></div></div>
+          <div class="exp-data-item"><div class="label">Q₁ 电势</div><div class="value c-pot" id="dataV1">— <span class="unit">V</span></div></div>
+          <div class="exp-data-item"><div class="label">Q₂ 电势</div><div class="value c-pot" id="dataV2">0 <span class="unit">V</span></div></div>
+        </div>
+      </div>
+      <div class="exp-panel-section">
+        <h3>📐 公式</h3>
+        <div class="exp-formula-box">
+          <div>E = kQ/r², k = 9×10⁹ N·m²/C²</div>
+          <div>V = kQ/r (标量)</div>
+          <div>等势面: V = const → 场线⊥等势面</div>
+          <div>场线密度 ∝ 场强大小</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  'use strict';
+  var K=9e9;
+  var CFG={q1:5e-6,q2:0,numLines:16,timeScale:1,SHOW:{fieldlines:true,equipotential:true,vectors:true,particles:true}};
+  var S={t:0,playing:false,particles:[]};
+  var canvas=document.getElementById('simCanvas'),ctx=canvas.getContext('2d');
+  var presets={
+    'single-pos':{q1:5e-6,q2:0},
+    'single-neg':{q1:-5e-6,q2:0},
+    'dipole':{q1:5e-6,q2:-5e-6},
+    'two-pos':{q1:5e-6,q2:5e-6}
+  };
+
+  function resizeAll(){
+    var dpr=window.devicePixelRatio||1;
+    [canvas].concat(document.querySelectorAll('.exp-chart-box canvas')).forEach(function(c){
+      var rect=c.parentElement.getBoundingClientRect();
+      var w=Math.round(rect.width*dpr),h=Math.round(rect.height*dpr);
+      if(c.width!==w||c.height!==h){c.width=w;c.height=h;c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);}
+    });
+    drawSim();updateCharts();
+  }
+
+  /* 计算某点的电场 */
+  function fieldAt(px,py,cx1,cy1,q1,cx2,cy2,q2){
+    var dx1=px-cx1,dy1=py-cy1;
+    var r1sq=dx1*dx1+dy1*dy1;
+    var r1=Math.sqrt(r1sq);
+    if(r1<5)return{x:0,y:0};
+    var e1=K*Math.abs(q1)/(r1sq);
+    var ex1=e1*dx1/r1*(q1>0?1:-1);
+    var ey1=e1*dy1/r1*(q1>0?1:-1);
+    var ex=ex1,ey=ey1;
+    if(Math.abs(q2)>1e-20){
+      var dx2=px-cx2,dy2=py-cy2;
+      var r2sq=dx2*dx2+dy2*dy2;
+      var r2=Math.sqrt(r2sq);
+      if(r2>5){
+        var e2=K*Math.abs(q2)/(r2sq);
+        ex+=e2*dx2/r2*(q2>0?1:-1);
+        ey+=e2*dy2/r2*(q2>0?1:-1);
+      }
+    }
+    return{x:ex,y:ey};
+  }
+
+  /* 计算电势 */
+  function potentialAt(px,py,cx1,cy1,q1,cx2,cy2,q2){
+    var dx1=px-cx1,dy1=py-cy1;
+    var r1=Math.sqrt(dx1*dx1+dy1*dy1);
+    if(r1<1)return 0;
+    var v=K*q1/r1;
+    if(Math.abs(q2)>1e-20){
+      var dx2=px-cx2,dy2=py-cy2;
+      var r2=Math.sqrt(dx2*dx2+dy2*dy2);
+      if(r2>1)v+=K*q2/r2;
+    }
+    return v;
+  }
+
+  function drawSim(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#0f0f1a';ctx.fillRect(0,0,W,H);
+
+    /* 网格 */
+    ctx.strokeStyle='#1a1a30';ctx.lineWidth=1;
+    for(var gx=0;gx<W;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<H;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    var cx1=W*0.4,cy1=H*0.5;
+    var cx2=W*0.65,cy2=H*0.5;
+    var hasSecond=Math.abs(CFG.q2)>1e-20;
+
+    /* 等势面 */
+    if(CFG.SHOW.equipotential){
+      var levels=[1e5,3e5,6e5,1e6,2e6,4e6,8e6];
+      var colors=['#2a1a3a','#3a2a4a','#4a3a5a','#5a4a6a','#6a5a7a','#7a6a8a','#8a7a9a'];
+      for(var li=0;li<levels.length;li++){
+        var Vlevel=levels[li];
+        ctx.strokeStyle=colors[li];ctx.lineWidth=1.5;ctx.globalAlpha=0.4;
+        /* 简化的圆形等势面 (单电荷情况) */
+        if(!hasSecond){
+          var r1=K*Math.abs(CFG.q1)/Vlevel;
+          var scale=Math.min(W,H)*0.004;
+          var rpix=r1*scale;
+          if(rpix>10&&rpix<Math.max(W,H)){
+            ctx.beginPath();ctx.arc(cx1,cy1,rpix,0,Math.PI*2);ctx.stroke();
+          }
+        }else{
+          /* 双电荷用等势线追踪 */
+          drawEquipotentialTrace(cx1,cy1,CFG.q1,cx2,cy2,CFG.q2,Vlevel,W,H,colors[li]);
+        }
+        ctx.globalAlpha=1;
+      }
+    }
+
+    /* 电场线 */
+    if(CFG.SHOW.fieldlines){
+      var numL=CFG.numLines;
+      var particles=[];
+      for(var i=0;i<numL;i++){
+        var angle=(i/numL)*Math.PI*2;
+        var startR=22;
+        var sx,sy,sq;
+        if(CFG.q1>0){sx=cx1+startR*Math.cos(angle);sy=cy1+startR*Math.sin(angle);sq=CFG.q1;}
+        else if(hasSecond&&CFG.q2>0){sx=cx2+startR*Math.cos(angle);sy=cy2+startR*Math.sin(angle);sq=CFG.q2;}
+        else if(CFG.q1<0){sx=cx1+startR*Math.cos(angle);sy=cy1+startR*Math.sin(angle);sq=CFG.q1;}
+        else{sx=cx2+startR*Math.cos(angle);sy=cy2+startR*Math.sin(angle);sq=CFG.q2;}
+
+        drawFieldLine(sx,sy,cx1,cy1,CFG.q1,cx2,cy2,CFG.q2,W,H,sq);
+      }
+    }
+
+    /* 矢量场 */
+    if(CFG.SHOW.vectors){
+      var step=60;
+      for(var vx=step;vx<W;vx+=step){
+        for(var vy=step;vy<H;vy+=step){
+          var field=fieldAt(vx,vy,cx1,cy1,CFG.q1,cx2,cy2,CFG.q2);
+          var mag=Math.sqrt(field.x*field.x+field.y*field.y);
+          if(mag<1)continue;
+          var logMag=Math.log10(mag+1);
+          var arrowLen=Math.min(logMag*4,25);
+          var nx=field.x/mag,ny=field.y/mag;
+          var alpha=Math.min(logMag/8,0.8);
+          ctx.strokeStyle='rgba(0,212,255,'+alpha+')';
+          ctx.lineWidth=1.5;
+          ctx.beginPath();
+          ctx.moveTo(vx- nx*arrowLen*0.5, vy-ny*arrowLen*0.5);
+          ctx.lineTo(vx+nx*arrowLen*0.5,vy+ny*arrowLen*0.5);
+          ctx.stroke();
+          /* 小箭头 */
+          var hx=vx+nx*arrowLen*0.5,hy=vy+ny*arrowLen*0.5;
+          ctx.fillStyle='rgba(0,212,255,'+alpha+')';
+          ctx.beginPath();
+          ctx.moveTo(hx,hy);
+          ctx.lineTo(hx-3*nx+2*ny,hy-3*ny-2*nx);
+          ctx.lineTo(hx-3*nx-2*ny,hy-3*ny+2*nx);
+          ctx.closePath();ctx.fill();
+        }
+      }
+    }
+
+    /* 粒子动画 */
+    if(CFG.SHOW.particles&&S.particles.length>0){
+      ctx.globalAlpha=0.7;
+      for(var pi=0;pi<S.particles.length;pi++){
+        var p=S.particles[pi];
+        ctx.fillStyle=p.color;
+        ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);ctx.fill();
+      }
+      ctx.globalAlpha=1;
+    }
+
+    /* 绘制电荷 */
+    if(Math.abs(CFG.q1)>1e-20) drawChargeIcon(ctx,cx1,cy1,CFG.q1,18);
+    if(hasSecond) drawChargeIcon(ctx,cx2,cy2,CFG.q2,18);
+
+    ctx.fillStyle='#8888a0';ctx.font='11px sans-serif';ctx.textAlign='left';
+    ctx.fillText('电场线密度 ∝ 场强 | 电场线 ⊥ 等势面',10,H-10);
+  }
+
+  function drawChargeIcon(c,x,y,q,r){
+    var isPos=q>0;
+    var color=isPos?'#ff6b6b':'#4ecdc4';
+    var glow=c.createRadialGradient(x,y,0,x,y,r*2.5);
+    glow.addColorStop(0,isPos?'rgba(255,107,107,0.3)':'rgba(78,205,196,0.3)');
+    glow.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=glow;c.beginPath();c.arc(x,y,r*2.5,0,Math.PI*2);c.fill();
+    var grad=c.createRadialGradient(x-2,y-2,1,x,y,r);
+    grad.addColorStop(0,isPos?'#ffa0a0':'#80e8e0');
+    grad.addColorStop(1,color);
+    c.fillStyle=grad;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();
+    c.strokeStyle=isPos?'#cc4444':'#2a9d8f';c.lineWidth=2;c.stroke();
+    c.fillStyle='#fff';c.font='bold 14px sans-serif';c.textAlign='center';c.textBaseline='middle';
+    c.fillText(isPos?'+':'−',x,y);c.textBaseline='alphabetic';
+    c.fillStyle='#ccc';c.font='10px sans-serif';
+    c.fillText((q*1e6).toFixed(1)+' μC',x,y+r+14);
+  }
+
+  function drawFieldLine(sx,sy,cx1,cy1,q1,cx2,cy2,q2,W,H,sq){
+    ctx.strokeStyle='rgba(120,140,255,0.35)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(sx,sy);
+    var x=sx,y=sy;
+    var steps=200;
+    var dt=2;
+    for(var s=0;s<steps;s++){
+      var f=fieldAt(x,y,cx1,cy1,q1,cx2,cy2,q2);
+      var mag=Math.sqrt(f.x*f.x+f.y*f.y);
+      if(mag<0.1)break;
+      x+=f.x/mag*dt;
+      y+=f.y/mag*dt;
+      if(x<0||x>W||y<0||y>H)break;
+      /* 靠近负电荷终止 */
+      var d1=Math.sqrt((x-cx1)*(x-cx1)+(y-cy1)*(y-cy1));
+      if(d1<18&&sq>0)break;
+      if(Math.abs(q2)>1e-20){
+        var d2=Math.sqrt((x-cx2)*(x-cx2)+(y-cy2)*(y-cy2));
+        if(d2<18&&q2<0)break;
+      }
+      ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    /* 箭头指示方向 */
+    var arrowX=sx+(x-sx)*0.6,arrowY=sy+(y-sy)*0.6;
+    var fx,fy,fm;
+    var ftmp=fieldAt(arrowX,arrowY,cx1,cy1,q1,cx2,cy2,q2);
+    fm=Math.sqrt(ftmp.x*ftmp.x+ftmp.y*ftmp.y);
+    if(fm>0.1){
+      var ux=ftmp.x/fm,uy=ftmp.y/fm;
+      ctx.fillStyle='rgba(120,140,255,0.5)';
+      ctx.beginPath();
+      ctx.moveTo(arrowX+ux*6,arrowY+uy*6);
+      ctx.lineTo(arrowX-ux*3+uy*3,arrowY-uy*3-ux*3);
+      ctx.lineTo(arrowX-ux*3-uy*3,arrowY-uy*3+ux*3);
+      ctx.closePath();ctx.fill();
+    }
+  }
+
+  function drawEquipotentialTrace(cx1,cy1,q1,cx2,cy2,q2,Vlevel,W,H,color){
+    /* 用 marching squares 简化绘制 */
+    var step=8;
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.globalAlpha=0.3;
+    for(var gx=0;gx<W;gx+=step){
+      for(var gy=0;gy<H;gy+=step){
+        var v00=potentialAt(gx,gy,cx1,cy1,q1,cx2,cy2,q2);
+        var v10=potentialAt(gx+step,gy,cx1,cy1,q1,cx2,cy2,q2);
+        var v01=potentialAt(gx,gy+step,cx1,cy1,q1,cx2,cy2,q2);
+        if((v00-Vlevel)*(v10-Vlevel)<0||(v00-Vlevel)*(v01-Vlevel)<0){
+          ctx.fillStyle=color;ctx.globalAlpha=0.5;
+          ctx.fillRect(gx,gy,2,2);
+        }
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function initParticles(){
+    S.particles=[];
+    if(!CFG.SHOW.particles)return;
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    var cx1=W*0.4,cy1=H*0.5;
+    var cx2=W*0.65,cy2=H*0.5;
+    var numL=CFG.numLines;
+    for(var i=0;i<numL;i++){
+      var angle=(i/numL)*Math.PI*2;
+      S.particles.push({
+        x:cx1+22*Math.cos(angle),y:cy1+22*Math.sin(angle),
+        angle:angle,source:1,
+        color:'rgba(200,200,255,0.8)',speed:0.5+Math.random()*0.5
+      });
+    }
+  }
+
+  function updateParticles(dt){
+    if(!CFG.SHOW.particles)return;
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    var cx1=W*0.4,cy1=H*0.5;
+    var cx2=W*0.65,cy2=H*0.5;
+    for(var i=S.particles.length-1;i>=0;i--){
+      var p=S.particles[i];
+      var f=fieldAt(p.x,p.y,cx1,cy1,CFG.q1,cx2,cy2,CFG.q2);
+      var mag=Math.sqrt(f.x*f.x+f.y*f.y);
+      if(mag<0.1||p.x<0||p.x>W||p.y<0||p.y>H){
+        /* 重置粒子 */
+        var angle=p.angle;
+        p.x=cx1+22*Math.cos(angle);p.y=cy1+22*Math.sin(angle);
+        continue;
+      }
+      p.x+=f.x/mag*p.speed*dt*30;
+      p.y+=f.y/mag*p.speed*dt*30;
+    }
+  }
+
+  function updateData(){
+    var dpr=window.devicePixelRatio||1;
+    var W=canvas.width/dpr,H=canvas.height/dpr;
+    var cx1=W*0.4,cy1=H*0.5;
+    var hasSecond=Math.abs(CFG.q2)>1e-20;
+    var cx2=W*0.65,cy2=H*0.5;
+
+    var scale=1/(1e-4);
+    var Emax1=K*Math.abs(CFG.q1)/(0.05*0.05)*scale;
+    var V1=K*CFG.q1/(0.1*scale)*scale;
+    document.getElementById('dataT').innerHTML=S.t.toFixed(2)+' <span class="unit">s</span>';
+    document.getElementById('dataEmax').innerHTML=Emax1.toExponential(1)+' <span class="unit">N/C</span>';
+    document.getElementById('dataQ1').innerHTML=(CFG.q1*1e6).toFixed(1)+' <span class="unit">μC</span>';
+    document.getElementById('dataQ2').innerHTML=(CFG.q2*1e6).toFixed(1)+' <span class="unit">μC</span>';
+    document.getElementById('dataV1').innerHTML=(CFG.q1*1e6*9).toFixed(0)+' <span class="unit">×10⁵ V</span>';
+    document.getElementById('dataV2').innerHTML=hasSecond?(CFG.q2*1e6*9).toFixed(0)+' <span class="unit">×10⁵ V</span>':'0 <span class="unit">V</span>';
+  }
+
+  function updateCharts(){
+    drawChartEr();
+    drawChartVr();
+    drawChartDensity();
+  }
+
+  function drawGenericChart(canvasId,series,opts){
+    var c=document.getElementById(canvasId);
+    var c2=c.getContext('2d'),dpr=window.devicePixelRatio||1;
+    var W=c.width/dpr,H=c.height/dpr;
+    c2.setTransform(dpr,0,0,dpr,0,0);c2.clearRect(0,0,W,H);
+    c2.fillStyle='#161625';c2.fillRect(0,0,W,H);
+    if(!series||series.length<2)return;
+    var pad={top:28,right:10,bottom:22,left:45};
+    var cw=W-pad.left-pad.right,ch=H-pad.top-pad.bottom;
+    if(cw<=0||ch<=0)return;
+    var xMin=series[0].x,xMax=series[series.length-1].x;
+    var yMin=Infinity,yMax=-Infinity;
+    series.forEach(function(d){if(d.y<yMin)yMin=d.y;if(d.y>yMax)yMax=d.y;});
+    if(yMax<=yMin){yMax=yMin+1;}
+    if(yMin>0)yMin=0;
+    var xR=xMax-xMin;if(xR===0)xR=1;
+    c2.strokeStyle='#1e1e35';c2.lineWidth=1;
+    for(var i=0;i<=4;i++){var gy=pad.top+(i/4)*ch;c2.beginPath();c2.moveTo(pad.left,gy);c2.lineTo(pad.left+cw,gy);c2.stroke();}
+    c2.fillStyle='#555570';c2.font='9px sans-serif';c2.textAlign='center';
+    for(var k=0;k<=4;k++){var val=xMin+(k/4)*(xMax-xMin);c2.fillText(val.toFixed(1),pad.left+(k/4)*cw,pad.top+ch+14);}
+    c2.textAlign='right';
+    for(var l=0;l<=4;l++){var val2=yMin+(l/4)*(yMax-yMin);c2.fillText(val2>1e4?val2.toExponential(1):val2.toFixed(1),pad.left-5,pad.top+(1-l/4)*ch+3);}
+
+    c2.strokeStyle=opts.color||'#ffd93d';c2.lineWidth=2;c2.beginPath();
+    series.forEach(function(d,i){
+      var px=pad.left+(d.x-xMin)/(xMax-xMin)*cw;
+      var py=pad.top+(1-(d.y-yMin)/(yMax-yMin))*ch;
+      if(i===0)c2.moveTo(px,py);else c2.lineTo(px,py);
+    });c2.stroke();
+
+    /* 当前值标记 */
+    if(opts.currentX!==undefined){
+      var cpx=pad.left+(opts.currentX-xMin)/(xMax-xMin)*cw;
+      var cpy=pad.top+(1-(opts.currentY-yMin)/(yMax-yMin))*ch;
+      c2.fillStyle='#e94560';c2.beginPath();c2.arc(cpx,cpy,4,0,Math.PI*2);c2.fill();
+    }
+    c2.fillStyle='#666';c2.font='9px sans-serif';c2.textAlign='center';
+    if(opts.xLabel)c2.fillText(opts.xLabel,pad.left+cw/2,pad.top+ch+20);
+  }
+
+  function drawChartEr(){
+    var data=[];
+    for(var r=0.1;r<=5;r+=0.05){
+      data.push({x:r,y:K*Math.abs(CFG.q1)/(r*r)});
+    }
+    drawGenericChart('chartEr',data,{color:'#00d4ff',xLabel:'r (m)'});
+  }
+
+  function drawChartVr(){
+    var data=[];
+    for(var r=0.1;r<=5;r+=0.05){
+      data.push({x:r,y:K*CFG.q1/r});
+    }
+    drawGenericChart('chartVr',data,{color:'#ffd93d',xLabel:'r (m)'});
+  }
+
+  function drawChartDensity(){
+    var data=[];
+    for(var r=0.5;r<=5;r+=0.1){
+      data.push({x:r,y:CFG.numLines/(2*Math.PI*r)});
+    }
+    drawGenericChart('chartDensity',data,{color:'#ce93d8',xLabel:'r (m)'});
+  }
+
+  var lastTime=0,animId=null;
+
+  function animate(ts){
+    if(!S.playing)return;
+    if(!lastTime)lastTime=ts;
+    var wallDt=Math.min((ts-lastTime)/1000,0.05);lastTime=ts;
+    var simDt=wallDt*CFG.timeScale;
+    S.t+=simDt;
+    updateParticles(simDt);
+    drawSim();updateData();
+    if(S.playing)animId=requestAnimationFrame(animate);
+  }
+
+  function reset(){
+    S.playing=false;S.t=0;lastTime=0;
+    if(animId)cancelAnimationFrame(animId);
+    document.getElementById('btnPlay').textContent='▶ 播放';
+    initParticles();drawSim();updateData();updateCharts();
+  }
+
+  document.getElementById('btnPlay').addEventListener('click',function(){
+    S.playing=!S.playing;
+    document.getElementById('btnPlay').textContent=S.playing?'⏸ 暂停':'▶ 播放';
+    if(S.playing){lastTime=0;animId=requestAnimationFrame(animate);}
+  });
+  document.getElementById('btnReset').addEventListener('click',reset);
+
+  document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.exp-speed-btn[data-speed]').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active');CFG.timeScale=parseFloat(b.dataset.speed);
+    });
+  });
+
+  document.querySelectorAll('.exp-toggle-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var key=btn.dataset.toggle;CFG.SHOW[key]=!CFG.SHOW[key];btn.classList.toggle('active');
+      initParticles();drawSim();
+    });
+  });
+
+  document.querySelectorAll('.exp-preset-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      document.querySelectorAll('.exp-preset-btn').forEach(function(b){b.classList.remove('active');});
+      btn.classList.add('active');
+      var p=presets[btn.dataset.preset];
+      if(p){
+        CFG.q1=p.q1;CFG.q2=p.q2;
+        document.getElementById('sliderQ1').value=CFG.q1*1e6;
+        document.getElementById('sliderQ2').value=CFG.q2*1e6;
+        document.getElementById('valQ1').textContent=(CFG.q1*1e6>0?'+':'')+(CFG.q1*1e6).toFixed(1)+' μC';
+        document.getElementById('valQ2').textContent=(CFG.q2*1e6>0?'+':'')+(CFG.q2*1e6).toFixed(1)+' μC';
+        reset();
+      }
+    });
+  });
+
+  document.getElementById('sliderQ1').addEventListener('input',function(){
+    CFG.q1=parseFloat(this.value)*1e-6;
+    document.getElementById('valQ1').textContent=(CFG.q1*1e6>0?'+':'')+(CFG.q1*1e6).toFixed(1)+' μC';
+    initParticles();drawSim();updateData();updateCharts();
+  });
+  document.getElementById('sliderQ2').addEventListener('input',function(){
+    CFG.q2=parseFloat(this.value)*1e-6;
+    document.getElementById('valQ2').textContent=(CFG.q2*1e6>0?'+':'')+(CFG.q2*1e6).toFixed(1)+' μC';
+    initParticles();drawSim();updateData();updateCharts();
+  });
+  document.getElementById('sliderDensity').addEventListener('input',function(){
+    CFG.numLines=parseInt(this.value);
+    document.getElementById('valDensity').textContent=CFG.numLines;
+    initParticles();drawSim();updateCharts();
+  });
+
+  var resizeTimer=null;
+  window.addEventListener('resize',function(){if(resizeTimer)clearTimeout(resizeTimer);resizeTimer=setTimeout(resizeAll,100);});
+  initParticles();resizeAll();updateData();
+})();
+</script>
+{% endblock %}
