@@ -46,34 +46,8 @@
 
         <!-- Nav links -->
         <ul class="nav-links" id="navLinks">
-            {% if current_user.is_authenticated and current_user.role == 'teacher' %}
-                <!-- 教师导航 -->
-                <li>
-                    <a href="{{ url_for('teacher.dashboard') }}"
-                       class="{% if request.endpoint and 'teacher' in request.endpoint %}active{% endif %}">
-                        &#127979; 教师控制台
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('teacher.classes') }}"
-                       class="{% if request.endpoint == 'teacher.classes' or request.endpoint == 'teacher.class_detail' %}active{% endif %}">
-                        &#128218; 班级管理
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('teacher.assignments') }}"
-                       class="{% if request.endpoint == 'teacher.assignments' or request.endpoint == 'teacher.assignment_detail' %}active{% endif %}">
-                        &#128221; 作业管理
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('teacher.statistics') }}"
-                       class="{% if request.endpoint == 'teacher.statistics' %}active{% endif %}">
-                        &#128202; 数据统计
-                    </a>
-                </li>
-            {% elif current_user.is_authenticated %}
-                <!-- 学生导航 -->
+            {% if current_user.is_authenticated %}
+                <!-- 已登录导航 -->
                 <li>
                     <a href="{{ url_for('student.dashboard') }}"
                        class="{% if request.endpoint == 'student.dashboard' %}active{% endif %}">
@@ -129,6 +103,20 @@
 
         <!-- Auth actions -->
         <div class="nav-actions">
+            <!-- 搜索按钮 -->
+            <a href="{{ url_for('search.search_page') }}"
+               class="nav-search-btn"
+               title="搜索 (Ctrl+K)"
+               style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:rgba(255,255,255,0.05); color:var(--text-secondary); text-decoration:none; transition:all 0.2s; font-size:1.1rem; gap:4px;">
+                🔍
+                <span style="font-size:0.65rem; font-family:var(--font-mono); opacity:0.5; background:rgba(255,255,255,0.08); padding:1px 4px; border-radius:3px;">⌘K</span>
+            </a>
+            <!-- 主题切换按钮 -->
+            <button id="themeToggle" onclick="toggleTheme()"
+                    title="切换主题"
+                    style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:rgba(255,255,255,0.05); border:none; color:var(--text-secondary); cursor:pointer; font-size:1.1rem; transition:all 0.2s;">
+                <span id="themeIcon">🌙</span>
+            </button>
             {% if current_user.is_authenticated %}
                 <div class="nav-user">
                     <div class="nav-user-avatar">
@@ -188,7 +176,31 @@
                 nav.classList.toggle('scrolled', window.scrollY > 20);
             }, { passive: true });
         }
+
+        // 主题初始化：从 localStorage 读取
+        var savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        var icon = document.getElementById('themeIcon');
+        if (icon) icon.textContent = savedTheme === 'light' ? '☀️' : '🌙';
+
+        // Ctrl+K 快捷键打开搜索
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                window.location.href = '/search';
+            }
+        });
     })();
+
+    // 主题切换
+    function toggleTheme() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        var next = current === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        document.getElementById('themeIcon').textContent = next === 'light' ? '☀️' : '🌙';
+    }
     </script>
 
     <!-- Page transition animations -->

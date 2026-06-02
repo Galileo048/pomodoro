@@ -23,12 +23,20 @@
         {% for video in videos %}
         <a href="{{ url_for('videos.video_play', video_id=video.id) }}"
            class="video-card"
-           data-chapter="{{ video.chapter or '' }}">
+           data-chapter="{{ video.chapter or '' }}"
+           data-video-id="{{ video.id }}">
             <div class="video-card-cover">
                 <div class="video-card-gradient" style="background: linear-gradient(135deg,
                     {% if loop.index0 % 4 == 0 %}#1a1a4e, #0d2a4a{% elif loop.index0 % 4 == 1 %}#2a1a3e, #1a0d3a{% elif loop.index0 % 4 == 2 %}#0d2a3a, #1a3a2a{% else %}#3a2a1a, #2a1a0d{% endif %});">
                     <div class="video-card-play-icon">&#9654;</div>
                 </div>
+                <!-- 收藏按钮 -->
+                {% if current_user.is_authenticated %}
+                <button class="card-fav-btn" onclick="event.preventDefault(); event.stopPropagation(); toggleCardFavorite('video', {{ video.id }}, this);"
+                        style="position:absolute; top:10px; right:10px; width:32px; height:32px; border-radius:50%; border:none; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; z-index:2;">
+                    🤍
+                </button>
+                {% endif %}
                 <div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); color:#fff; padding:3px 8px; border-radius:6px; font-family:var(--font-mono); font-size:0.75rem;">
                     {{ video.duration or '5:00' }}
                 </div>
@@ -58,6 +66,7 @@
 {% block extra_scripts %}
 <script>
 (function() {
+    // 筛选标签切换
     var tabs = document.querySelectorAll('.filter-tab');
     var cards = document.querySelectorAll('.video-card');
     tabs.forEach(function(tab) {
@@ -74,6 +83,49 @@
             });
         });
     });
+
+    // 加载所有收藏状态
+    {% if current_user.is_authenticated %}
+    cards.forEach(function(card) {
+        var vid = card.getAttribute('data-video-id');
+        if (vid) {
+            fetch('/api/favorites/check?item_type=video&item_id=' + vid)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.is_favorite) {
+                        var btn = card.querySelector('.card-fav-btn');
+                        if (btn) {
+                            btn.textContent = '❤️';
+                            btn.style.color = '#ff4466';
+                        }
+                    }
+                });
+        }
+    });
+    {% endif %}
 })();
+
+// 卡片收藏切换
+function toggleCardFavorite(itemType, itemId, btn) {
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    fetch('/api/favorites/toggle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ item_type: itemType, item_id: itemId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.is_favorite) {
+            btn.textContent = '❤️';
+            btn.style.color = '#ff4466';
+        } else {
+            btn.textContent = '🤍';
+            btn.style.color = '#fff';
+        }
+    });
+}
 </script>
 {% endblock %}

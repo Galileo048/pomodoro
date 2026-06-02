@@ -38,16 +38,12 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/')
 def index():
     """
-    首页 - 根据登录状态重定向
+    首页 - 显示 Hero 区域和平台介绍
 
-    已登录 → 跳转到视频列表页
-    未登录 → 跳转到登录页
+    已登录 → 显示学习控制台入口
+    未登录 → 显示注册引导
     """
-    if current_user.is_authenticated:
-        if current_user.role == 'teacher':
-            return redirect(url_for('teacher.dashboard'))
-        return redirect(url_for('student.dashboard'))
-    return redirect(url_for('auth.login'))
+    return render_template('index.html')
 
 
 # ============================================================
@@ -106,11 +102,9 @@ def login():
         if next_page and urlparse(next_page).netloc:
             next_page = None
 
-        # 根据角色跳转到不同首页
+        # 登录后跳转
         if next_page:
             return redirect(next_page)
-        if user.role == 'teacher':
-            return redirect(url_for('teacher.dashboard'))
         return redirect(url_for('student.dashboard'))
 
     # GET 请求：显示登录表单
@@ -142,7 +136,6 @@ def register():
         confirm = request.form.get('confirm_password', '')
         email = request.form.get('email', '').strip()
         grade = request.form.get('grade', '高一')
-        role = request.form.get('role', 'student')
 
         # ---- 表单验证 ----
 
@@ -172,9 +165,7 @@ def register():
             return render_template('register.html')
 
         # ---- 创建用户 ----
-        if role not in ('student', 'teacher'):
-            role = 'student'
-        user = User(username=username, email=email, grade=grade, role=role)
+        user = User(username=username, email=email, grade=grade)
         user.set_password(password)  # 生成密码哈希
         db.session.add(user)
         db.session.commit()

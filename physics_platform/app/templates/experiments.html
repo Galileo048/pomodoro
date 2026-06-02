@@ -29,12 +29,19 @@
             <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem; letter-spacing:1px;">PHYSICS</div>
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0.7rem;">
                 {% for exp in phys %}
-                <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}" class="card-dark" style="text-decoration:none; padding:0.9rem 1rem; display:block;">
-                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.15rem;">
-                        <span style="width:6px; height:6px; border-radius:50%; background:{{ level_color }}; flex-shrink:0;"></span>
-                        <span style="font-size:0.88rem; font-weight:600; color:var(--text-bright);">{{ exp.title }}</span>
+                <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}" class="card-dark experiment-card" style="text-decoration:none; padding:1rem 1.1rem; display:block; position:relative;" data-exp-id="{{ exp.id }}">
+                    <div class="experiment-card-header">
+                        <span class="experiment-dot" style="background:{{ level_color }};"></span>
+                        <span class="experiment-title">{{ exp.title }}</span>
                     </div>
-                    <div style="font-size:0.72rem; color:var(--text-muted); line-height:1.3; padding-left:12px;">{{ exp.description }}</div>
+                    <div class="experiment-desc">{{ exp.description }}</div>
+                    {% if current_user.is_authenticated %}
+                    <button class="card-fav-btn" onclick="event.preventDefault(); event.stopPropagation(); toggleCardFavorite('experiment', '{{ exp.id }}', this);"
+                            style="position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:50%; border:none; background:rgba(255,255,255,0.06); color:var(--text-muted); font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; opacity:0;"
+                            onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">
+                        🤍
+                    </button>
+                    {% endif %}
                 </a>
                 {% endfor %}
             </div>
@@ -45,12 +52,19 @@
             <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.4rem; letter-spacing:1px;">MATH</div>
             <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:0.7rem;">
                 {% for exp in math_list %}
-                <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}" class="card-dark" style="text-decoration:none; padding:0.9rem 1rem; display:block;">
-                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.15rem;">
-                        <span style="width:6px; height:6px; border-radius:50%; background:{{ level_color }}; flex-shrink:0;"></span>
-                        <span style="font-size:0.88rem; font-weight:600; color:var(--text-bright);">{{ exp.title }}</span>
+                <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}" class="card-dark experiment-card" style="text-decoration:none; padding:1rem 1.1rem; display:block; position:relative;" data-exp-id="{{ exp.id }}">
+                    <div class="experiment-card-header">
+                        <span class="experiment-dot" style="background:{{ level_color }};"></span>
+                        <span class="experiment-title">{{ exp.title }}</span>
                     </div>
-                    <div style="font-size:0.72rem; color:var(--text-muted); line-height:1.3; padding-left:12px;">{{ exp.description }}</div>
+                    <div class="experiment-desc">{{ exp.description }}</div>
+                    {% if current_user.is_authenticated %}
+                    <button class="card-fav-btn" onclick="event.preventDefault(); event.stopPropagation(); toggleCardFavorite('experiment', '{{ exp.id }}', this);"
+                            style="position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:50%; border:none; background:rgba(255,255,255,0.06); color:var(--text-muted); font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.3s; opacity:0;"
+                            onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0'">
+                        🤍
+                    </button>
+                    {% endif %}
                 </a>
                 {% endfor %}
             </div>
@@ -67,6 +81,48 @@ function filterExps(level, btn) {
     btn.classList.add('active');
     document.querySelectorAll('.level-section').forEach(function(section) {
         section.style.display = (level === 'all' || section.dataset.level === level) ? '' : 'none';
+    });
+}
+
+// 加载收藏状态
+{% if current_user.is_authenticated %}
+document.querySelectorAll('.experiment-card[data-exp-id]').forEach(function(card) {
+    var expId = card.getAttribute('data-exp-id');
+    fetch('/api/favorites/check?item_type=experiment&item_id=' + encodeURIComponent(expId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.is_favorite) {
+                var btn = card.querySelector('.card-fav-btn');
+                if (btn) {
+                    btn.textContent = '❤️';
+                    btn.style.color = '#ff4466';
+                    btn.style.opacity = '1';
+                }
+            }
+        });
+});
+{% endif %}
+
+// 切换收藏
+function toggleCardFavorite(itemType, itemId, btn) {
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    fetch('/api/favorites/toggle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ item_type: itemType, item_id: itemId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.is_favorite) {
+            btn.textContent = '❤️';
+            btn.style.color = '#ff4466';
+        } else {
+            btn.textContent = '🤍';
+            btn.style.color = 'var(--text-muted)';
+        }
     });
 }
 </script>

@@ -55,7 +55,6 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     email = db.Column(db.String(100))
     grade = db.Column(db.String(10), default='高一')
-    role = db.Column(db.String(10), default='student')  # 'student' 或 'teacher'
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     last_login = db.Column(db.DateTime)
 
@@ -229,6 +228,12 @@ class QuizRecord(db.Model):
     # 使用方法：record.question → Question 对象
     question = db.relationship('Question', backref='records')
 
+    # 数据库索引：加速按用户查询答题记录
+    __table_args__ = (
+        db.Index('idx_quiz_user_id', 'user_id'),
+        db.Index('idx_quiz_question_id', 'question_id'),
+    )
+
 
 # ============================================================
 # 观看记录模型
@@ -265,130 +270,42 @@ class WatchRecord(db.Model):
     # 关系定义：record.video → Video 对象
     video = db.relationship('Video', backref='watch_records')
 
+    # 数据库索引：加速按用户查询观看记录
+    __table_args__ = (
+        db.Index('idx_watch_user_id', 'user_id'),
+        db.Index('idx_watch_video_id', 'video_id'),
+    )
+
 
 # ============================================================
-# 班级模型
+# 收藏模型
 # ============================================================
-class Class(db.Model):
+class Favorite(db.Model):
     """
-    班级模型 - 对应 classes 表
+    收藏模型 - 对应 favorites 表
 
-    教师创建班级，学生通过邀请码加入。
+    记录用户收藏的视频或实验，支持：
+    1. 收藏/取消收藏切换
+    2. 按类型区分（video / experiment）
+    3. 唯一约束防止重复收藏
 
     属性：
-        id:             班级 ID（主键）
-        name:           班级名称（如"高三(1)班"）
-        teacher_id:     班主任用户 ID（外键 → users.id）
-        invite_code:    班级邀请码（唯一，学生用此加入班级）
-        created_at:     创建时间
+        id:         主键
+        user_id:    用户 ID（外键）
+        item_type:  收藏类型（'video' 或 'experiment'）
+        item_id:    收藏对象 ID（视频 ID 或实验文件名）
+        created_at: 收藏时间
     """
-    __tablename__ = 'classes'
+    __tablename__ = 'favorites'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    invite_code = db.Column(db.String(20), unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    item_type = db.Column(db.String(20), nullable=False)  # 'video' / 'experiment'
+    item_id = db.Column(db.String(100), nullable=False)   # 视频ID 或 实验文件名
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
 
-    # 关系
-    teacher = db.relationship('User', backref='taught_classes')
-    members = db.relationship('ClassMember', backref='class_obj', lazy='dynamic')
-    assignments = db.relationship('Assignment', backref='class_obj', lazy='dynamic')
-
-
-# ============================================================
-# 班级成员模型
-# ============================================================
-class ClassMember(db.Model):
-    """
-    班级成员模型 - 对应 class_members 表
-
-    记录学生加入班级的关系。
-
-    属性：
-        id:         记录 ID（主键）
-        class_id:   班级 ID（外键 → classes.id）
-        student_id: 学生用户 ID（外键 → users.id）
-        joined_at:  加入时间
-    """
-    __tablename__ = 'class_members'
-
-    id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    joined_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-
-    # 关系
-    student = db.relationship('User', backref='student_classes')
-
-    # 唯一约束：一个学生在一个班级中只能有一条记录
-    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'),)
-
-
-# ============================================================
-# 作业模型
-# ============================================================
-class Assignment(db.Model):
-    """
-    作业模型 - 对应 assignments 表
-
-    教师发布作业，关联知识点和题目数量。
-
-    属性：
-        id:             作业 ID（主键）
-        class_id:       班级 ID（外键 → classes.id）
-        teacher_id:     教师用户 ID（外键 → users.id）
-        title:          作业标题
-        description:    作业描述
-        topic_ids:      关联知识点 ID 列表（JSON 格式字符串）
-        question_count: 题目数量（默认 10）
-        due_date:       截止日期
-        created_at:     创建时间
-    """
-    __tablename__ = 'assignments'
-
-    id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    topic_ids = db.Column(db.Text)  # JSON 格式: '["kinematics_01","kinematics_02"]'
-    question_count = db.Column(db.Integer, default=10)
-    due_date = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-
-    # 关系
-    teacher = db.relationship('User', backref='created_assignments')
-    records = db.relationship('AssignmentRecord', backref='assignment', lazy='dynamic')
-
-
-# ============================================================
-# 作业完成记录模型
-# ============================================================
-class AssignmentRecord(db.Model):
-    """
-    作业完成记录模型 - 对应 assignment_records 表
-
-    记录学生完成作业的情况。
-
-    属性：
-        id:             记录 ID（主键）
-        assignment_id:  作业 ID（外键 → assignments.id）
-        student_id:     学生用户 ID（外键 → users.id）
-        score:          得分
-        correct_count:  正确题数
-        total_count:    总题数
-        completed_at:   完成时间
-    """
-    __tablename__ = 'assignment_records'
-
-    id = db.Column(db.Integer, primary_key=True)
-    assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    score = db.Column(db.Integer)
-    correct_count = db.Column(db.Integer)
-    total_count = db.Column(db.Integer)
-    completed_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
-
-    # 关系
-    student = db.relationship('User', backref='assignment_records')
+    # 唯一约束：同一用户不能重复收藏同一项目
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'item_type', 'item_id', name='uq_user_favorite'),
+        db.Index('idx_fav_user_id', 'user_id'),
+    )

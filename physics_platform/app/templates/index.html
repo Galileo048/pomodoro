@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}高中物理 AI 自适应学习平台 — Kinetic M&P{% endblock %}
+
+{% block content %}
+<!-- ========== Hero Section ========== -->
+<section class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">
+            🚀 高中物理 AI 自适应学习平台
+        </h1>
+        <p class="hero-subtitle">
+            Manim 动画视频 + 交互式实验 + AI 智能诊断
+        </p>
+        <div class="hero-features">
+            <div class="feature-tag">📹 100+ 动画视频</div>
+            <div class="feature-tag">🔬 79 交互实验</div>
+            <div class="feature-tag">🤖 AI 智能推荐</div>
+            <div class="feature-tag">📊 学习诊断</div>
+        </div>
+        <div class="hero-actions">
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+                立即开始学习
+            </a>
+            <a href="{{ url_for('videos.video_list') }}" class="btn btn-ghost btn-lg">
+                浏览视频
+            </a>
+        </div>
+    </div>
+    <div class="hero-visual">
+        <canvas id="heroCanvas"></canvas>
+    </div>
+</section>
+
+<!-- ========== Features Section ========== -->
+<section class="features-section">
+    <h2 class="section-title">平台特色</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🎬</div>
+            <h3>Manim 动画视频</h3>
+            <p>抽象物理概念可视化，像 3Blue1Brown 一样理解物理</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔬</div>
+            <h3>交互式实验</h3>
+            <p>79 个 Canvas 动画实验，动手探索物理规律</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>AI 智能诊断</h3>
+            <p>精准定位薄弱知识点，个性化学习建议</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>学习报告</h3>
+            <p>ECharts 数据可视化，直观掌握学习进度</p>
+        </div>
+    </div>
+</section>
+
+<!-- ========== Stats Section ========== -->
+<section class="stats-section">
+    <div class="stat-item">
+        <div class="stat-number">4</div>
+        <div class="stat-label">Manim 动画视频</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">79</div>
+        <div class="stat-label">交互式实验</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">40+</div>
+        <div class="stat-label">测试题目</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">AI</div>
+        <div class="stat-label">智能诊断</div>
+    </div>
+</section>
+
+<!-- ========== CTA Section ========== -->
+<section class="cta-section">
+    <h2>准备好开始学习了吗？</h2>
+    <p>注册账号，立即体验 AI 自适应学习</p>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+        免费注册
+    </a>
+</section>
+
+<!-- ========== Particle Animation ========== -->
+<script>
+(function() {
+    const canvas = document.getElementById('heroCanvas');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let animationId;
+
+    function resize() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    }
+
+    function createParticles() {
+        particles = [];
+        const count = Math.floor((canvas.width * canvas.height) / 15000);
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                radius: Math.random() * 2 + 1,
+                color: Math.random() > 0.5 ? '#00d4ff' : '#00ff88'
+            });
+        }
+    }
+
+    function drawParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw connections
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 120) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = `rgba(0, 212, 255, ${0.15 * (1 - dist / 120)})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // Draw particles
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+
+            // Update position
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Bounce off edges
+            if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+            if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        });
+
+        animationId = requestAnimationFrame(drawParticles);
+    }
+
+    resize();
+    createParticles();
+    drawParticles();
+
+    window.addEventListener('resize', () => {
+        resize();
+        createParticles();
+    });
+
+    // Pause animation when not visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            cancelAnimationFrame(animationId);
+        } else {
+            drawParticles();
+        }
+    });
+})();
+</script>
+{% endblock %}

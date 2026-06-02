@@ -60,6 +60,16 @@
                     难度 {{ video.difficulty }}/5
                 </span>
                 {% endif %}
+
+                <!-- 收藏按钮 -->
+                {% if current_user.is_authenticated and video %}
+                <button class="favorite-btn" id="favBtn"
+                        onclick="toggleFavorite('video', {{ video.id }})"
+                        style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:999px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:var(--text-secondary); cursor:pointer; font-size:0.82rem; font-family:var(--font-sans); transition:all 0.3s ease;">
+                    <span id="favIcon">🤍</span>
+                    <span id="favText">收藏</span>
+                </button>
+                {% endif %}
             </div>
 
             <!-- 做题模式选择 -->
@@ -223,6 +233,59 @@
     if (videoId && window.PhysicsProgress) {
         window.PhysicsProgress.init(videoId, player);
     }
+
+    // 初始化收藏状态
+    if (videoId) {
+        checkFavoriteStatus('video', videoId);
+    }
 })();
+
+// 检查收藏状态
+function checkFavoriteStatus(itemType, itemId) {
+    fetch('/api/favorites/check?item_type=' + itemType + '&item_id=' + itemId)
+        .then(r => r.json())
+        .then(data => {
+            updateFavButton(data.is_favorite);
+        });
+}
+
+// 切换收藏
+function toggleFavorite(itemType, itemId) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    fetch('/api/favorites/toggle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ item_type: itemType, item_id: itemId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        updateFavButton(data.is_favorite);
+    });
+}
+
+// 更新收藏按钮样式
+function updateFavButton(isFav) {
+    const btn = document.getElementById('favBtn');
+    const icon = document.getElementById('favIcon');
+    const text = document.getElementById('favText');
+    if (!btn) return;
+
+    if (isFav) {
+        icon.textContent = '❤️';
+        text.textContent = '已收藏';
+        btn.style.borderColor = 'var(--red-dim)';
+        btn.style.color = 'var(--red)';
+        btn.style.background = 'rgba(255, 68, 102, 0.08)';
+    } else {
+        icon.textContent = '🤍';
+        text.textContent = '收藏';
+        btn.style.borderColor = 'rgba(255,255,255,0.1)';
+        btn.style.color = 'var(--text-secondary)';
+        btn.style.background = 'transparent';
+    }
+}
 </script>
 {% endblock %}

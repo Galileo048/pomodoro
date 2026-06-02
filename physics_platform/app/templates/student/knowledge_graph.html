@@ -29,51 +29,58 @@
 </div>
 
 <script>
-const graphChart = echarts.init(document.getElementById('knowledgeGraph'));
-const nodes = {{ graph_nodes | tojson }};
-const links = {{ graph_links | tojson }};
+var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+var graphBg = isLight ? '#ffffff' : '#151a3a';
+var graphBorder = isLight ? '#e0e4ea' : '#0a0e27';
+var graphLabel = isLight ? '#1a1a2e' : '#e8eaf6';
+var graphLine = isLight ? '#c0c4cc' : '#5a6480';
 
-const statusColors = {
+var graphChart = echarts.init(document.getElementById('knowledgeGraph'));
+var nodes = {{ graph_nodes | tojson }};
+var links = {{ graph_links | tojson }};
+
+var statusColors = {
     'mastered': '#00ff88',
     'learning': '#ffb800',
     'weak': '#ff4466',
-    'locked': '#5a6480'
+    'locked': isLight ? '#b0b4c0' : '#5a6480'
 };
 
-const statusSizes = {
+var statusSizes = {
     'mastered': 30,
     'learning': 25,
     'weak': 25,
     'locked': 18
 };
 
-const statusLabels = {
+var statusLabels = {
     'mastered': '已掌握',
     'learning': '学习中',
     'weak': '需加强',
     'locked': '未解锁'
 };
 
-const formattedNodes = nodes.map(node => ({
-    ...node,
-    itemStyle: { color: statusColors[node.status] || '#5a6480', borderColor: '#0a0e27', borderWidth: 2 },
-    symbolSize: statusSizes[node.status] || 18,
-    label: {
-        show: true,
-        formatter: node.name,
-        color: '#e8eaf6',
-        fontSize: 12,
-        fontWeight: 500
-    }
-}));
+var formattedNodes = nodes.map(function(node) {
+    return Object.assign({}, node, {
+        itemStyle: { color: statusColors[node.status] || (isLight ? '#b0b4c0' : '#5a6480'), borderColor: graphBorder, borderWidth: 2 },
+        symbolSize: statusSizes[node.status] || 18,
+        label: {
+            show: true,
+            formatter: node.name,
+            color: graphLabel,
+            fontSize: 12,
+            fontWeight: 500
+        }
+    });
+});
 
 graphChart.setOption({
     tooltip: {
         formatter: function(params) {
             if (params.dataType === 'node') {
-                return `<b>${params.data.name}</b><br/>` +
-                       `状态: ${statusLabels[params.data.status] || '未知'}<br/>` +
-                       `正确率: ${params.data.accuracy || 0}%`;
+                return '<b>' + params.data.name + '</b><br/>' +
+                       '状态: ' + (statusLabels[params.data.status] || '未知') + '<br/>' +
+                       '正确率: ' + (params.data.accuracy || 0) + '%';
             }
             return '';
         }
@@ -91,7 +98,7 @@ graphChart.setOption({
             gravity: 0.1
         },
         lineStyle: {
-            color: '#5a6480',
+            color: graphLine,
             width: 1.5,
             curveness: 0.2
         },
@@ -104,17 +111,17 @@ graphChart.setOption({
 
 graphChart.on('click', function(params) {
     if (params.dataType === 'node') {
-        const detail = document.getElementById('nodeDetail');
+        var detail = document.getElementById('nodeDetail');
         document.getElementById('nodeName').textContent = params.data.name;
         document.getElementById('nodeDesc').textContent = statusLabels[params.data.status] || '';
         document.getElementById('nodeStats').innerHTML =
-            `正确率: <b style="color:${statusColors[params.data.status]}">${params.data.accuracy || 0}%</b>`;
-        document.getElementById('nodeLink').href = `/videos?topic=${params.data.id}`;
+            '正确率: <b style="color:' + statusColors[params.data.status] + '">' + (params.data.accuracy || 0) + '%</b>';
+        document.getElementById('nodeLink').href = '/videos?topic=' + params.data.id;
         detail.style.display = 'block';
     }
 });
 
-window.addEventListener('resize', () => graphChart.resize());
+window.addEventListener('resize', function() { graphChart.resize(); });
 
 // 点击空白处关闭详情
 graphChart.getZr().on('click', function(e) {

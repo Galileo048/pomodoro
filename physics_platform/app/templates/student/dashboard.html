@@ -4,7 +4,7 @@
 <div class="dashboard-container">
     <div class="page-header">
         <h1>🎓 我的学习</h1>
-        <p>查看学习进度、完成作业、提升物理成绩</p>
+        <p>查看学习进度、提升物理成绩</p>
     </div>
 
     <!-- Flash messages -->
@@ -42,61 +42,49 @@
         </div>
     </div>
 
-    <!-- 我的班级 -->
+    <!-- 最近学习 -->
+    {% if recent_videos %}
     <section class="dashboard-section">
-        <h2>📚 我的班级</h2>
-        {% if my_class %}
-        <div class="class-card" style="max-width:500px;">
-            <div class="class-header">
-                <h3>{{ my_class.name }}</h3>
-            </div>
-            <div class="class-info">
-                <div>班主任: {{ my_class.teacher_name }}</div>
-            </div>
-            <div class="class-actions">
-                <a href="{{ url_for('student.class_page') }}" class="btn btn-primary btn-sm">进入班级</a>
-            </div>
-        </div>
-        {% else %}
-        <div class="join-class-box">
-            <p>还没有加入班级</p>
-            <form action="{{ url_for('student.join_class') }}" method="POST" class="join-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="text" name="invite_code" placeholder="输入班级邀请码" class="form-input-dark" required>
-                <button type="submit" class="btn btn-primary">加入</button>
-            </form>
-        </div>
-        {% endif %}
-    </section>
-
-    <!-- 待完成作业 -->
-    <section class="dashboard-section">
-        <h2>📝 待完成作业</h2>
-        {% if pending_assignments %}
-        <div class="assignment-list">
-            {% for assignment in pending_assignments %}
-            <div class="assignment-item {% if assignment.is_urgent %}urgent{% endif %}">
-                <div class="assignment-info">
-                    <h4>{{ assignment.title }}</h4>
-                    <span class="assignment-subject">{{ assignment.topic_names }}</span>
+        <h2>📖 最近学习</h2>
+        <div class="recent-list">
+            {% for v in recent_videos %}
+            <a href="{{ url_for('videos.video_play', video_id=v.id) }}" class="recent-item card-dark" style="display:flex; align-items:center; gap:1rem; padding:0.8rem 1rem; text-decoration:none; color:inherit;">
+                <div style="width:48px; height:48px; border-radius:10px; background:linear-gradient(135deg, #1a1a4e, #0d2a4a); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">▶</div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.92rem; font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ v.title }}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">{{ v.chapter }}</div>
                 </div>
-                <div class="assignment-deadline">
-                    {% if assignment.days_left is not none %}
-                        {% if assignment.days_left > 0 %}
-                        <span class="days-left">还剩 {{ assignment.days_left }} 天</span>
-                        {% else %}
-                        <span class="days-left overdue">已截止</span>
-                        {% endif %}
-                    {% endif %}
+                <div style="text-align:right; flex-shrink:0;">
+                    <div style="font-family:var(--font-mono); font-size:0.85rem; font-weight:600; color:var(--cyan);">{{ v.progress }}%</div>
+                    <div style="width:60px; height:4px; background:var(--bg-input); border-radius:2px; margin-top:4px; overflow:hidden;">
+                        <div style="width:{{ v.progress }}%; height:100%; background:var(--cyan); border-radius:2px;"></div>
+                    </div>
                 </div>
-                <a href="{{ url_for('student.do_assignment', assignment_id=assignment.id) }}" class="btn btn-primary btn-sm">去做</a>
-            </div>
+            </a>
             {% endfor %}
         </div>
-        {% else %}
-        <p class="empty-text">暂无待完成作业 🎉</p>
-        {% endif %}
     </section>
+    {% endif %}
+
+    <!-- 我的收藏 -->
+    {% if favorites %}
+    <section class="dashboard-section">
+        <h2>❤️ 我的收藏</h2>
+        <div class="recent-list">
+            {% for fav in favorites %}
+            <a href="{{ fav.url }}" class="recent-item card-dark" style="display:flex; align-items:center; gap:1rem; padding:0.8rem 1rem; text-decoration:none; color:inherit;">
+                <div style="width:48px; height:48px; border-radius:10px; background:{% if fav.type == 'video' %}linear-gradient(135deg, #1a1a4e, #0d2a4a){% else %}linear-gradient(135deg, #2a1a3e, #1a0d3a){% endif %}; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
+                    {% if fav.type == 'video' %}📹{% else %}🔬{% endif %}
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.92rem; font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ fav.title }}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">{{ '视频' if fav.type == 'video' else '实验' }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
     <!-- 薄弱知识点 -->
     <section class="dashboard-section">
@@ -107,7 +95,7 @@
             <div class="topic-card weak">
                 <span class="topic-name">{{ topic.name }}</span>
                 <span class="topic-accuracy">正确率 {{ topic.accuracy }}%</span>
-                <a href="{{ url_for('videos.video_list', topic=topic.id) }}" class="btn btn-ghost btn-sm">复习</a>
+                <a href="{{ url_for('videos.video_list') }}" class="btn btn-ghost btn-sm">复习</a>
             </div>
             {% endfor %}
         </div>
@@ -120,6 +108,14 @@
     <section class="dashboard-section">
         <h2>🚀 快捷入口</h2>
         <div class="quick-actions">
+            <a href="{{ url_for('videos.video_list') }}" class="action-card">
+                <span class="action-icon">▶️</span>
+                <span class="action-text">视频学习</span>
+            </a>
+            <a href="{{ url_for('experiments.experiment_list') }}" class="action-card">
+                <span class="action-icon">🔬</span>
+                <span class="action-text">交互动画</span>
+            </a>
             <a href="{{ url_for('student.report') }}" class="action-card">
                 <span class="action-icon">📊</span>
                 <span class="action-text">学习报告</span>
@@ -131,6 +127,10 @@
             <a href="{{ url_for('student.knowledge_graph') }}" class="action-card">
                 <span class="action-icon">🕸️</span>
                 <span class="action-text">知识图谱</span>
+            </a>
+            <a href="{{ url_for('search.search_page') }}" class="action-card">
+                <span class="action-icon">🔍</span>
+                <span class="action-text">搜索</span>
             </a>
         </div>
     </section>

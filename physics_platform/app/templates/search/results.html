@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}搜索：{{ query }} - 高中物理 AI 学习平台{% endblock %}
+
+{% block content %}
+<div class="page-content">
+  <div class="dashboard-container">
+
+    <!-- 搜索框 -->
+    <div class="hero-section" style="padding: 2rem 0 1rem;">
+      <form action="{{ url_for('search.search_page') }}" method="GET" class="search-form" style="max-width: 600px; margin: 0 auto;">
+        <div class="search-input-wrapper" style="display: flex; gap: 8px;">
+          <input type="text"
+                 name="q"
+                 value="{{ query }}"
+                 placeholder="搜索视频、实验..."
+                 class="form-input-dark"
+                 id="searchInput"
+                 autocomplete="off"
+                 style="flex: 1;">
+          <button type="submit" class="btn-glow btn-primary" style="padding: 14px 24px;">
+            🔍 搜索
+          </button>
+        </div>
+        <!-- 搜索建议下拉 -->
+        <div id="searchSuggestions" class="search-suggestions"></div>
+      </form>
+
+      <!-- 分类筛选 -->
+      <div class="filter-tabs" style="margin-top: 1rem;">
+        <a href="{{ url_for('search.search_page', q=query, category='all') }}"
+           class="filter-tab {% if category == 'all' %}active{% endif %}">
+          全部
+        </a>
+        <a href="{{ url_for('search.search_page', q=query, category='videos') }}"
+           class="filter-tab {% if category == 'videos' %}active{% endif %}">
+          📹 视频
+        </a>
+        <a href="{{ url_for('search.search_page', q=query, category='experiments') }}"
+           class="filter-tab {% if category == 'experiments' %}active{% endif %}">
+          🔬 实验
+        </a>
+      </div>
+    </div>
+
+    <!-- 搜索结果 -->
+    {% if query %}
+      <!-- 视频结果 -->
+      {% if results.videos %}
+        <div class="dashboard-section">
+          <h2>📹 视频 ({{ results.videos|length }})</h2>
+          <div class="video-grid">
+            {% for video in results.videos %}
+              <a href="{{ url_for('videos.play', video_id=video.id) }}" class="video-card card-dark">
+                <div class="video-card-cover">
+                  {% if video.cover_path %}
+                    <img src="{{ url_for('static', filename=video.cover_path) }}"
+                         alt="{{ video.title }}" class="video-card-cover-bg" loading="lazy">
+                  {% else %}
+                    <div class="video-card-gradient">
+                      <div class="video-card-play-icon">▶</div>
+                    </div>
+                  {% endif %}
+                  <div class="video-card-duration">
+                    {{ '%d:%02d' | format(video.duration // 60, video.duration % 60) if video.duration else '--:--' }}
+                  </div>
+                </div>
+                <div class="video-card-body">
+                  <h3 class="video-card-title">{{ video.title }}</h3>
+                  <div class="video-card-meta">
+                    <span class="video-card-tag">{{ video.topic }}</span>
+                    <div class="video-card-difficulty">
+                      {% for i in range(5) %}
+                        <span class="difficulty-dot {% if i < video.difficulty %}filled{% endif %}"></span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- 实验结果 -->
+      {% if results.experiments %}
+        <div class="dashboard-section" style="margin-top: 2rem;">
+          <h2>🔬 实验 ({{ results.experiments|length }})</h2>
+          <div class="video-grid">
+            {% for exp in results.experiments %}
+              <a href="{{ url_for('experiments.run', experiment_id=exp.id) }}"
+                 class="experiment-card card-dark" style="padding: 1.5rem; text-decoration: none; color: inherit; display: block;">
+                <div class="experiment-card-header">
+                  <span class="experiment-dot" style="background: var(--cyan);"></span>
+                  <h3 class="experiment-title">{{ exp.title }}</h3>
+                </div>
+                <p class="experiment-desc">{{ exp.description }}</p>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- 无结果 -->
+      {% if not results.videos and not results.experiments %}
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <h3 class="empty-state-title">未找到相关结果</h3>
+          <p class="empty-state-desc">试试其他关键词，或者浏览全部内容</p>
+          <a href="{{ url_for('videos.video_list') }}" class="btn-glow btn-primary">浏览视频</a>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <!-- 未输入搜索词 -->
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <h3 class="empty-state-title">输入关键词开始搜索</h3>
+        <p class="empty-state-desc">搜索视频标题、知识点、实验名称</p>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<style>
+  /* 搜索建议下拉 */
+  .search-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    margin-top: 4px;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .search-suggestions .suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .search-suggestions .suggestion-item:hover {
+    background: rgba(0, 212, 255, 0.08);
+  }
+
+  .suggestion-type {
+    font-size: 1.1rem;
+  }
+
+  .suggestion-title {
+    font-size: 0.92rem;
+  }
+
+  .search-form {
+    position: relative;
+  }
+</style>
+
+<script>
+// 搜索建议
+const searchInput = document.getElementById('searchInput');
+const suggestionsBox = document.getElementById('searchSuggestions');
+let debounceTimer;
+
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(debounceTimer);
+  const query = e.target.value.trim();
+
+  if (query.length < 1) {
+    suggestionsBox.style.display = 'none';
+    return;
+  }
+
+  debounceTimer = setTimeout(async () => {
+    try {
+      const response = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}`);
+      const suggestions = await response.json();
+
+      if (suggestions.length > 0) {
+        suggestionsBox.innerHTML = suggestions.map(s => `
+          <a href="${s.url}" class="suggestion-item">
+            <span class="suggestion-type">${s.type === 'video' ? '📹' : '🔬'}</span>
+            <span class="suggestion-title">${s.title}</span>
+          </a>
+        `).join('');
+        suggestionsBox.style.display = 'block';
+      } else {
+        suggestionsBox.style.display = 'none';
+      }
+    } catch (err) {
+      suggestionsBox.style.display = 'none';
+    }
+  }, 200);
+});
+
+// 点击其他地方关闭建议
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-form')) {
+    suggestionsBox.style.display = 'none';
+  }
+});
+
+// 回车搜索
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    suggestionsBox.style.display = 'none';
+  }
+});
+</script>
+{% endblock %}
