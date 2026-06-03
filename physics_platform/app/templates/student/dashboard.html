@@ -96,7 +96,12 @@
             {% for topic in weak_topics %}
             <div class="topic-card weak">
                 <span class="topic-name">{{ topic.name }}</span>
-                <span class="topic-accuracy">正确率 {{ topic.accuracy }}%</span>
+                <div class="topic-progress-wrap">
+                    <span class="topic-accuracy">{{ topic.accuracy }}%</span>
+                    <div class="topic-progress-bar">
+                        <div class="topic-progress-fill" style="width: {{ topic.accuracy }}%;"></div>
+                    </div>
+                </div>
                 <a href="{{ url_for('videos.video_list') }}" class="btn btn-ghost btn-sm">复习</a>
             </div>
             {% endfor %}

@@ -2332,22 +2332,54 @@ body::after {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.8rem 1rem;
+  padding: 1rem;
   background: var(--bg-card);
-  border: 1px solid var(--red-dim);
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.25s ease;
+}
+
+.topic-card.weak:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .topic-card.weak .topic-name {
   flex: 1;
   font-weight: 500;
   color: var(--text-primary);
+  font-size: 0.95rem;
 }
 
 .topic-card.weak .topic-accuracy {
   font-family: var(--font-mono);
   font-size: 0.85rem;
+  font-weight: 600;
   color: var(--red);
+}
+
+.topic-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 80px;
+}
+
+.topic-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.topic-progress-fill {
+  height: 100%;
+  background: var(--red);
+  border-radius: 2px;
+  transition: width 0.3s ease;
 }
 
 /* ============================================
