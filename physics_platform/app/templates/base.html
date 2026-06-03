@@ -220,11 +220,26 @@
         var searchInput = document.getElementById('navSearchInput');
         var suggestionsBox = document.getElementById('navSearchSuggestions');
         var debounceTimer;
+        var isComposing = false;
 
         if (!searchInput || !suggestionsBox) return;
 
+        // HTML 转义函数，防止 XSS
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // 输入法组合事件（拼音输入时暂停搜索）
+        searchInput.addEventListener('compositionstart', function() { isComposing = true; });
+        searchInput.addEventListener('compositionend', function() { isComposing = false; });
+
         searchInput.addEventListener('input', function(e) {
             clearTimeout(debounceTimer);
+            // 拼音输入过程中不触发搜索
+            if (isComposing) return;
+
             var query = e.target.value.trim();
 
             if (query.length < 1) {
@@ -240,9 +255,9 @@
                     if (suggestions.length > 0) {
                         suggestionsBox.innerHTML = suggestions.map(function(s) {
                             var icon = s.type === 'video' ? '📹' : '🔬';
-                            return '<a href="' + s.url + '" class="suggestion-item">' +
+                            return '<a href="' + escapeHtml(s.url) + '" class="suggestion-item">' +
                                    '<span class="suggestion-type">' + icon + '</span>' +
-                                   '<span class="suggestion-title">' + s.title + '</span>' +
+                                   '<span class="suggestion-title">' + escapeHtml(s.title) + '</span>' +
                                    '</a>';
                         }).join('');
                         suggestionsBox.style.display = 'block';

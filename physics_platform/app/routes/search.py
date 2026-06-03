@@ -71,7 +71,7 @@ def search_suggestions():
 
     # 实验建议
     for exp in EXPERIMENTS:
-        if query in exp['title']:
+        if query in exp['title'] or query in exp.get('description', ''):
             suggestions.append({
                 'type': 'experiment',
                 'title': exp['title'],
