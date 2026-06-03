@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from 'macros/icons.html' import icon_chart, icon_target, icon_clipboard, icon_lightbulb, icon_star_filled %}
+
 {% block title %}学习报告 — Kinetic M&P{% endblock %}
 
 {% block extra_head %}
@@ -8,7 +10,7 @@
 {% block content %}
 <div class="report-container">
     <div class="page-header">
-        <h1>📊 我的学习报告</h1>
+        <h1>{{ icon_chart(class='icon-lg') }} 我的学习报告</h1>
         <p>生成时间: {{ report_date }}</p>
     </div>
 
@@ -36,26 +38,26 @@
     <!-- 图表区域 -->
     <div class="charts-grid">
         <div class="chart-card">
-            <h3>📈 近7天学习时长</h3>
+            <h3>{{ icon_chart(class='icon-md') }} 近7天学习时长</h3>
             <div id="studyTrendChart" style="height: 250px;"></div>
         </div>
         <div class="chart-card">
-            <h3>🎯 知识点掌握分布</h3>
+            <h3>{{ icon_target(class='icon-md') }} 知识点掌握分布</h3>
             <div id="masteryChart" style="height: 250px;"></div>
         </div>
         <div class="chart-card">
-            <h3>📋 各知识点正确率</h3>
+            <h3>{{ icon_clipboard(class='icon-md') }} 各知识点正确率</h3>
             <div id="accuracyChart" style="height: 250px;"></div>
         </div>
         <div class="chart-card">
-            <h3>🎖️ 综合能力评估</h3>
+            <h3>{{ icon_star_filled(class='icon-md') }} 综合能力评估</h3>
             <div id="radarChart" style="height: 250px;"></div>
         </div>
     </div>
 
     <!-- 学习建议 -->
     <div class="suggestions-section">
-        <h3>💡 学习建议</h3>
+        <h3>{{ icon_lightbulb(class='icon-md') }} 学习建议</h3>
         <div class="suggestion-list">
             {% for suggestion in suggestions %}
             <div class="suggestion-item">

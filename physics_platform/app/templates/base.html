@@ -8,6 +8,9 @@
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
+    <!-- SVG 图标宏 -->
+    {% from 'macros/icons.html' import icon_graduation, icon_play, icon_flask, icon_chart, icon_brain, icon_home, icon_search %}
+
     <!-- Google Fonts: Orbitron (brand) + JetBrains Mono + Noto Sans SC -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,31 +54,31 @@
                 <li>
                     <a href="{{ url_for('student.dashboard') }}"
                        class="{% if request.endpoint == 'student.dashboard' %}active{% endif %}">
-                        &#127891; 我的学习
+                        {{ icon_graduation(class='icon-sm') }} 我的学习
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('videos.video_list') }}"
                        class="{% if request.endpoint in ['videos.video_list', 'videos.video_play'] %}active{% endif %}">
-                        &#9654; 视频学习
+                        {{ icon_play(class='icon-sm') }} 视频学习
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('experiments.experiment_list') }}"
                        class="{% if request.endpoint and 'experiments' in request.endpoint %}active{% endif %}">
-                        &#128300; 交互动画
+                        {{ icon_flask(class='icon-sm') }} 交互动画
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('student.report') }}"
                        class="{% if request.endpoint == 'student.report' %}active{% endif %}">
-                        &#128202; 学习报告
+                        {{ icon_chart(class='icon-sm') }} 学习报告
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('student.ai_tutor') }}"
                        class="{% if request.endpoint == 'student.ai_tutor' %}active{% endif %}">
-                        &#129302; AI答疑
+                        {{ icon_brain(class='icon-sm') }} AI答疑
                     </a>
                 </li>
             {% else %}
@@ -83,19 +86,19 @@
                 <li>
                     <a href="{{ url_for('auth.index') }}"
                        class="{% if request.endpoint == 'auth.index' %}active{% endif %}">
-                        &#9881; 首页
+                        {{ icon_home(class='icon-sm') }} 首页
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('videos.video_list') }}"
                        class="{% if request.endpoint in ['videos.video_list', 'videos.video_play'] %}active{% endif %}">
-                        &#9654; 视频学习
+                        {{ icon_play(class='icon-sm') }} 视频学习
                     </a>
                 </li>
                 <li>
                     <a href="{{ url_for('experiments.experiment_list') }}"
                        class="{% if request.endpoint and 'experiments' in request.endpoint %}active{% endif %}">
-                        &#128300; 交互动画
+                        {{ icon_flask(class='icon-sm') }} 交互动画
                     </a>
                 </li>
             {% endif %}
@@ -113,7 +116,7 @@
                            id="navSearchInput"
                            autocomplete="off">
                     <button type="submit" class="nav-search-btn" title="搜索">
-                        🔍
+                        {{ icon_search(class='icon-sm') }}
                     </button>
                     <span class="nav-search-shortcut" title="Ctrl+K">⌘K</span>
                 </form>
@@ -254,7 +257,9 @@
 
                     if (suggestions.length > 0) {
                         suggestionsBox.innerHTML = suggestions.map(function(s) {
-                            var icon = s.type === 'video' ? '📹' : '🔬';
+                            var icon = s.type === 'video'
+                                ? '<svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="14" height="14" rx="2"></rect><path d="M16 10l4.5-2.5L22 9v6l-1.5-1.5L16 14"></path></svg>'
+                                : '<svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"></path><path d="M10 3v7.4a2 2 0 0 1-.5 1.3L4 18a2 2 0 0 0-.5 1.5V20a1 1 0 0 0 1 1h15a1 1 0 0 0 1-1v-.5A2 2 0 0 0 20 18l-5.5-6.3a2 2 0 0 1-.5-1.3V3"></path></svg>';
                             return '<a href="' + escapeHtml(s.url) + '" class="suggestion-item">' +
                                    '<span class="suggestion-type">' + icon + '</span>' +
                                    '<span class="suggestion-title">' + escapeHtml(s.title) + '</span>' +

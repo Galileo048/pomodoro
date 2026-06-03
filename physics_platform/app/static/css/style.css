@@ -3285,6 +3285,58 @@ body::after {
 }
 
 /* ==========================================
+   SVG 图标基础样式
+   ========================================== */
+
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: color 0.2s, transform 0.2s;
+}
+
+/* 图标尺寸 */
+.icon-xs { width: 14px; height: 14px; }
+.icon-sm { width: 16px; height: 16px; }
+.icon-md { width: 20px; height: 20px; }
+.icon-lg { width: 24px; height: 24px; }
+.icon-xl { width: 32px; height: 32px; }
+
+/* 图标与文字组合 */
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+/* 导航栏图标 */
+.nav-links .icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  opacity: 0.7;
+}
+
+.nav-links a:hover .icon,
+.nav-links a.active .icon {
+  opacity: 1;
+}
+
+/* 会话卡片中的图标 */
+.message-avatar .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* 按钮中的图标 */
+.btn .icon,
+button .icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+}
+
+/* ==========================================
    导航栏搜索框样式
    ========================================== */
 

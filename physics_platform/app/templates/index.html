@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'macros/icons.html' import icon_rocket, icon_video, icon_flask, icon_sparkle, icon_chart, icon_play, icon_atom, icon_brain %}
 
 {% block title %}高中物理 AI 自适应学习平台 — Kinetic M&P{% endblock %}
 
@@ -7,16 +8,16 @@
 <section class="hero">
     <div class="hero-content">
         <h1 class="hero-title">
-            🚀 高中物理 AI 自适应学习平台
+            {{ icon_rocket(class='icon-lg') }} 高中物理 AI 自适应学习平台
         </h1>
         <p class="hero-subtitle">
             Manim 动画视频 + 交互式实验 + AI 智能诊断
         </p>
         <div class="hero-features">
-            <div class="feature-tag">📹 100+ 动画视频</div>
-            <div class="feature-tag">🔬 79 交互实验</div>
-            <div class="feature-tag">🤖 AI 智能推荐</div>
-            <div class="feature-tag">📊 学习诊断</div>
+            <div class="feature-tag">{{ icon_video(class='icon-sm') }} 100+ 动画视频</div>
+            <div class="feature-tag">{{ icon_flask(class='icon-sm') }} 79 交互实验</div>
+            <div class="feature-tag">{{ icon_sparkle(class='icon-sm') }} AI 智能推荐</div>
+            <div class="feature-tag">{{ icon_chart(class='icon-sm') }} 学习诊断</div>
         </div>
         <div class="hero-actions">
             <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
@@ -37,22 +38,22 @@
     <h2 class="section-title">平台特色</h2>
     <div class="features-grid">
         <div class="feature-card">
-            <div class="feature-icon">🎬</div>
+            <div class="feature-icon">{{ icon_play(class='icon-xl') }}</div>
             <h3>Manim 动画视频</h3>
             <p>抽象物理概念可视化，像 3Blue1Brown 一样理解物理</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">🔬</div>
+            <div class="feature-icon">{{ icon_atom(class='icon-xl') }}</div>
             <h3>交互式实验</h3>
             <p>79 个 Canvas 动画实验，动手探索物理规律</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">🤖</div>
+            <div class="feature-icon">{{ icon_brain(class='icon-xl') }}</div>
             <h3>AI 智能诊断</h3>
             <p>精准定位薄弱知识点，个性化学习建议</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">📊</div>
+            <div class="feature-icon">{{ icon_chart(class='icon-xl') }}</div>
             <h3>学习报告</h3>
             <p>ECharts 数据可视化，直观掌握学习进度</p>
         </div>
