@@ -632,38 +632,17 @@ body::after {
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: all 0.25s ease;
   position: relative;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.card-dark::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  padding: 1px;
-  background: linear-gradient(135deg, transparent, rgba(0, 212, 255, 0.15), transparent);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-dark:hover {
-  transform: translateY(-8px) scale(1.02);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(0, 212, 255, 0.2);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 212, 255, 0.06);
-}
-
-.card-dark:hover::before {
-  opacity: 1;
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 /* Experiment card styles */
@@ -950,18 +929,12 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
-  animation: heroIconFloat 3s ease-in-out infinite;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
   flex-shrink: 0;
-}
-
-@keyframes heroIconFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(-5deg); }
 }
 
 /* 特色标签图标贴图 */
@@ -999,17 +972,17 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
   margin-bottom: 1rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s ease;
 }
 
 .feature-card:hover .feature-icon {
-  transform: scale(1.1) translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 
 .hero-desc {
@@ -2093,16 +2066,16 @@ body::after {
 .feature-card {
   background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius);
+  border-radius: 12px;
   padding: 2rem;
   text-align: center;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
 }
 
 .feature-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--cyan-dim);
-  box-shadow: 0 10px 40px rgba(0, 212, 255, 0.1);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .feature-icon {
@@ -2307,29 +2280,29 @@ body::after {
   flex-direction: column;
   align-items: center;
   gap: 0.8rem;
-  padding: 2rem 1rem;
+  padding: 1.5rem 1rem;
   background: var(--bg-card);
-  border: 1px solid #ffffff08;
-  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   text-decoration: none;
   color: inherit;
-  transition: var(--transition);
+  transition: all 0.25s ease;
 }
 
 .action-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--cyan-dim);
-  box-shadow: 0 12px 40px #00000040;
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .action-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  transition: all 0.25s ease;
 }
 
 .action-text {
@@ -2359,41 +2332,27 @@ body::after {
 
 .stats-cards .stat-card {
   background: var(--bg-card);
-  border: 1px solid #ffffff08;
-  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   padding: 1.5rem;
   text-align: center;
   position: relative;
-  overflow: hidden;
+  transition: all 0.25s ease;
 }
 
-.stats-cards .stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
+.stats-cards .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
-
-.stats-cards .stat-card:nth-child(1)::before { background: var(--cyan); }
-.stats-cards .stat-card:nth-child(2)::before { background: var(--green); }
-.stats-cards .stat-card:nth-child(3)::before { background: var(--amber); }
-.stats-cards .stat-card:nth-child(4)::before { background: var(--purple); }
 
 .stats-cards .stat-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   margin: 0 auto 0.75rem;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.stats-cards .stat-card:hover .stat-icon {
-  transform: scale(1.1) translateY(-2px);
 }
 
 .stats-cards .stat-value {
@@ -3409,23 +3368,20 @@ body::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   margin-right: 8px;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .nav-links a:hover .nav-icon-badge {
-  transform: scale(1.15) rotate(-5deg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
 }
 
 .nav-links a.active .nav-icon-badge {
-  transform: scale(1.1);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transform: scale(1.05);
 }
 
 .nav-links a {
@@ -3469,20 +3425,20 @@ button .icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 14px;
   margin-bottom: 0.75rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s ease;
 }
 
 .action-icon .icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
 .action-card:hover .action-icon {
-  transform: scale(1.1) translateY(-2px);
+  transform: translateY(-1px);
 }
 
 /* 搜索建议图标 */
