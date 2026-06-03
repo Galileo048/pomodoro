@@ -11,8 +11,8 @@
 
     <div class="chat-messages" id="chatMessages">
         <div class="message ai">
-            <div class="message-avatar">
-                <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="message-avatar ai-avatar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 2a5 5 0 0 1 5 5c0 1.1-.4 2.1-1 2.9.6.8 1 1.8 1 2.9a5 5 0 0 1-2 4v1.2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V12.8a5 5 0 0 1-2-4c0-1.1.4-2.1 1-2.9A5 5 0 0 1 7 7a5 5 0 0 1 5-5z"></path>
                     <path d="M12 2v20"></path>
                     <path d="M8 6h8"></path>
@@ -88,8 +88,8 @@ function addMessage(text, sender) {
     messageDiv.className = `message ${sender}`;
 
     // SVG icons for avatars
-    const aiAvatar = `<svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 1 5 5c0 1.1-.4 2.1-1 2.9.6.8 1 1.8 1 2.9a5 5 0 0 1-2 4v1.2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V12.8a5 5 0 0 1-2-4c0-1.1.4-2.1 1-2.9A5 5 0 0 1 7 7a5 5 0 0 1 5-5z"></path><path d="M12 2v20"></path><path d="M8 6h8"></path><path d="M8 10h8"></path></svg>`;
-    const userAvatar = `<svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`;
+    const aiAvatar = `<div class="message-avatar ai-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5c0 1.1-.4 2.1-1 2.9.6.8 1 1.8 1 2.9a5 5 0 0 1-2 4v1.2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V12.8a5 5 0 0 1-2-4c0-1.1.4-2.1 1-2.9A5 5 0 0 1 7 7a5 5 0 0 1 5-5z"></path><path d="M12 2v20"></path><path d="M8 6h8"></path><path d="M8 10h8"></path></svg></div>`;
+    const userAvatar = `<div class="message-avatar user-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`;
     const avatar = sender === 'ai' ? aiAvatar : userAvatar;
 
     // Simple markdown-like rendering
@@ -109,9 +109,8 @@ function showTyping() {
     const typingDiv = document.createElement('div');
     typingDiv.className = 'message ai typing';
     typingDiv.id = 'typingIndicator';
-    const aiAvatar = `<svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 1 5 5c0 1.1-.4 2.1-1 2.9.6.8 1 1.8 1 2.9a5 5 0 0 1-2 4v1.2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V12.8a5 5 0 0 1-2-4c0-1.1.4-2.1 1-2.9A5 5 0 0 1 7 7a5 5 0 0 1 5-5z"></path><path d="M12 2v20"></path><path d="M8 6h8"></path><path d="M8 10h8"></path></svg>`;
     typingDiv.innerHTML = `
-        <div class="message-avatar">${aiAvatar}</div>
+        <div class="message-avatar ai-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5c0 1.1-.4 2.1-1 2.9.6.8 1 1.8 1 2.9a5 5 0 0 1-2 4v1.2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V12.8a5 5 0 0 1-2-4c0-1.1.4-2.1 1-2.9A5 5 0 0 1 7 7a5 5 0 0 1 5-5z"></path><path d="M12 2v20"></path><path d="M8 6h8"></path><path d="M8 10h8"></path></svg></div>
         <div class="message-content">
             <div class="typing-indicator">
                 <div class="ai-loader">
