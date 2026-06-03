@@ -50,16 +50,16 @@
         <h2>{{ icon_book(class='icon-md') }} 最近学习</h2>
         <div class="recent-list">
             {% for v in recent_videos %}
-            <a href="{{ url_for('videos.video_play', video_id=v.id) }}" class="recent-item card-dark" style="display:flex; align-items:center; gap:1rem; padding:0.8rem 1rem; text-decoration:none; color:inherit;">
-                <div style="width:48px; height:48px; border-radius:10px; background:linear-gradient(135deg, #1a1a4e, #0d2a4a); display:flex; align-items:center; justify-content:center; flex-shrink:0;">{{ icon_play(class='icon-md') }}</div>
+            <a href="{{ url_for('videos.video_play', video_id=v.id) }}" class="recent-item card-dark">
+                <div class="recent-item-icon" style="background: var(--cyan); color: white;">{{ icon_play(class='icon-sm') }}</div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:0.92rem; font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ v.title }}</div>
-                    <div style="font-size:0.78rem; color:var(--text-muted);">{{ v.chapter }}</div>
+                    <div class="recent-item-title">{{ v.title }}</div>
+                    <div class="recent-item-meta">{{ v.chapter }}</div>
                 </div>
                 <div style="text-align:right; flex-shrink:0;">
-                    <div style="font-family:var(--font-mono); font-size:0.85rem; font-weight:600; color:var(--cyan);">{{ v.progress }}%</div>
-                    <div style="width:60px; height:4px; background:var(--bg-input); border-radius:2px; margin-top:4px; overflow:hidden;">
-                        <div style="width:{{ v.progress }}%; height:100%; background:var(--cyan); border-radius:2px;"></div>
+                    <div class="recent-item-progress">{{ v.progress }}%</div>
+                    <div class="progress-bar-mini">
+                        <div class="progress-bar-mini-fill" style="width:{{ v.progress }}%;"></div>
                     </div>
                 </div>
             </a>
@@ -74,13 +74,13 @@
         <h2>{{ icon_star_filled(class='icon-md') }} 我的收藏</h2>
         <div class="recent-list">
             {% for fav in favorites %}
-            <a href="{{ fav.url }}" class="recent-item card-dark" style="display:flex; align-items:center; gap:1rem; padding:0.8rem 1rem; text-decoration:none; color:inherit;">
-                <div style="width:48px; height:48px; border-radius:10px; background:{% if fav.type == 'video' %}linear-gradient(135deg, #1a1a4e, #0d2a4a){% else %}linear-gradient(135deg, #2a1a3e, #1a0d3a){% endif %}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                    {% if fav.type == 'video' %}{{ icon_video(class='icon-md') }}{% else %}{{ icon_flask(class='icon-md') }}{% endif %}
+            <a href="{{ fav.url }}" class="recent-item card-dark">
+                <div class="recent-item-icon" style="{% if fav.type == 'video' %}background: var(--purple);{% else %}background: var(--amber);{% endif %} color: white;">
+                    {% if fav.type == 'video' %}{{ icon_video(class='icon-sm') }}{% else %}{{ icon_flask(class='icon-sm') }}{% endif %}
                 </div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:0.92rem; font-weight:600; color:var(--text-bright); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ fav.title }}</div>
-                    <div style="font-size:0.78rem; color:var(--text-muted);">{{ '视频' if fav.type == 'video' else '实验' }}</div>
+                    <div class="recent-item-title">{{ fav.title }}</div>
+                    <div class="recent-item-meta">{{ '视频' if fav.type == 'video' else '实验' }}</div>
                 </div>
             </a>
             {% endfor %}
@@ -111,27 +111,27 @@
         <h2>{{ icon_rocket(class='icon-md') }} 快捷入口</h2>
         <div class="quick-actions">
             <a href="{{ url_for('videos.video_list') }}" class="action-card">
-                <span class="action-icon" style="background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 212, 255, 0.05)); color: var(--cyan);">{{ icon_play(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: rgba(0, 212, 255, 0.1); color: var(--cyan);">{{ icon_play(class='icon-md') }}</span>
                 <span class="action-text">视频学习</span>
             </a>
             <a href="{{ url_for('experiments.experiment_list') }}" class="action-card">
-                <span class="action-icon" style="background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(167, 139, 250, 0.05)); color: var(--purple);">{{ icon_flask(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: rgba(167, 139, 250, 0.1); color: var(--purple);">{{ icon_flask(class='icon-md') }}</span>
                 <span class="action-text">交互动画</span>
             </a>
             <a href="{{ url_for('student.report') }}" class="action-card">
-                <span class="action-icon" style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 255, 136, 0.05)); color: var(--green);">{{ icon_chart(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: rgba(0, 255, 136, 0.1); color: var(--green);">{{ icon_chart(class='icon-md') }}</span>
                 <span class="action-text">学习报告</span>
             </a>
             <a href="{{ url_for('student.ai_tutor') }}" class="action-card">
-                <span class="action-icon" style="background: linear-gradient(135deg, rgba(255, 184, 0, 0.15), rgba(255, 184, 0, 0.05)); color: var(--amber);">{{ icon_brain(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: rgba(255, 184, 0, 0.1); color: var(--amber);">{{ icon_brain(class='icon-md') }}</span>
                 <span class="action-text">AI 答疑</span>
             </a>
             <a href="{{ url_for('student.knowledge_graph') }}" class="action-card">
-                <span class="action-icon" style="background: linear-gradient(135deg, rgba(255, 68, 102, 0.15), rgba(255, 68, 102, 0.05)); color: var(--red);">{{ icon_atom(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: rgba(255, 68, 102, 0.1); color: var(--red);">{{ icon_atom(class='icon-md') }}</span>
                 <span class="action-text">知识图谱</span>
             </a>
             <a href="{{ url_for('search.search_page') }}" class="action-card">
-                <span class="action-icon" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)); color: var(--text-secondary);">{{ icon_search(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: rgba(255, 255, 255, 0.05); color: var(--text-secondary);">{{ icon_search(class='icon-md') }}</span>
                 <span class="action-text">搜索</span>
             </a>
         </div>
