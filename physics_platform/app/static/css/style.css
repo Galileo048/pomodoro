@@ -2246,7 +2246,13 @@ body::after {
 }
 
 .action-icon {
-  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .action-text {
@@ -2299,8 +2305,18 @@ body::after {
 .stats-cards .stat-card:nth-child(4)::before { background: var(--purple); }
 
 .stats-cards .stat-icon {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  margin: 0 auto 0.75rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stats-cards .stat-card:hover .stat-icon {
+  transform: scale(1.1) translateY(-2px);
 }
 
 .stats-cards .stat-value {
@@ -3289,52 +3305,117 @@ body::after {
    ========================================== */
 
 .icon {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   vertical-align: middle;
   flex-shrink: 0;
-  transition: color 0.2s, transform 0.2s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 图标尺寸 */
 .icon-xs { width: 14px; height: 14px; }
-.icon-sm { width: 16px; height: 16px; }
-.icon-md { width: 20px; height: 20px; }
-.icon-lg { width: 24px; height: 24px; }
-.icon-xl { width: 32px; height: 32px; }
+.icon-sm { width: 18px; height: 18px; }
+.icon-md { width: 22px; height: 22px; }
+.icon-lg { width: 28px; height: 28px; }
+.icon-xl { width: 36px; height: 36px; }
 
 /* 图标与文字组合 */
 .icon-text {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.5em;
 }
 
 /* 导航栏图标 */
 .nav-links .icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 4px;
-  opacity: 0.7;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  opacity: 0.6;
+  stroke-width: 1.8;
 }
 
 .nav-links a:hover .icon,
 .nav-links a.active .icon {
   opacity: 1;
+  transform: scale(1.1);
+}
+
+/* 统计卡片图标 */
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+}
+
+.stat-icon .icon {
+  width: 26px;
+  height: 26px;
 }
 
 /* 会话卡片中的图标 */
 .message-avatar .icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
 }
 
 /* 按钮中的图标 */
 .btn .icon,
 button .icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 4px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
 }
+
+/* 快捷入口图标 */
+.action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  margin-bottom: 0.75rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-icon .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.action-card:hover .action-icon {
+  transform: scale(1.1) translateY(-2px);
+}
+
+/* 搜索建议图标 */
+.suggestion-type {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.suggestion-type .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--cyan);
+}
+
+/* 图标颜色变体 */
+.icon-cyan { color: var(--cyan); }
+.icon-amber { color: var(--amber); }
+.icon-green { color: var(--green); }
+.icon-purple { color: var(--purple); }
+.icon-red { color: var(--red); }
 
 /* ==========================================
    导航栏搜索框样式

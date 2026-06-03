@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'macros/icons.html' import icon_graduation, icon_clock, icon_target, icon_video, icon_flask, icon_play, icon_chart, icon_brain, icon_search, icon_book, icon_star_filled, icon_settings %}
+{% from 'macros/icons.html' import icon_graduation, icon_clock, icon_target, icon_video, icon_flask, icon_play, icon_chart, icon_brain, icon_search, icon_book, icon_star_filled, icon_settings, icon_rocket, icon_atom %}
 
 {% block title %}我的学习 — Kinetic M&P{% endblock %}
 {% block content %}
@@ -23,22 +23,22 @@
     <!-- 学习概览 -->
     <div class="stats-cards">
         <div class="stat-card">
-            <div class="stat-icon">{{ icon_clock(class='icon-lg') }}</div>
+            <div class="stat-icon" style="background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 212, 255, 0.05)); color: var(--cyan);">{{ icon_clock(class='icon-lg') }}</div>
             <div class="stat-value">{{ total_study_hours }}h</div>
             <div class="stat-label">总学习时长</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">{{ icon_target(class='icon-lg') }}</div>
+            <div class="stat-icon" style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 255, 136, 0.05)); color: var(--green);">{{ icon_target(class='icon-lg') }}</div>
             <div class="stat-value">{{ avg_accuracy }}%</div>
             <div class="stat-label">平均正确率</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">{{ icon_video(class='icon-lg') }}</div>
+            <div class="stat-icon" style="background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(167, 139, 250, 0.05)); color: var(--purple);">{{ icon_video(class='icon-lg') }}</div>
             <div class="stat-value">{{ watched_videos }}/{{ total_videos }}</div>
             <div class="stat-label">已看视频</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">{{ icon_flask(class='icon-lg') }}</div>
+            <div class="stat-icon" style="background: linear-gradient(135deg, rgba(255, 184, 0, 0.15), rgba(255, 184, 0, 0.05)); color: var(--amber);">{{ icon_flask(class='icon-lg') }}</div>
             <div class="stat-value">79</div>
             <div class="stat-label">互动实验</div>
         </div>
@@ -111,27 +111,27 @@
         <h2>{{ icon_rocket(class='icon-md') }} 快捷入口</h2>
         <div class="quick-actions">
             <a href="{{ url_for('videos.video_list') }}" class="action-card">
-                <span class="action-icon">{{ icon_play(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(0, 212, 255, 0.05)); color: var(--cyan);">{{ icon_play(class='icon-lg') }}</span>
                 <span class="action-text">视频学习</span>
             </a>
             <a href="{{ url_for('experiments.experiment_list') }}" class="action-card">
-                <span class="action-icon">{{ icon_flask(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(167, 139, 250, 0.05)); color: var(--purple);">{{ icon_flask(class='icon-lg') }}</span>
                 <span class="action-text">交互动画</span>
             </a>
             <a href="{{ url_for('student.report') }}" class="action-card">
-                <span class="action-icon">{{ icon_chart(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 255, 136, 0.05)); color: var(--green);">{{ icon_chart(class='icon-lg') }}</span>
                 <span class="action-text">学习报告</span>
             </a>
             <a href="{{ url_for('student.ai_tutor') }}" class="action-card">
-                <span class="action-icon">{{ icon_brain(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: linear-gradient(135deg, rgba(255, 184, 0, 0.15), rgba(255, 184, 0, 0.05)); color: var(--amber);">{{ icon_brain(class='icon-lg') }}</span>
                 <span class="action-text">AI 答疑</span>
             </a>
             <a href="{{ url_for('student.knowledge_graph') }}" class="action-card">
-                <span class="action-icon">{{ icon_atom(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: linear-gradient(135deg, rgba(255, 68, 102, 0.15), rgba(255, 68, 102, 0.05)); color: var(--red);">{{ icon_atom(class='icon-lg') }}</span>
                 <span class="action-text">知识图谱</span>
             </a>
             <a href="{{ url_for('search.search_page') }}" class="action-card">
-                <span class="action-icon">{{ icon_search(class='icon-lg') }}</span>
+                <span class="action-icon" style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)); color: var(--text-secondary);">{{ icon_search(class='icon-lg') }}</span>
                 <span class="action-text">搜索</span>
             </a>
         </div>
