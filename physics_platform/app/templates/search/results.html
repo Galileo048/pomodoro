@@ -45,13 +45,21 @@
 
     <!-- 搜索结果 -->
     {% if query %}
+      <!-- 搜索统计 -->
+      <div class="search-stats">
+        共找到 <strong>{{ results.videos|length + results.experiments|length }}</strong> 个相关结果
+        {% if category != 'all' %}
+          （{{ '视频' if category == 'videos' else '实验' }}）
+        {% endif %}
+      </div>
+
       <!-- 视频结果 -->
       {% if results.videos %}
         <div class="dashboard-section">
           <h2>📹 视频 ({{ results.videos|length }})</h2>
           <div class="video-grid">
             {% for video in results.videos %}
-              <a href="{{ url_for('videos.play', video_id=video.id) }}" class="video-card card-dark">
+              <a href="{{ url_for('videos.video_play', video_id=video.id) }}" class="video-card card-dark">
                 <div class="video-card-cover">
                   {% if video.cover_path %}
                     <img src="{{ url_for('static', filename=video.cover_path) }}"
@@ -124,7 +132,11 @@
 </div>
 
 <style>
-  /* 搜索建议下拉 */
+  /* 搜索结果页样式 */
+  .search-form {
+    position: relative;
+  }
+
   .search-suggestions {
     position: absolute;
     top: 100%;
@@ -133,7 +145,7 @@
     background: var(--bg-card);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-sm);
-    margin-top: 4px;
+    margin-top: 6px;
     max-height: 320px;
     overflow-y: auto;
     z-index: 100;
@@ -156,15 +168,36 @@
   }
 
   .suggestion-type {
-    font-size: 1.1rem;
+    font-size: 1rem;
+    flex-shrink: 0;
   }
 
   .suggestion-title {
     font-size: 0.92rem;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .search-form {
-    position: relative;
+  /* 搜索结果统计 */
+  .search-stats {
+    text-align: center;
+    padding: 1rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .search-stats strong {
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  /* 搜索结果高亮 */
+  .search-highlight {
+    background: rgba(0, 212, 255, 0.15);
+    padding: 0 2px;
+    border-radius: 2px;
   }
 </style>
 

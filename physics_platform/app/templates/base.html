@@ -103,14 +103,23 @@
 
         <!-- Auth actions -->
         <div class="nav-actions">
-            <!-- 搜索按钮 -->
-            <a href="{{ url_for('search.search_page') }}"
-               class="nav-search-btn"
-               title="搜索 (Ctrl+K)"
-               style="display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:rgba(255,255,255,0.05); color:var(--text-secondary); text-decoration:none; transition:all 0.2s; font-size:1.1rem; gap:4px;">
-                🔍
-                <span style="font-size:0.65rem; font-family:var(--font-mono); opacity:0.5; background:rgba(255,255,255,0.08); padding:1px 4px; border-radius:3px;">⌘K</span>
-            </a>
+            <!-- 搜索框 -->
+            <div class="nav-search-wrapper" id="navSearchWrapper">
+                <form action="{{ url_for('search.search_page') }}" method="GET" class="nav-search-form">
+                    <input type="text"
+                           name="q"
+                           placeholder="搜索..."
+                           class="nav-search-input"
+                           id="navSearchInput"
+                           autocomplete="off">
+                    <button type="submit" class="nav-search-btn" title="搜索">
+                        🔍
+                    </button>
+                    <span class="nav-search-shortcut" title="Ctrl+K">⌘K</span>
+                </form>
+                <!-- 搜索建议下拉 -->
+                <div id="navSearchSuggestions" class="nav-search-suggestions"></div>
+            </div>
             <!-- 主题切换按钮 -->
             <button id="themeToggle" onclick="toggleTheme()"
                     title="切换主题"
@@ -183,11 +192,15 @@
         var icon = document.getElementById('themeIcon');
         if (icon) icon.textContent = savedTheme === 'light' ? '☀️' : '🌙';
 
-        // Ctrl+K 快捷键打开搜索
+        // Ctrl+K 快捷键聚焦搜索框
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
-                window.location.href = '/search';
+                var searchInput = document.getElementById('navSearchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
             }
         });
     })();
@@ -201,6 +214,61 @@
         localStorage.setItem('theme', next);
         document.getElementById('themeIcon').textContent = next === 'light' ? '☀️' : '🌙';
     }
+
+    // 导航栏搜索建议
+    (function() {
+        var searchInput = document.getElementById('navSearchInput');
+        var suggestionsBox = document.getElementById('navSearchSuggestions');
+        var debounceTimer;
+
+        if (!searchInput || !suggestionsBox) return;
+
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(debounceTimer);
+            var query = e.target.value.trim();
+
+            if (query.length < 1) {
+                suggestionsBox.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(async function() {
+                try {
+                    var response = await fetch('/api/search/suggestions?q=' + encodeURIComponent(query));
+                    var suggestions = await response.json();
+
+                    if (suggestions.length > 0) {
+                        suggestionsBox.innerHTML = suggestions.map(function(s) {
+                            var icon = s.type === 'video' ? '📹' : '🔬';
+                            return '<a href="' + s.url + '" class="suggestion-item">' +
+                                   '<span class="suggestion-type">' + icon + '</span>' +
+                                   '<span class="suggestion-title">' + s.title + '</span>' +
+                                   '</a>';
+                        }).join('');
+                        suggestionsBox.style.display = 'block';
+                    } else {
+                        suggestionsBox.style.display = 'none';
+                    }
+                } catch (err) {
+                    suggestionsBox.style.display = 'none';
+                }
+            }, 300);
+        });
+
+        // 点击其他地方关闭建议
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.nav-search-wrapper')) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+
+        // 回车搜索
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+    })();
     </script>
 
     <!-- Page transition animations -->
