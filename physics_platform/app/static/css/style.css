@@ -3327,19 +3327,34 @@ body::after {
   gap: 0.5em;
 }
 
-/* 导航栏图标 */
-.nav-links .icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 6px;
-  opacity: 0.6;
-  stroke-width: 1.8;
+/* 导航栏图标贴图 */
+.nav-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.nav-links a:hover .icon,
-.nav-links a.active .icon {
-  opacity: 1;
+.nav-links a:hover .nav-icon-badge {
+  transform: scale(1.15) rotate(-5deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.nav-links a.active .nav-icon-badge {
   transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.nav-links a {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
 }
 
 /* 统计卡片图标 */
